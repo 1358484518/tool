@@ -5,16 +5,24 @@
 #include <QSerialPort>
 #include <QTcpSocket>
 #include <QtWebSockets/QWebSocket>
+#include <QtWebSockets/QWebSocketProtocol>
 #include <QTimer>
+#include <QUrl>
+#include <QtGlobal>
+#include <QSslError>
 
 struct CommConfig {
     enum CommType {
         Serial,
         Tcp,
-        WebSocket // New: WebSocket support
+        WebSocket
     };
 
     CommType type = Serial;
+    quint32 connectTimeoutMs = 5000;
+    quint32 gracefulCloseTimeoutMs = 2000;
+    bool lowLatencyMode = true;
+    bool tcpKeepAlive = true;
 
     // Serial port parameters
     QString serialPort;
@@ -28,16 +36,18 @@ struct CommConfig {
     QString tcpHost;
     quint16 tcpPort = 0;
 
-    // WebSocket parameters (new)
-    QString wsUrl; // Support ws:// and wss://, e.g. wss://ocpp.example.com/CP001
-    QString wsSubProtocol; // Optional: for OCPP etc.
-    bool wsIgnoreSslErrors = false; // For self-signed certificate debug
+    // WebSocket parameters
+    QString wsUrl;
+    QString wsSubProtocol;
+    quint32 wsPingIntervalMs = 30000;
+    bool wsIgnoreSslErrors = false; // WARNING: Debug only, disable in production
 };
 
 enum CommState {
     Unconnected,
     Connecting,
     Connected,
+    Closing,
     Error
 };
 
@@ -49,7 +59,7 @@ public:
     ~CommunicationManager() override;
 
     bool open(const CommConfig& config);
-    void close();
+    void close(bool graceful = true);
     qint64 send(const QByteArray& data);
     CommState state() const;
 
@@ -63,12 +73,19 @@ private slots:
     void onReadyRead();
     void onDeviceError(QSerialPort::SerialPortError serialErr);
     void onTcpError(QAbstractSocket::SocketError tcpErr);
-    void onWsError(QAbstractSocket::SocketError wsErr); // New: WebSocket error handler
+    void onWsError(QAbstractSocket::SocketError wsErr);
+    void onConnectTimeout();
+    void onGracefulCloseTimeout();
 
 private:
-    QObject* m_device = nullptr; // Changed from QIODevice* to QObject* to support non-QIODevice devices
+    QObject* m_device = nullptr;
     CommState m_state = Unconnected;
     CommConfig m_config;
+    QTimer* m_connectTimer = nullptr;
+    QTimer* m_closeTimer = nullptr;
+    QTimer* m_wsPingTimer = nullptr; // Manual ping timer for Qt5.14 compatibility
 
     void cleanupDevice();
+    void forceAbort();
+    void handleDisconnect();
 };

@@ -7,9 +7,13 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
 {
     ui->setupUi(this);
 
-    m_tool_table = new QTableWidget;
+    m_tool_tab = new QTabWidget;
     QHBoxLayout *layout = new QHBoxLayout;
-    layout->addWidget(m_tool_table);
+    layout->addWidget(m_tool_tab);
+
+    m_shw = new SerialHelperWidget;
+    m_tool_tab->addTab(m_shw,"串口工具");
+
     setLayout(layout);
 }
 

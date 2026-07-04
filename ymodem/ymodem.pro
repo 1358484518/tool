@@ -17,14 +17,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     comm_manager.cpp \
+    example_common.cpp \
     main.cpp \
     TMX_TOOL.cpp \
-    qxymodem.cpp
+    qxymodem.cpp \
+    serial_helper_widget.cpp
 
 HEADERS += \
     TMX_TOOL.h \
     comm_manager.h \
-    qxymodem.h
+    example_common.h \
+    qxymodem.h \
+    serial_helper_widget.h
 
 FORMS += \
     tmx_tool.ui

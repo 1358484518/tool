@@ -2,8 +2,9 @@
 #define TMX_TOOL_H
 
 #include <QWidget>
-#include "QTableWidget"
+#include "QTabWidget"
 #include "QHBoxLayout"
+#include "serial_helper_widget.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class TMX_TOOL; }
@@ -19,6 +20,7 @@ public:
 
 private:
     Ui::TMX_TOOL *ui;
-    QTableWidget *m_tool_table;
+    QTabWidget *m_tool_tab;
+    SerialHelperWidget *m_shw;
 };
 #endif // TMX_TOOL_H
