@@ -816,3 +816,10 @@ void SerialAssistant::onYmodemSendClicked()
     // 发出信号，你后续自己实现YModem发送逻辑，接收filePath即可
     emit ymodemSendRequested(fileName);
 }
+//这是示例
+//connect(m_serial_ui, &SerialAssistant::ymodemSendRequested, this, [this](const QString &filePath) {
+//    // 这里写你的YModem发送逻辑，filePath就是用户选择的文件路径
+//    // 比如调用你自己的YModem类发送文件，发送过程可以调用m_serial_ui->showStatusMessage更新进度
+//    m_serial_ui->showStatusMessage("Starting YModem send: " + filePath);
+//    // 你的YModem发送代码...
+//});
