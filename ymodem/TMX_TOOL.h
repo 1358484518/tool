@@ -6,6 +6,7 @@
 #include "QHBoxLayout"
 #include "SerialManager.h"
 #include "SerialAssistant.h"
+#include "qxymodem.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class TMX_TOOL; }
@@ -25,6 +26,8 @@ private:
     QTabWidget *m_tool_tab;
     SerialManager *m_serial_operate;
     SerialAssistant *m_serial_ui;
+    QYmodemFile *m_ymodem = nullptr;
+    bool m_prevHexMode = false; // 记住YModem发送前的显示模式
 //    SerialHelperWidget *m_shw;
 };
 #endif // TMX_TOOL_H

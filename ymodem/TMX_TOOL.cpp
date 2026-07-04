@@ -18,6 +18,7 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
     m_tool_tab->addTab(m_serial_ui,"串口工具");
 
     layout->addWidget(m_tool_tab);
+    setMinimumSize(800, 900);
     setLayout(layout);
 }
 
@@ -98,6 +99,57 @@ void TMX_TOOL::initConnections()
     connect(m_serial_operate, &SerialManager::errorOccurred, this, [this](QSerialPort::SerialPortError err, const QString &str) {
         Q_UNUSED(err)
         m_serial_ui->showStatusMessage("Error: " + str);
+    });
+
+    // ========== ymodem ==========
+    // YModem file send
+    connect(m_serial_ui, &SerialAssistant::ymodemSendRequested, this, [this](const QString &filePath) {
+        // 先停止上一次发送，安全清理，不wait避免死锁
+        if (m_ymodem) {
+            m_ymodem->requestStop();
+            disconnect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
+            disconnect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary);
+            m_ymodem->deleteLater();
+            m_ymodem = nullptr;
+        }
+        qDebug()<<"执行ymodem";
+        // 创建实例
+        m_ymodem = new QYmodemFile(QStringList{filePath}, this);
+
+        // 数据通路，指定跨线程队列连接，保证线程安全
+        connect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive, Qt::QueuedConnection);
+        connect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary, Qt::QueuedConnection);
+
+        // 状态提示
+        connect(m_ymodem, &QYmodemFile::transferring, this, [this](const QString &name) {
+            m_serial_ui->showStatusMessage("Sending file: " + name);
+        }, Qt::QueuedConnection);
+        connect(m_ymodem, &QYmodemFile::tick, this, [this](qint64 sent, qint64 total) {
+            if (total > 0) {
+                m_serial_ui->showStatusMessage(QString("Sending: %1% (%2/%3 bytes)").arg(sent*100/total).arg(sent).arg(total));
+            }
+        }, Qt::QueuedConnection);
+
+        // 完成处理，所有操作都在主线程，安全
+        connect(m_ymodem, &QYmodemFile::complete, this, [this](const QString &name, int result, size_t size) {
+            if (result == 0) {
+                m_serial_ui->showStatusMessage(QString("✅ Send success: %1, %2 bytes").arg(name).arg(size));
+            } else {
+                m_serial_ui->showStatusMessage(QString("❌ Send failed: %1, error: %2").arg(name).arg(result));
+            }
+            // 清理
+            if (m_ymodem) {
+                disconnect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
+                disconnect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary);
+                m_ymodem->requestStop();
+                m_ymodem->deleteLater();
+                m_ymodem = nullptr;
+            }
+        }, Qt::QueuedConnection);
+
+        // 开始发送
+        m_ymodem->startSend();
+        m_serial_ui->showStatusMessage("Start YModem send, waiting for device response...");
     });
 
 }
