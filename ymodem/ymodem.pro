@@ -16,19 +16,17 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    comm_manager.cpp \
-    example_common.cpp \
+    SerialAssistant.cpp \
+    SerialManager.cpp \
     main.cpp \
     TMX_TOOL.cpp \
-    qxymodem.cpp \
-    serial_helper_widget.cpp
+    qxymodem.cpp
 
 HEADERS += \
+    SerialAssistant.h \
+    SerialManager.h \
     TMX_TOOL.h \
-    comm_manager.h \
-    example_common.h \
-    qxymodem.h \
-    serial_helper_widget.h
+    qxymodem.h
 
 FORMS += \
     tmx_tool.ui

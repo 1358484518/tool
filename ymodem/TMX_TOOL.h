@@ -4,7 +4,8 @@
 #include <QWidget>
 #include "QTabWidget"
 #include "QHBoxLayout"
-#include "serial_helper_widget.h"
+#include "SerialManager.h"
+#include "SerialAssistant.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class TMX_TOOL; }
@@ -17,10 +18,13 @@ class TMX_TOOL : public QWidget
 public:
     TMX_TOOL(QWidget *parent = nullptr);
     ~TMX_TOOL();
-
+private:
+    void initConnections();
 private:
     Ui::TMX_TOOL *ui;
     QTabWidget *m_tool_tab;
-    SerialHelperWidget *m_shw;
+    SerialManager *m_serial_operate;
+    SerialAssistant *m_serial_ui;
+//    SerialHelperWidget *m_shw;
 };
 #endif // TMX_TOOL_H
