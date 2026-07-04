@@ -230,6 +230,14 @@ void SerialAssistant::setupUi()
     m_openCloseBtn->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 3px; border-radius: 2px; } QPushButton:hover { background-color: #43A047; }");
     rightLayout->addWidget(m_openCloseBtn);
 
+    // YMODEM Send button
+    m_ymodemSendBtn = new QPushButton("YMODEM Send", m_rightPanel);
+    m_ymodemSendBtn->setMinimumHeight(28);
+    m_ymodemSendBtn->setEnabled(false); // 默认未连接时禁用
+    m_ymodemSendBtn->setStyleSheet("QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 3px; border-radius: 2px; } QPushButton:hover { background-color: #FB8C00; } QPushButton:disabled { background-color: #FFCC80; }");
+    connect(m_ymodemSendBtn, &QPushButton::clicked, this, &SerialAssistant::onYmodemSendClicked);
+    rightLayout->addWidget(m_ymodemSendBtn);
+
     // Separator
     auto *line1 = new QFrame(m_rightPanel);
     line1->setFrameShape(QFrame::HLine);
@@ -455,6 +463,10 @@ void SerialAssistant::setConnectionState(bool connected)
     m_rtsCheck->setEnabled(connected);
     m_sendBtn->setEnabled(connected);
     m_multiSendBtn->setEnabled(connected);
+
+    m_sendBtn->setEnabled(connected);
+    m_multiSendBtn->setEnabled(connected);
+    m_ymodemSendBtn->setEnabled(connected); // YModem按钮随连接状态启用禁用
 
     if (connected) {
         m_openCloseBtn->setText("Close Port");
@@ -783,4 +795,24 @@ quint16 SerialAssistant::crc16Modbus(const QByteArray &data) const
         }
     }
     return crc;
+}
+
+// YModem发送按钮点击
+void SerialAssistant::onYmodemSendClicked()
+{
+    if (!m_isConnected) {
+        QMessageBox::warning(this, "Warning", "Please open serial port first!");
+        return;
+    }
+
+    QString fileName = QFileDialog::getOpenFileName(this,
+        "Select file for YModem send",
+        "",
+        "Firmware Files (*.bin *.hex *.elf);;All Files (*.*)");
+
+    if (fileName.isEmpty()) return;
+
+    showStatusMessage("YModem send selected: " + fileName);
+    // 发出信号，你后续自己实现YModem发送逻辑，接收filePath即可
+    emit ymodemSendRequested(fileName);
 }

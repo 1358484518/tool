@@ -49,7 +49,7 @@ signals:
     void saveLogRequested();
     void clearReceivedRequested();
     void refreshPortsRequested();
-
+    void ymodemSendRequested(const QString &filePath);
 private slots:
     void onOpenCloseClicked();
     void onSendClicked();
@@ -62,7 +62,7 @@ private slots:
     void onMultiSendImportCsv();
     void onMultiSendExportCsv();
     void onMultiSendSelected();
-
+    void onYmodemSendClicked();
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -144,6 +144,7 @@ private:
     quint64 m_txBytes;
 
     QCheckBox *m_addCrc16Check;
+    QPushButton *m_ymodemSendBtn;
 };
 
 #endif // SERIALASSISTANT_H
