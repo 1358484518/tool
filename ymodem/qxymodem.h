@@ -318,14 +318,14 @@ private:
         if(m_filePathDir.size() > 0) {
             int  i =  0;
             char name[256] = {0};
-            char size[256] = {0};
+//            char size[256] = {0};
             for(int j = 0; buffer[i] != 0 && i < 255; i++, j++) {
                 name[j] = buffer[i];
             }
-            i++;
-            for(int j = 0; buffer[i] != 0 && i < 511; i++, j++) {
-                size[j] = buffer[i];
-            }
+//            i++;
+//            for(int j = 0; buffer[i] != 0 && i < 511; i++, j++) {
+//                size[j] = buffer[i];
+//            }
             QString fileName = QString::fromLocal8Bit(name);
             m_file = new QFile(m_filePathDir + QDir::separator() + fileName);
             m_file->open(QIODevice::WriteOnly);

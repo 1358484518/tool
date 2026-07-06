@@ -374,21 +374,22 @@ void SerialAssistant::setupUi()
 
     connect(m_multiAddBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendAddRow);
     connect(m_multiDelBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendDeleteRow);
-    connect(m_multiImportBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendImportCsv);
+    connect(m_multiImportBtn, &QPushButton::clicked, this, QOverload<>::of(&SerialAssistant::onMultiSendImportCsv));
     connect(m_multiExportBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendExportCsv);
     connect(m_multiSendBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendSelected);
 
     // Add default rows (default unchecked, with sample notes)
-    for (int i = 0; i < 8; i++) onMultiSendAddRow();
-    m_multiSendTable->item(0, 2)->setText("AT");
-    m_multiSendTable->item(0, 3)->setText("AT handshake");
-    m_multiSendTable->item(1, 2)->setText("AT+CGMI");
-    m_multiSendTable->item(1, 3)->setText("Read manufacturer");
-    m_multiSendTable->item(2, 2)->setText("AT+CSQ");
-    m_multiSendTable->item(2, 3)->setText("Read signal quality");
-    m_multiSendTable->item(3, 2)->setText("01 03 00 00 00 0A C5 CD");
-    m_multiSendTable->item(3, 3)->setText("Modbus read registers");
+//    for (int i = 0; i < 8; i++) onMultiSendAddRow();
+//    m_multiSendTable->item(0, 2)->setText("AT");
+//    m_multiSendTable->item(0, 3)->setText("AT handshake");
+//    m_multiSendTable->item(1, 2)->setText("AT+CGMI");
+//    m_multiSendTable->item(1, 3)->setText("Read manufacturer");
+//    m_multiSendTable->item(2, 2)->setText("AT+CSQ");
+//    m_multiSendTable->item(2, 3)->setText("Read signal quality");
+//    m_multiSendTable->item(3, 2)->setText("01 03 00 00 00 0A C5 CD");
+//    m_multiSendTable->item(3, 3)->setText("Modbus read registers");
 
+    onMultiSendImportCsv(":/miscfile/system_control.csv");
     //add default action
     m_autoWrapCheck->setCheckState(Qt::Checked);
 }
@@ -440,6 +441,62 @@ void SerialAssistant::populateLineEndings()
     m_lineEndingCombo->addItem("LF", 2);
     m_lineEndingCombo->addItem("CRLF", 3);
     m_lineEndingCombo->setCurrentIndex(0);
+}
+
+QStringList SerialAssistant::parseCsvLine(const QString &line)
+{
+    QStringList fields;
+    QString currentField;
+    bool inQuotes = false;
+    int i = 0;
+    const int len = line.length();
+
+    while (i < len) {
+        const QChar c = line.at(i);
+
+        if (!inQuotes) {
+            if (c == ',') {
+                fields.append(currentField);
+                currentField.clear();
+                i++;
+            } else if (c == '"') {
+                inQuotes = true;
+                i++;
+            } else {
+                currentField.append(c);
+                i++;
+            }
+        } else {
+            if (c == '"') {
+                if (i + 1 < len && line.at(i + 1) == '"') {
+                    // 连续双引号 -> 转义为单个双引号
+                    currentField.append('"');
+                    i += 2;
+                } else {
+                    // 闭合引号
+                    inQuotes = false;
+                    i++;
+                }
+            } else {
+                currentField.append(c);
+                i++;
+            }
+        }
+    }
+    fields.append(currentField);
+    return fields;
+
+}
+
+QString SerialAssistant::csvEscape(const QString &field)
+{
+    if (field.contains(',') || field.contains('"') || field.contains('\n') || field.contains('\r'))
+    {
+        QString escaped = field;
+        escaped.replace('"', "\"\"");
+        return QString("\"%1\"").arg(escaped);
+    }
+    return field;
 }
 
 QString SerialAssistant::selectedPortName() const { return m_portCombo->currentData().toString(); }
@@ -643,38 +700,123 @@ void SerialAssistant::onMultiSendDeleteRow()
     for (int i = 0; i < m_multiSendTable->rowCount(); i++) m_multiSendTable->item(i, 1)->setText(QString::number(i + 1));
 }
 
+// 标准CSV行解析：正确处理双引号包裹、字段内逗号、转义双引号
+
+
 void SerialAssistant::onMultiSendImportCsv()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, "Import Commands CSV", "", "CSV Files (*.csv);;Text Files (*.txt);;All Files (*)");
+    QString fileName = QFileDialog::getOpenFileName(this,
+        "Import Commands CSV", "",
+        "CSV Files (*.csv);;Text Files (*.txt);;All Files (*)");
     if (fileName.isEmpty()) return;
+
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QMessageBox::warning(this, "Error", "Failed to open file");
         return;
     }
+
     QTextStream in(&file);
+//    in.setCodec("UTF-8");
     m_multiSendTable->setRowCount(0);
+
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
         if (line.isEmpty()) continue;
-        if (line.contains("Command", Qt::CaseInsensitive) && m_multiSendTable->rowCount() == 0) continue;
+
+        // 一次解析，复用于表头判断和数据赋值
+        QStringList parts = parseCsvLine(line);
+
+        // 精确判断表头：仅第一行且匹配列名时跳过
+        if (m_multiSendTable->rowCount() == 0
+            && parts.size() >= 2
+            && parts[0].trimmed().compare("Enabled", Qt::CaseInsensitive) == 0
+            && parts[1].trimmed().compare("Command", Qt::CaseInsensitive) == 0)
+        {
+            continue;
+        }
+
         onMultiSendAddRow();
-        int row = m_multiSendTable->rowCount() - 1;
-        QStringList parts = line.split(',');
+        const int row = m_multiSendTable->rowCount() - 1;
+
         if (parts.size() >= 2) {
-            bool checked = parts[0].trimmed().toLower() == "true" || parts[0].trimmed() == "1";
-            m_multiSendTable->item(row, 0)->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
+            // 使能状态：兼容 1/0、true/false
+            const bool checked = parts[0].trimmed().toLower() == "true"
+                              || parts[0].trimmed() == "1";
+            m_multiSendTable->item(row, 0)->setCheckState(
+                checked ? Qt::Checked : Qt::Unchecked);
             m_multiSendTable->item(row, 2)->setText(parts[1].trimmed());
+
+            // 备注列
             if (parts.size() >= 3 && m_multiSendTable->item(row, 3)) {
-                m_multiSendTable->item(row, 3)->setText(parts.mid(2).join(",").trimmed());
+                m_multiSendTable->item(row, 3)->setText(parts[2].trimmed());
             }
         } else {
+            // 兼容纯命令格式：整行作为命令内容
             m_multiSendTable->item(row, 2)->setText(line);
         }
     }
+
     file.close();
-    showStatusMessage(QString("Imported %1 commands").arg(m_multiSendTable->rowCount()));
+    showStatusMessage(QString("Imported %1 commands").arg(
+                          m_multiSendTable->rowCount()));
 }
+
+void SerialAssistant::onMultiSendImportCsv(QString fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Error", "Failed to open file");
+        return;
+    }
+
+    QTextStream in(&file);
+//    in.setCodec("UTF-8");
+    m_multiSendTable->setRowCount(0);
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+
+        // 一次解析，复用于表头判断和数据赋值
+        QStringList parts = parseCsvLine(line);
+
+        // 精确判断表头：仅第一行且匹配列名时跳过
+        if (m_multiSendTable->rowCount() == 0
+            && parts.size() >= 2
+            && parts[0].trimmed().compare("Enabled", Qt::CaseInsensitive) == 0
+            && parts[1].trimmed().compare("Command", Qt::CaseInsensitive) == 0)
+        {
+            continue;
+        }
+
+        onMultiSendAddRow();
+        const int row = m_multiSendTable->rowCount() - 1;
+
+        if (parts.size() >= 2) {
+            // 使能状态：兼容 1/0、true/false
+            const bool checked = parts[0].trimmed().toLower() == "true"
+                              || parts[0].trimmed() == "1";
+            m_multiSendTable->item(row, 0)->setCheckState(
+                checked ? Qt::Checked : Qt::Unchecked);
+            m_multiSendTable->item(row, 2)->setText(parts[1].trimmed());
+
+            // 备注列
+            if (parts.size() >= 3 && m_multiSendTable->item(row, 3)) {
+                m_multiSendTable->item(row, 3)->setText(parts[2].trimmed());
+            }
+        } else {
+            // 兼容纯命令格式：整行作为命令内容
+            m_multiSendTable->item(row, 2)->setText(line);
+        }
+    }
+
+    file.close();
+    showStatusMessage(QString("Imported %1 commands").arg(
+                          m_multiSendTable->rowCount()));
+}
+
+
 
 void SerialAssistant::onMultiSendExportCsv()
 {
@@ -686,12 +828,18 @@ void SerialAssistant::onMultiSendExportCsv()
         return;
     }
     QTextStream out(&file);
+    // 【关键修改】导出也用GBK编码，和导入、Windows系统、Excel完全一致
+//    out.setCodec("GBK");
+
     out << "Enabled,Command,Note\n";
     for (int i = 0; i < m_multiSendTable->rowCount(); i++) {
         bool checked = m_multiSendTable->item(i, 0)->checkState() == Qt::Checked;
         QString cmd = m_multiSendTable->item(i, 2)->text().trimmed();
         QString note = m_multiSendTable->item(i, 3) ? m_multiSendTable->item(i, 3)->text().trimmed() : "";
-        out << (checked ? "1," : "0,") << cmd << "," << note << "\n";
+
+        out << (checked ? "1," : "0,")
+            << csvEscape(cmd) << ","
+            << csvEscape(note) << "\n";
     }
     file.close();
     showStatusMessage(QString("Exported %1 commands").arg(m_multiSendTable->rowCount()));

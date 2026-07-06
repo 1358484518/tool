@@ -40,3 +40,5 @@ RESOURCES += \
     image.qrc
 
 RC_ICONS = tmx.ico
+
+DISTFILES +=

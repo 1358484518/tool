@@ -60,6 +60,7 @@ private slots:
     void onMultiSendAddRow();
     void onMultiSendDeleteRow();
     void onMultiSendImportCsv();
+    void onMultiSendImportCsv(QString fileName);
     void onMultiSendExportCsv();
     void onMultiSendSelected();
     void onYmodemSendClicked();
@@ -74,6 +75,12 @@ private:
     void populateStopBits();
     void populateFlowControl();
     void populateLineEndings();
+
+    QStringList parseCsvLine(const QString &line);
+    // CSV字段标准转义
+    QString csvEscape(const QString &field);
+
+
     QByteArray processSendData(const QString &text);
     QByteArray hexStringToBytes(const QString &str) const;
     QString bytesToHexString(const QByteArray &data) const;

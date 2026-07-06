@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
         <file>image/tmx.png</file>
+        <file>miscfile/system_control.csv</file>
     </qresource>
 </RCC>

@@ -1,0 +1,74 @@
+Enabled,Command,Note
+0,ENTER_CAL,执行RCD漏电校准
+0,FACTORYTEST_ALL,全项工厂自检，包含 4G 模组检测
+0,FACTORYTEST,精简版工厂自检，不含 4G 模组检测
+0,EXIT_CAL,退出RCD漏电校准
+0,GET_CAL_MODE,获取RCD校准状态
+0,GET_CAL_COEFF,获取电表计量参数
+0,SET_CAL_COEFF U 0 1.0123,"U（电压校准）	index1=0（A 相）	1.0123	OK	设置 A 相电压增益校准系数，写入 g_cal_params.scal_factor_U[0]
+0,SET_CAL_COEFF U 2 0.9978,U（电压校准）	index1=2（C 相）	0.9978	OK	设置 C 相电压增益校准系数，写入 g_cal_params.scal_factor_U[2]"
+0,SET_CAL_COEFF I 1 1.0056,"I（电流校准）	index1=1（B 相）	1.0056	OK	设置 B 相电流增益校准系数，写入 g_cal_params.scal_factor_I[1]
+0,SET_CAL_COEFF P 0 0.9992,P（功率校准）	index1=0（A 相）	0.9992	OK	设置 A 相有功功率增益校准系数，写入 g_cal_params.scal_factor_P[0]"
+0,SET_CAL_COEFF PH 0 1 12,"PH（相位校准）	index1=0， index2=1（A-B 相间） 12 OK 设置 A 相对 B 相的相位补偿值，写入 g_cal_params.phc[0][1]，调用函数立即生效
+0,SET_CAL_COEFF PH 1 2 -8,PH（相位校准）	index1=1， index2=2（B-C 相间） -8 OK 设置 B 相对 C 相的负相位补偿值，写入 g_cal_params.phc[1][2]，调用函数立即生效"
+0,SET_CAL_COEFF PH 0 0 0,"PH（相位校准）	index1=0， index2=0（A 相自补偿） 0 OK 清零 A 相自相位补偿值，属于合法边界值
+0,GET_PHCAL_REG,获取三相电压电流功率,
+0,SET_RELAY;0;1,calibration_mode_relay_ctrl = 1，继电器吸合	控制 0 号继电器闭合，用于带载校准测试"
+0,SET_RELAY;0;0,"calibration_mode_relay_ctrl = 0，继电器断开	控制 0 号继电器断开，切断负载
+0,GET_RELAY;0,OK;1	0 号接触器当前处于吸合状态"
+0,GET_RELAY;0,"OK;0	0 号接触器当前处于断开状态
+0,GET_DEVICE_INFO,获取SN，ID，程序版本号
+0,TEST_MODE_ENABLE,测试模式使能
+0,TEST_MODE_DISABLE,测试模式关闭
+0,TEST_MODE_VERSION,获取测试模式版本
+0,GET_PHASE,获取相位数，三相或者单相AC
+0,ParameterSet:solar_mode=1,设置光伏工作模式"
+0,ParameterSet:solar_current_from_grid=10,设置光伏并网取电电流阈值
+0,ParameterSet:dlm_enable=1,开启动态负载管理功能
+0,ParameterSet:dlm_max_current=32,设置家用进线最大电流限制
+0,ParameterSet:dlm_sampling_methord=0,设置负载电流采样方式
+0,ParameterSet:DLBMode=1,设置动态负载平衡工作模式
+0,ParameterSet:chargemode=2,设置设备充电工作模式
+0,ParameterSet:HouseCurrentL1=20,设置 L1 相家用电流参考值
+0,ParameterSet:HouseCurrentL2=20,设置 L2 相家用电流参考值
+0,ParameterSet:HouseCurrentL3=20,设置 L3 相家用电流参考值
+0,ParameterSet:ParkingSpaceDetection=1,开启车位检测功能
+0,ParameterSet:RS485SlaveAddress=1,设置 RS485 总线从机地址（十进制）
+0,ParameterSet:RS485SlaveAddress=0x01,设置 RS485 总线从机地址（十六进制）
+0,ParameterGet:solar_mode,查询光伏工作模式当前值
+0,ParameterGet:solar_current_from_grid,查询光伏并网取电电流阈值
+0,ParameterGet:dlm_enable,查询动态负载管理开关状态
+0,ParameterGet:dlm_max_current,查询家用进线最大限流值
+0,ParameterGet:dlm_sampling_methord,查询负载电流采样方式
+0,ParameterGet:chargemode,查询设备充电工作模式
+0,ParameterGet:HouseCurrentL1,查询 L1 相家用电流参考值
+0,ParameterGet:HouseCurrentL2,查询 L2 相家用电流参考值
+0,ParameterGet:HouseCurrentL3,查询 L3 相家用电流参考值
+0,ParameterGet:ParkingSpaceDetection,查询车位检测功能开关状态
+0,ParameterGet:RS485SlaveAddress,查询 RS485 总线从机地址
+0,ParameterGet:DLBMode,查询动态负载平衡工作模式
+0,DEBUG OUTPUT ENABLE,调试输出使能sys_param.debug_output = 2
+0,DEBUG OUTPUT DEFAULT,调试输出使能sys_param.debug_output = 1
+0,DEBUG OUTPUT DISABLE,调试输出关闭sys_param.debug_output = 0
+0,FACTORY_RESET,系统参数复位
+0,SN=2026070600000001,"写入 16 位设备序列号	最常用格式，对应 16 位纯数字 SN"
+0,SN=20260706000000010001,"写入 20 位设备序列号	支持最长 20 位纯数字 SN"
+0,4GAT:AT,4G 模组通信握手测试，验证模组是否正常响应
+0,4GAT:AT+CSQ,查询 4G 信号强度
+0,4GAT:AT+CCID,查询 SIM 卡卡号（ICCID）
+0,4GAT:AT+CGREG?,查询 PS 域网络注册状态
+0,4GAT:AT+CPIN?,查询 SIM 卡状态，检测是否识别到卡
+0,4GAT:AT+CGMI,查询模组厂商信息
+0,4GAT:AT+CIMI,查询 IMSI 国际移动用户识别码
+0,4GAT:AT+CGMM,查询模组型号
+0,WIFIAT:AT,WiFi 模组通信握手测试，验证模组是否正常响应
+0,WIFIAT:AT+CWMODE?,查询 WiFi 当前工作模式
+0,WIFIAT:AT+CWJAP?,查询当前已连接的 WiFi 热点信息
+0,WIFIAT:AT+CIPSTA?,查询 WiFi 模块获取的本地 IP 地址
+0,WIFIAT:AT+GMR,查询 WiFi 模组固件版本号
+0,WIFIAT:AT+CWLAP,扫描周边可用 WiFi 热点列表
+0,WIFIAT:AT+CWMODE=1,设置 WiFi 为 Station（站点）模式
+0,"WIFIAT:AT+CWJAP=HomeWiFi,12345678",连接指定 WiFi 热点（SSID + 密码）
+0,OEM_RSSI,同时查询 4G 模组与 WiFi 模组的当前信号强度
+0,ENERGY,查询设备历史累计充电总电量
+0,POWER,查询当前实时充电有功功率
