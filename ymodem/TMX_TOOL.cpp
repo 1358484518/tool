@@ -18,7 +18,7 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
     m_tool_tab->addTab(m_serial_ui,"串口工具");
 
     layout->addWidget(m_tool_tab);
-    setMinimumSize(800, 900);
+    setMinimumSize(1000, 850);
     setLayout(layout);
 }
 

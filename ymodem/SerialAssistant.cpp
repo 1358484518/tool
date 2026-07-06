@@ -37,7 +37,7 @@ SerialAssistant::SerialAssistant(QWidget *parent)
 
     updatePortList(QSerialPortInfo::availablePorts());
     setWindowTitle("Serial Debug Assistant");
-    resize(1000, 750);
+//    resize(1000, 800);
 }
 
 SerialAssistant::~SerialAssistant()
@@ -61,8 +61,8 @@ void SerialAssistant::setupUi()
     m_receiveText = new QTextEdit(m_leftPanel);
     m_receiveText->setReadOnly(true);
     m_receiveText->setFont(QFont("Consolas", 10));
-//    m_receiveText->setLineWrapMode(QTextEdit::NoWrap);
-    m_receiveText->setLineWrapMode(QTextEdit::WidgetWidth);
+    m_receiveText->setLineWrapMode(QTextEdit::NoWrap);
+//    m_receiveText->setLineWrapMode(QTextEdit::WidgetWidth);
     m_receiveText->setStyleSheet("QTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #c0c0c0; }");
     leftLayout->addWidget(m_receiveText, 2);
 
@@ -388,6 +388,9 @@ void SerialAssistant::setupUi()
     m_multiSendTable->item(2, 3)->setText("Read signal quality");
     m_multiSendTable->item(3, 2)->setText("01 03 00 00 00 0A C5 CD");
     m_multiSendTable->item(3, 3)->setText("Modbus read registers");
+
+    //add default action
+    m_autoWrapCheck->setCheckState(Qt::Checked);
 }
 
 void SerialAssistant::populateBaudRates()
