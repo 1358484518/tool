@@ -43,6 +43,7 @@ SerialAssistant::SerialAssistant(QWidget *parent)
 SerialAssistant::~SerialAssistant()
 {
     if (m_autoSendTimer->isActive()) m_autoSendTimer->stop();
+    onMultiSendExportCsv("./system_control.csv");
 }
 
 void SerialAssistant::setupUi()
@@ -58,10 +59,10 @@ void SerialAssistant::setupUi()
     leftLayout->setContentsMargins(0, 0, 0, 0);
 
     // Receive area (2/3 height)
-    m_receiveText = new QTextEdit(m_leftPanel);
+    m_receiveText = new QPlainTextEdit(m_leftPanel);
     m_receiveText->setReadOnly(true);
     m_receiveText->setFont(QFont("Consolas", 10));
-    m_receiveText->setLineWrapMode(QTextEdit::NoWrap);
+    m_receiveText->setLineWrapMode(QPlainTextEdit::NoWrap);
 //    m_receiveText->setLineWrapMode(QTextEdit::WidgetWidth);
     m_receiveText->setStyleSheet("QTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #c0c0c0; }");
     leftLayout->addWidget(m_receiveText, 2);
@@ -77,7 +78,7 @@ void SerialAssistant::setupUi()
     singleLayout->setSpacing(4);
     singleLayout->setContentsMargins(4, 4, 4, 4);
 
-    m_sendText = new QTextEdit(m_singleSendPage);
+    m_sendText = new QPlainTextEdit(m_singleSendPage);
     m_sendText->setFont(QFont("Consolas", 10));
     m_sendText->setPlaceholderText("Enter command to send... (Ctrl+Enter to send)");
     m_sendText->installEventFilter(this);
@@ -93,7 +94,7 @@ void SerialAssistant::setupUi()
 
     m_clearSendBtn = new QPushButton("Clear", m_singleSendPage);
     m_clearSendBtn->setMinimumWidth(70);
-    connect(m_clearSendBtn, &QPushButton::clicked, m_sendText, &QTextEdit::clear);
+    connect(m_clearSendBtn, &QPushButton::clicked, m_sendText, &QPlainTextEdit::clear);
     singleBtnCol->addWidget(m_clearSendBtn);
     singleBtnCol->addStretch();
     singleLayout->addLayout(singleBtnCol);
@@ -369,13 +370,13 @@ void SerialAssistant::setupUi()
     connect(m_dtrCheck, &QCheckBox::toggled, this, &SerialAssistant::dtrToggled);
     connect(m_rtsCheck, &QCheckBox::toggled, this, &SerialAssistant::rtsToggled);
     connect(m_autoWrapCheck, &QCheckBox::toggled, this, [this](bool enabled) {
-        m_receiveText->setLineWrapMode(enabled ? QTextEdit::WidgetWidth : QTextEdit::NoWrap);
+        m_receiveText->setLineWrapMode(enabled ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
     });
 
     connect(m_multiAddBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendAddRow);
     connect(m_multiDelBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendDeleteRow);
     connect(m_multiImportBtn, &QPushButton::clicked, this, QOverload<>::of(&SerialAssistant::onMultiSendImportCsv));
-    connect(m_multiExportBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendExportCsv);
+    connect(m_multiExportBtn, &QPushButton::clicked, this, QOverload<>::of(&SerialAssistant::onMultiSendExportCsv));
     connect(m_multiSendBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendSelected);
 
     // Add default rows (default unchecked, with sample notes)
@@ -388,8 +389,17 @@ void SerialAssistant::setupUi()
 //    m_multiSendTable->item(2, 3)->setText("Read signal quality");
 //    m_multiSendTable->item(3, 2)->setText("01 03 00 00 00 0A C5 CD");
 //    m_multiSendTable->item(3, 3)->setText("Modbus read registers");
+    QFile file("./system_control.csv");
 
-    onMultiSendImportCsv(":/miscfile/system_control.csv");
+    // 优先读外部文件，不存在就读内置资源
+    if (!file.exists()) {
+
+       onMultiSendImportCsv(":/miscfile/system_control.csv");
+       onMultiSendExportCsv("./system_control.csv");
+    }else{
+       onMultiSendImportCsv("./system_control.csv");
+    }
+
     //add default action
     m_autoWrapCheck->setCheckState(Qt::Checked);
 }
@@ -596,6 +606,11 @@ void SerialAssistant::resetCounters()
     m_txBytes = 0;
     m_rxCountLabel->setText("R: 0 B");
     m_txCountLabel->setText("S: 0 B");
+}
+
+QByteArray SerialAssistant::getReceiveText()
+{
+    return m_receiveText->toPlainText().toUtf8();
 }
 
 void SerialAssistant::onOpenCloseClicked()
@@ -845,6 +860,31 @@ void SerialAssistant::onMultiSendExportCsv()
     showStatusMessage(QString("Exported %1 commands").arg(m_multiSendTable->rowCount()));
 }
 
+void SerialAssistant::onMultiSendExportCsv(QString filename)
+{
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Error", "Failed to save file");
+        return;
+    }
+    QTextStream out(&file);
+    // 【关键修改】导出也用GBK编码，和导入、Windows系统、Excel完全一致
+//    out.setCodec("GBK");
+
+    out << "Enabled,Command,Note\n";
+    for (int i = 0; i < m_multiSendTable->rowCount(); i++) {
+        bool checked = m_multiSendTable->item(i, 0)->checkState() == Qt::Checked;
+        QString cmd = m_multiSendTable->item(i, 2)->text().trimmed();
+        QString note = m_multiSendTable->item(i, 3) ? m_multiSendTable->item(i, 3)->text().trimmed() : "";
+
+        out << (checked ? "1," : "0,")
+            << csvEscape(cmd) << ","
+            << csvEscape(note) << "\n";
+    }
+    file.close();
+    showStatusMessage(QString("Exported %1 commands").arg(m_multiSendTable->rowCount()));
+}
+
 void SerialAssistant::onMultiSendSelected()
 {
     if (!m_isConnected) return;
@@ -967,6 +1007,7 @@ void SerialAssistant::onYmodemSendClicked()
     // 发出信号，你后续自己实现YModem发送逻辑，接收filePath即可
     emit ymodemSendRequested(fileName);
 }
+
 //这是示例
 //connect(m_serial_ui, &SerialAssistant::ymodemSendRequested, this, [this](const QString &filePath) {
 //    // 这里写你的YModem发送逻辑，filePath就是用户选择的文件路径

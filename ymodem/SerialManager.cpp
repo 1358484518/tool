@@ -106,6 +106,7 @@ bool SerialManager::open()
         m_receiveBuffer.clear();
         m_readBufferTimer->stop();
         setState(Connected);
+
         emit portConnected();
         qDebug() << "SerialManager: Port" << m_config.portName << "opened successfully @" << m_config.baudRate;
         return true;
@@ -272,6 +273,7 @@ void SerialManager::onReconnectTimer()
         m_receiveBuffer.clear();
         m_reconnectTimer->stop();
         setState(Connected);
+
         emit portConnected();
         qDebug() << "SerialManager: Reconnected to" << m_config.portName << "successfully";
     } else {

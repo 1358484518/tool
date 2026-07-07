@@ -6,6 +6,8 @@
 #include <QTimer>
 #include <QByteArray>
 #include <QList>
+
+
 /**
  * @brief Enhanced Serial Port Manager for Qt
  *
@@ -101,6 +103,7 @@ private slots:
     void onErrorOccurred(QSerialPort::SerialPortError error);
     void onReconnectTimer();
     void onReadBufferTimeout();
+
 private:
     bool createSerialPort(); // 新增：创建新串口实例
     void setState(ConnectionState state);

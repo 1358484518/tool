@@ -17,6 +17,8 @@
 #include <QSerialPortInfo>
 #include <QTabWidget>
 #include <QTableWidget>
+#include <QPlainTextEdit>
+
 
 class SerialAssistant : public QWidget
 {
@@ -39,7 +41,7 @@ public:
     void showStatusMessage(const QString &message, int timeout = 3000);
     void updatePortList(const QList<QSerialPortInfo> &ports);
     void resetCounters();
-
+    QByteArray getReceiveText();
 signals:
     void openPortRequested();
     void closePortRequested();
@@ -62,8 +64,10 @@ private slots:
     void onMultiSendImportCsv();
     void onMultiSendImportCsv(QString fileName);
     void onMultiSendExportCsv();
+    void onMultiSendExportCsv(QString filename);
     void onMultiSendSelected();
     void onYmodemSendClicked();
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -92,7 +96,7 @@ private:
     QWidget *m_rightPanel;
 
     // Receive
-    QTextEdit *m_receiveText;
+    QPlainTextEdit *m_receiveText;
     QCheckBox *m_hexReceiveCheck;
     QCheckBox *m_timestampCheck;
     QCheckBox *m_autoScrollCheck;
@@ -104,7 +108,7 @@ private:
     // Send Tabs
     QTabWidget *m_sendTab;
     QWidget *m_singleSendPage;
-    QTextEdit *m_sendText;
+    QPlainTextEdit *m_sendText;
     QPushButton *m_sendBtn;
     QPushButton *m_clearSendBtn;
 

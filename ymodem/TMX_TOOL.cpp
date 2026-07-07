@@ -43,7 +43,7 @@ void TMX_TOOL::initConnections()
         config.flowControl = m_serial_ui->selectedFlowControl();
         config.autoReconnect = m_serial_ui->autoReconnectEnabled();
         config.reconnectIntervalMs = m_serial_ui->reconnectInterval();
-        config.readBufferTimeoutMs = 50;
+        config.readBufferTimeoutMs = 0;
         m_serial_operate->setConfig(config);
 
         if (m_serial_operate->open()) {
@@ -74,8 +74,7 @@ void TMX_TOOL::initConnections()
         if (fileName.isEmpty()) return;
         QFile file(fileName);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextEdit *receiveText = m_serial_ui->findChild<QTextEdit*>("receiveText");
-            if (receiveText) file.write(receiveText->toPlainText().toUtf8());
+            file.write(m_serial_ui->getReceiveText());
             file.close();
             m_serial_ui->showStatusMessage("Log saved to " + fileName);
         } else {
