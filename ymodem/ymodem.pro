@@ -20,12 +20,25 @@ SOURCES += \
     SerialManager.cpp \
     main.cpp \
     TMX_TOOL.cpp \
+    network/FastTextView.cpp \
+    network/NetAssistWidget.cpp \
+    network/NetworkWorker.cpp \
+    network/QTcpServerManager.cpp \
+    network/QTcpSocketManager.cpp \
+    network/QUdpSocketManager.cpp \
     qxymodem.cpp
 
 HEADERS += \
     SerialAssistant.h \
     SerialManager.h \
     TMX_TOOL.h \
+    network/FastTextView.h \
+    network/NetAssistWidget.h \
+    network/NetCommon.h \
+    network/NetworkWorker.h \
+    network/QTcpServerManager.h \
+    network/QTcpSocketManager.h \
+    network/QUdpSocketManager.h \
     qxymodem.h
 
 FORMS += \

@@ -3,6 +3,7 @@
 #include "QFile"
 #include "QMessageBox"
 #include "QFileDialog"
+#include "network/NetAssistWidget.h"
 
 TMX_TOOL::TMX_TOOL(QWidget *parent)
     : QWidget(parent)
@@ -17,7 +18,10 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
 //    m_shw = new SerialHelperWidget;
     m_tool_tab->addTab(m_serial_ui,"串口工具");
 
+    NetAssistWidget * netAssist_ui = new NetAssistWidget;
+    m_tool_tab->addTab(netAssist_ui,"网络工具");
     layout->addWidget(m_tool_tab);
+
     setMinimumSize(1000, 850);
     setLayout(layout);
 }
