@@ -38,6 +38,7 @@ private:
     QByteArray      m_data;
     bool            m_inited = false;
     int             m_lastScrollValue = 0;
+    int             m_lastSizeValue = 0;
     // 仅新增模式相关成员，原有成员不动
     ViewMode        m_viewMode = TextMode;
 //    int             m_bytesPerLine = 16;

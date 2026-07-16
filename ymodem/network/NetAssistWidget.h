@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QColor>
 #include "NetCommon.h"
+#include "QThread"
 
 class QGroupBox;
 class QComboBox;
@@ -14,13 +15,16 @@ class QPlainTextEdit;
 class QLabel;
 class QTimer;
 class FastTextView;
+class NetworkWorker;
+
+
 
 class NetAssistWidget : public QWidget
 {
     Q_OBJECT
 public:
     explicit NetAssistWidget(QWidget *parent = nullptr);
-
+    ~NetAssistWidget();
 signals:
     void sigOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort);
     void sigCloseNetwork();
@@ -55,6 +59,8 @@ private:
     void updateCountLabel();
     void appendLog(const QString &text, const QColor &color = Qt::black);
 
+    void initNetWork();
+
     QGroupBox   *m_groupConnection;
     QComboBox   *m_cmbProtocol;
     QComboBox   *m_cmbLocalIp;
@@ -85,6 +91,9 @@ private:
     QTimer  *m_timerAutoSend;
     quint64 m_recvBytes = 0;
     quint64 m_sendBytes = 0;
+private:
+    NetworkWorker *m_netWorker;
+    QThread workerThread;
 };
 
 #endif // NETASSISTWIDGET_H

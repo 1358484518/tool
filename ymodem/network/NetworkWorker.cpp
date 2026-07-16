@@ -1,4 +1,5 @@
 #include "NetworkWorker.h"
+#include <QDebug>
 
 NetworkWorker::NetworkWorker(QObject *parent)
     : QObject(parent)
@@ -88,7 +89,7 @@ void NetworkWorker::slotTcpDisconnect()
 }
 
 void NetworkWorker::slotSendData(QByteArray data, QString remoteIp, quint16 remotePort)
-{
+{   qDebug()<<"send"<<remoteIp<<remotePort<<data;
     if (m_currentProto == NetProtocol::TcpServer && m_tcpServer) {
         m_tcpServer->broadcast(data);
     }
@@ -98,6 +99,7 @@ void NetworkWorker::slotSendData(QByteArray data, QString remoteIp, quint16 remo
     else if (m_currentProto == NetProtocol::Udp && m_udp) {
         QHostAddress remoteAddr(remoteIp);
         m_udp->sendTo(data, remoteAddr, remotePort);
+        qDebug()<<"udp send data"<<remoteAddr<<remotePort;
     }
 }
 

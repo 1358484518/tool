@@ -3,6 +3,12 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QAbstractSocket>
+#include <QDebug>
+
+#ifdef Q_OS_WIN
+#include <winsock2.h>
+#include <mswsock.h>
+#endif
 
 QUdpSocketManager::QUdpSocketManager(QObject *parent)
     : QObject(parent)
@@ -14,13 +20,13 @@ QUdpSocketManager::QUdpSocketManager(QObject *parent)
     qRegisterMetaType<QUdpSocketManager::Error>("QUdpSocketManager::Error");
 
     m_socket = new QUdpSocket(this);
-    m_recvTimer = new QTimer(this);
+//    m_recvTimer = new QTimer(this);
     m_sendTimer = new QTimer(this);
     m_reconnectTimer = new QTimer(this);
     m_hostCleanupTimer = new QTimer(this);
 
-    m_recvTimer->setSingleShot(true);
-    m_recvTimer->setInterval(0);
+//    m_recvTimer->setSingleShot(true);
+//    m_recvTimer->setInterval(0);
     m_sendTimer->setSingleShot(true);
     m_sendTimer->setInterval(0);
     m_reconnectTimer->setSingleShot(true);
@@ -29,7 +35,7 @@ QUdpSocketManager::QUdpSocketManager(QObject *parent)
     connect(m_socket, &QUdpSocket::readyRead, this, &QUdpSocketManager::onReadyRead);
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error),
             this, &QUdpSocketManager::onSocketError);
-    connect(m_recvTimer, &QTimer::timeout, this, &QUdpSocketManager::processRecv);
+//    connect(m_recvTimer, &QTimer::timeout, this, &QUdpSocketManager::processRecv);
     connect(m_sendTimer, &QTimer::timeout, this, &QUdpSocketManager::processSendQueue);
     connect(m_reconnectTimer, &QTimer::timeout, this, &QUdpSocketManager::doReconnect);
     connect(m_hostCleanupTimer, &QTimer::timeout, this, &QUdpSocketManager::cleanupStaleHosts);
@@ -64,7 +70,7 @@ void QUdpSocketManager::start(const UdpConfig &config)
 void QUdpSocketManager::stop()
 {
     m_reconnectTimer->stop();
-    m_recvTimer->stop();
+//    m_recvTimer->stop();
     m_sendTimer->stop();
     m_hostCleanupTimer->stop();
     m_sendQueue.clear();
@@ -156,7 +162,10 @@ UdpConfig QUdpSocketManager::currentConfig() const { return m_config; }
 
 void QUdpSocketManager::onReadyRead()
 {
-    if (!m_recvTimer->isActive()) m_recvTimer->start();
+     qDebug() << "触发readyRead信号";
+//    if (!m_recvTimer->isActive())
+//     m_recvTimer->start();
+     processRecv();
 }
 
 void QUdpSocketManager::onSocketError(QAbstractSocket::SocketError err)
@@ -171,13 +180,16 @@ void QUdpSocketManager::onSocketError(QAbstractSocket::SocketError err)
             m_reconnectTimer->start(m_config.reconnectMs);
         }
     }
+    qDebug()<<__FUNCTION__;
 }
 
 void QUdpSocketManager::processRecv()
 {
+
     while (m_socket->hasPendingDatagrams()) {
         qint64 size = m_socket->pendingDatagramSize();
-        if (size <= 0) continue;
+        qDebug() << "进入processRecv，当前待处理包大小:" << m_socket->pendingDatagramSize() << "最大允许包长:" << m_config.maxPacketSize;
+        if (size <= 0) break;
 
         if (size > m_config.maxPacketSize) {
             QByteArray discard;
@@ -187,16 +199,22 @@ void QUdpSocketManager::processRecv()
         }
 
         UdpDatagram dg;
-        dg.data.resize(static_cast<int>(size));
+        dg.data.resize(static_cast<int>(size));//防崩溃
         qint64 readLen = m_socket->readDatagram(dg.data.data(), size, &dg.host, &dg.port);
 
         if (readLen > 0) {
-            dg.data.resize(static_cast<int>(readLen));
+            dg.data.resize(static_cast<int>(readLen));//防脏数据。
             dg.timestamp = QDateTime::currentMSecsSinceEpoch();
-            updateRemoteHost(dg.host, dg.port);
+//            updateRemoteHost(dg.host, dg.port);
             emit datagramReceived(dg);
         }
+//        m_socket->readAll();
+        qDebug()<<"udp recive";
     }
+    // 兜底：读完再检查一次，防止极端情况还有残留包没读，避免卡住
+//    if (m_socket->hasPendingDatagrams()) {
+//        m_recvTimer->start();
+//    }
 }
 
 void QUdpSocketManager::processSendQueue()
@@ -230,9 +248,17 @@ void QUdpSocketManager::doReconnect()
         m_socket->abort();
     }
 
-    bool ok = m_socket->bind(m_config.bindAddress, m_config.listenPort,
-                             QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
+    bool ok = m_socket->bind(m_config.bindAddress, m_config.listenPort);
+#ifdef Q_OS_WIN
+    // 仅Windows下生效，其他平台直接跳过，完全不影响跨平台性
+    BOOL disableConnReset = FALSE;
+    DWORD bytesReturned = 0;
+    WSAIoctl(m_socket->socketDescriptor(), SIO_UDP_CONNRESET,
+             &disableConnReset, sizeof(disableConnReset),
+             nullptr, 0, &bytesReturned, nullptr, nullptr);
+#endif
 
+    qDebug()<<m_config.bindAddress<<m_config.listenPort;
     if (ok) {
         setState(Running);
         m_reconnectTimer->stop();

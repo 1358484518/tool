@@ -103,6 +103,10 @@ void FastTextView::onPollTimeout()
         m_lastScrollValue = curVal;
         onScroll(curVal);
     }
+    if(calcReadSize()>m_data.size()&&m_lastSizeValue!=m_data.size()){
+        m_lastSizeValue = m_data.size();
+        onScroll(curVal);
+    }
 }
 
 void FastTextView::scrollToTop()

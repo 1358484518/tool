@@ -16,7 +16,7 @@ struct UdpConfig
     QHostAddress bindAddress = QHostAddress::Any; // 绑定地址，默认所有网卡
     quint16      listenPort = 0;                  // 监听端口，必填
     int          reconnectMs = 3000;              // 重连间隔，默认3秒
-    int          maxPacketSize = 1472;            // 最大包长，默认1472(以太网MTU)
+    int          maxPacketSize = 65535;            // 最大包长，默认1472(以太网MTU)
     int          maxQueueSize = 128;              // 发送队列最大长度
     int          hostTimeoutSec = 300;            // 主机超时时间，默认5分钟
 };
@@ -123,7 +123,7 @@ private:
     void applyConfig(const UdpConfig &config);
 
     QUdpSocket *m_socket;
-    QTimer     *m_recvTimer;
+//    QTimer     *m_recvTimer;
     QTimer     *m_sendTimer;
     QTimer     *m_reconnectTimer;
     QTimer     *m_hostCleanupTimer;

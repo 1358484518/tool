@@ -17,6 +17,8 @@
 #include <QTextCursor>
 #include <QDateTime>
 #include <QHostAddress>
+#include "NetworkWorker.h"
+
 
 NetAssistWidget::NetAssistWidget(QWidget *parent)
     : QWidget(parent)
@@ -25,6 +27,15 @@ NetAssistWidget::NetAssistWidget(QWidget *parent)
     resize(850, 600);
     initUi();
     initConnect();
+    initNetWork();
+}
+
+NetAssistWidget::~NetAssistWidget()
+{
+    // 安全退出顺序：先停止线程事件循环，等待线程结束，再delete Worker
+    workerThread.quit();
+    workerThread.wait();
+//    delete m_netWorker; // 线程结束后直接删除，不依赖事件循环，100%释放内存
 }
 
 void NetAssistWidget::initUi()
@@ -97,7 +108,7 @@ void NetAssistWidget::initUi()
     m_spinLocalPort = new QSpinBox();
     m_spinLocalPort->setFixedHeight(22);
     m_spinLocalPort->setRange(1, 65535);
-    m_spinLocalPort->setValue(8888);
+    m_spinLocalPort->setValue(13601);
     connLayout->addWidget(m_spinLocalPort);
 
     m_btnOpen = new QPushButton("打开");
@@ -118,7 +129,7 @@ void NetAssistWidget::initUi()
     m_spinRemotePort = new QSpinBox();
     m_spinRemotePort->setFixedHeight(22);
     m_spinRemotePort->setRange(1, 65535);
-    m_spinRemotePort->setValue(8888);
+    m_spinRemotePort->setValue(13649);
     m_spinRemotePort->setEnabled(false);
     connLayout->addWidget(m_spinRemotePort);
 
@@ -413,4 +424,31 @@ void NetAssistWidget::appendLog(const QString &text, const QColor &color)
     QString line = QString("[%1] %2\n").arg(time).arg(text);
     m_editRecv->addData(line.toUtf8());
     m_editRecv->scrollToBottom(); // 需要自动跟随就加这句
+}
+
+void NetAssistWidget::initNetWork()
+{
+    m_netWorker = new NetworkWorker;
+    m_netWorker->moveToThread(&workerThread);
+
+    // UI -> 网络线程
+    QObject::connect(this, &NetAssistWidget::sigOpenNetwork, m_netWorker, &NetworkWorker::slotOpenNetwork);
+    QObject::connect(this, &NetAssistWidget::sigCloseNetwork, m_netWorker, &NetworkWorker::slotCloseNetwork);
+    QObject::connect(this, &NetAssistWidget::sigTcpConnect, m_netWorker, &NetworkWorker::slotTcpConnect);
+    QObject::connect(this, &NetAssistWidget::sigTcpDisconnect, m_netWorker, &NetworkWorker::slotTcpDisconnect);
+    QObject::connect(this, &NetAssistWidget::sigSendData, m_netWorker, &NetworkWorker::slotSendData);
+
+    // 网络线程 -> UI
+    QObject::connect(m_netWorker, &NetworkWorker::sigRecvData, this, &NetAssistWidget::slotRecvData);
+    QObject::connect(m_netWorker, &NetworkWorker::sigClientConnected, this, &NetAssistWidget::slotClientConnected);
+    QObject::connect(m_netWorker, &NetworkWorker::sigClientDisconnected, this, &NetAssistWidget::slotClientDisconnected);
+    QObject::connect(m_netWorker, &NetworkWorker::sigTcpConnected, this, &NetAssistWidget::slotTcpConnected);
+    QObject::connect(m_netWorker, &NetworkWorker::sigTcpDisconnected, this, &NetAssistWidget::slotTcpDisconnected);
+    QObject::connect(m_netWorker, &NetworkWorker::sigError, this, &NetAssistWidget::slotError);
+    QObject::connect(m_netWorker, &NetworkWorker::sigStateText, this, &NetAssistWidget::slotStateText);
+    QObject::connect(m_netWorker, &NetworkWorker::sigClientCount, this, &NetAssistWidget::slotClientCount);
+    QObject::connect(&workerThread, &QThread::finished, m_netWorker, &QObject::deleteLater);
+
+    workerThread.start();
+
 }

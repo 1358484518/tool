@@ -54,4 +54,6 @@ RESOURCES += \
 
 RC_ICONS = tmx.ico
 
-DISTFILES +=
+win32 {
+    LIBS += -lws2_32 -lmswsock
+}
