@@ -251,7 +251,7 @@ void NetAssistWidget::onOpenToggled(bool checked)
         quint16 localPort = m_spinLocalPort->value();
         emit sigOpenNetwork(proto, localIp, localPort);
 
-        if (proto == NetProtocol::TcpClient) {
+        if (proto == NetProtocol::TcpClient||proto == NetProtocol::Udp) {
             m_cmbRemoteIp->setEnabled(true);
             m_spinRemotePort->setEnabled(true);
             m_btnConnect->setEnabled(true);
