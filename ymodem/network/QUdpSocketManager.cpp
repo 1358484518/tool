@@ -118,6 +118,7 @@ void QUdpSocketManager::reply(const QByteArray &data, const UdpDatagram &recvDat
 
 void QUdpSocketManager::addRemoteHost(const QHostAddress &host, quint16 port)
 {
+    if(m_remoteHosts.size()>256)return;
     RemoteHost h;
     h.address = host;
     h.port = port;
@@ -125,9 +126,10 @@ void QUdpSocketManager::addRemoteHost(const QHostAddress &host, quint16 port)
 
     int idx = m_remoteHosts.indexOf(h);
     if (idx < 0) {
-        m_remoteHosts.append(h);
+        m_remoteHosts.enqueue(h);
         emit remoteHostAdded(h);
         emit remoteHostListChanged();
+
     } else {
         m_remoteHosts[idx].lastSeen = h.lastSeen;
     }
@@ -162,7 +164,7 @@ UdpConfig QUdpSocketManager::currentConfig() const { return m_config; }
 
 void QUdpSocketManager::onReadyRead()
 {
-     qDebug() << "触发readyRead信号";
+//     qDebug() << "触发readyRead信号";
 //    if (!m_recvTimer->isActive())
 //     m_recvTimer->start();
      processRecv();
@@ -188,7 +190,7 @@ void QUdpSocketManager::processRecv()
 
     while (m_socket->hasPendingDatagrams()) {
         qint64 size = m_socket->pendingDatagramSize();
-        qDebug() << "进入processRecv，当前待处理包大小:" << m_socket->pendingDatagramSize() << "最大允许包长:" << m_config.maxPacketSize;
+//        qDebug() << "进入processRecv，当前待处理包大小:" << m_socket->pendingDatagramSize() << "最大允许包长:" << m_config.maxPacketSize;
         if (size <= 0) break;
 
         if (size > m_config.maxPacketSize) {
@@ -205,11 +207,12 @@ void QUdpSocketManager::processRecv()
         if (readLen > 0) {
             dg.data.resize(static_cast<int>(readLen));//防脏数据。
             dg.timestamp = QDateTime::currentMSecsSinceEpoch();
-//            updateRemoteHost(dg.host, dg.port);
+            updateRemoteHost(dg.host, dg.port);
             emit datagramReceived(dg);
         }
+
 //        m_socket->readAll();
-        qDebug()<<"udp recive";
+//        qDebug()<<"udp recive";
     }
     // 兜底：读完再检查一次，防止极端情况还有残留包没读，避免卡住
 //    if (m_socket->hasPendingDatagrams()) {
@@ -311,9 +314,10 @@ void QUdpSocketManager::updateRemoteHost(const QHostAddress &host, quint16 port)
         m_remoteHosts[idx].lastSeen = QDateTime::currentMSecsSinceEpoch();
     } else {
         h.lastSeen = QDateTime::currentMSecsSinceEpoch();
-        m_remoteHosts.append(h);
-        emit remoteHostAdded(h);
-        emit remoteHostListChanged();
+//        m_remoteHosts.append(h);
+        addRemoteHost(h.address, h.port);//添加ip地址，超过256个地址就不添加了
+//        emit remoteHostAdded(h);
+//        emit remoteHostListChanged();
     }
 }
 

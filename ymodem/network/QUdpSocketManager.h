@@ -6,6 +6,7 @@
 #include <QHostAddress>
 #include <QQueue>
 #include <QList>
+#include "NetCommon.h"
 
 class QUdpSocket;
 class QTimer;
@@ -33,18 +34,7 @@ struct UdpDatagram
 };
 Q_DECLARE_METATYPE(UdpDatagram)
 
-// 远程主机信息
-struct RemoteHost
-{
-    QHostAddress address;
-    quint16      port = 0;
-    qint64       lastSeen = 0;
 
-    bool operator==(const RemoteHost &other) const {
-        return address == other.address && port == other.port;
-    }
-};
-Q_DECLARE_METATYPE(RemoteHost)
 
 class QUdpSocketManager : public QObject
 {
@@ -129,7 +119,7 @@ private:
     QTimer     *m_hostCleanupTimer;
 
     QQueue<UdpDatagram> m_sendQueue;
-    QList<RemoteHost>   m_remoteHosts;
+    QQueue<RemoteHost>   m_remoteHosts;
     UdpConfig           m_config;
 
     State   m_state = Stopped;

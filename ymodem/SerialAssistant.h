@@ -67,7 +67,7 @@ private slots:
     void onMultiSendExportCsv(QString filename);
     void onMultiSendSelected();
     void onYmodemSendClicked();
-
+    void onDoubleSendSelected(int row, int column);//cellDoubleClicked(int row, int column)
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -83,7 +83,6 @@ private:
     QStringList parseCsvLine(const QString &line);
     // CSV字段标准转义
     QString csvEscape(const QString &field);
-
 
     QByteArray processSendData(const QString &text);
     QByteArray hexStringToBytes(const QString &str) const;

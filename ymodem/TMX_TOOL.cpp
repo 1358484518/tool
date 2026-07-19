@@ -12,18 +12,7 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
     ui->setupUi(this);
 
     initConnections();
-    QHBoxLayout *layout = new QHBoxLayout;
 
-    m_tool_tab = new QTabWidget;
-//    m_shw = new SerialHelperWidget;
-    m_tool_tab->addTab(m_serial_ui,"串口工具");
-
-    NetAssistWidget * netAssist_ui = new NetAssistWidget;
-    m_tool_tab->addTab(netAssist_ui,"网络工具");
-    layout->addWidget(m_tool_tab);
-
-    setMinimumSize(1000, 850);
-    setLayout(layout);
 }
 
 TMX_TOOL::~TMX_TOOL()
@@ -155,5 +144,15 @@ void TMX_TOOL::initConnections()
         m_serial_ui->showStatusMessage("Start YModem send, waiting for device response...");
     });
 
+    QHBoxLayout *layout = new QHBoxLayout;
+    m_tool_tab = new QTabWidget;
+    NetAssistWidget * netAssist_ui = new NetAssistWidget;
+
+    m_tool_tab->addTab(netAssist_ui,"网络工具");
+    m_tool_tab->addTab(m_serial_ui,"串口工具");
+
+    layout->addWidget(m_tool_tab);
+    setMinimumSize(1000, 850);
+    setLayout(layout);
 }
 

@@ -34,7 +34,7 @@ SerialAssistant::SerialAssistant(QWidget *parent)
     m_autoSendTimer = new QTimer(this);
     m_autoSendTimer->setSingleShot(false);
     connect(m_autoSendTimer, &QTimer::timeout, this, &SerialAssistant::onAutoSendTimer);
-
+    connect(m_multiSendTable,&QTableWidget::cellDoubleClicked,this,&SerialAssistant::onDoubleSendSelected);
     updatePortList(QSerialPortInfo::availablePorts());
     setWindowTitle("Serial Debug Assistant");
 //    resize(1000, 800);
@@ -732,7 +732,7 @@ void SerialAssistant::onMultiSendImportCsv()
     }
 
     QTextStream in(&file);
-//    in.setCodec("UTF-8");
+    in.setCodec("GBK");
     m_multiSendTable->setRowCount(0);
 
     while (!in.atEnd()) {
@@ -786,7 +786,7 @@ void SerialAssistant::onMultiSendImportCsv(QString fileName)
     }
 
     QTextStream in(&file);
-//    in.setCodec("UTF-8");
+    in.setCodec("GBK");
     m_multiSendTable->setRowCount(0);
 
     while (!in.atEnd()) {
@@ -844,7 +844,7 @@ void SerialAssistant::onMultiSendExportCsv()
     }
     QTextStream out(&file);
     // 【关键修改】导出也用GBK编码，和导入、Windows系统、Excel完全一致
-//    out.setCodec("GBK");
+    out.setCodec("GBK");
 
     out << "Enabled,Command,Note\n";
     for (int i = 0; i < m_multiSendTable->rowCount(); i++) {
@@ -869,7 +869,7 @@ void SerialAssistant::onMultiSendExportCsv(QString filename)
     }
     QTextStream out(&file);
     // 【关键修改】导出也用GBK编码，和导入、Windows系统、Excel完全一致
-//    out.setCodec("GBK");
+    out.setCodec("GBK");
 
     out << "Enabled,Command,Note\n";
     for (int i = 0; i < m_multiSendTable->rowCount(); i++) {
@@ -1006,6 +1006,32 @@ void SerialAssistant::onYmodemSendClicked()
     showStatusMessage("YModem send selected: " + fileName);
     // 发出信号，你后续自己实现YModem发送逻辑，接收filePath即可
     emit ymodemSendRequested(fileName);
+}
+
+void SerialAssistant::onDoubleSendSelected(int row, int column)
+{
+    if(1==column){
+        if (!m_isConnected) return;
+
+        QByteArray commandsToSend;
+        QString cmd = m_multiSendTable->item(row, column)->text();
+        if (!cmd.trimmed().isEmpty()) commandsToSend = processSendData(cmd);
+
+        if (commandsToSend.isEmpty()) {
+            showStatusMessage("No checked commands to send");
+            return;
+        }
+
+        QTimer::singleShot(0, this, [this, commandsToSend]() {
+            if (m_isConnected) {
+                m_txBytes += commandsToSend.size();
+                m_txCountLabel->setText(QString("S: %1 B").arg(m_txBytes));
+                emit sendDataRequested(commandsToSend);
+            }
+        });
+
+        showStatusMessage(QString("Sending %1 commands...").arg(commandsToSend.size()));
+    }
 }
 
 //这是示例

@@ -28,6 +28,7 @@ protected:
     void resizeEvent(QResizeEvent *e) override;
     void showEvent(QShowEvent *e) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
+
 private slots:
     void onScroll(int byteOffset);
     void onPollTimeout();

@@ -95,7 +95,7 @@ void FastTextView::clear()
 //    refresh();
 //}
 
-/************************* 原有函数完全不动 *************************/
+
 void FastTextView::onPollTimeout()
 {
     int curVal = m_scroll->value();
@@ -135,10 +135,12 @@ bool FastTextView::eventFilter(QObject *watched, QEvent *event)
         // 立刻更新内容+滑块位置
         m_lastScrollValue = m_scroll->value();
         onScroll(m_lastScrollValue);
+//        handleWheelEvent(static_cast<QWheelEvent*>(event));
         return true;
     }
     return QWidget::eventFilter(watched, event);
 }
+
 int FastTextView::calcReadSize() {
     int h = m_edit->viewport()->height();
     return h > 0 ? h * 20 : 24000;
@@ -186,6 +188,7 @@ void FastTextView::showEvent(QShowEvent *e) {
 }
 
 /************************* onScroll只改setPlainText部分，其他完全不动 *************************/
+#if 1
 void FastTextView::onScroll(int byteOffset)
 {
     if (m_data.isEmpty()) {
@@ -230,3 +233,7 @@ void FastTextView::onScroll(int byteOffset)
     QScrollBar *innerSb = m_edit->verticalScrollBar();
     innerSb->setValue(innerSb->maximum() * progress);
 }
+#else
+
+
+#endif
