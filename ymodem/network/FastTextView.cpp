@@ -7,7 +7,11 @@
 #include <QShowEvent>
 #include <QTimer>
 #include <QWheelEvent>
+#include <QTextBlock>
+#include <QtMath>
+#include <QElapsedTimer>
 #include <QtDebug>
+
 
 FastTextView::FastTextView(QWidget *parent) : QWidget(parent)
 {
@@ -103,10 +107,12 @@ void FastTextView::onPollTimeout()
     if (curVal != m_lastScrollValue) {
         m_lastScrollValue = curVal;
         onScroll(curVal);
+        qDebug()<<1<<curVal;
     }
     if(calcReadSize()>m_data.size()&&m_lastSizeValue!=m_data.size()){
         m_lastSizeValue = m_data.size();
         onScroll(curVal);
+        qDebug()<<2<<curVal;
     }
 }
 
@@ -122,6 +128,24 @@ void FastTextView::scrollToBottom()
     m_scroll->setValue(m_scroll->maximum());
 }
 
+int FastTextView::totalVisualLineCount() const
+{
+    QTextDocument *doc = m_edit->document();
+    int lineH = QFontMetrics(m_edit->font()).lineSpacing();
+    // 文档总高度 / 单行高度 = 自动换行后的实际显示行数
+    return qCeil(doc->size().height() / lineH);
+}
+
+int FastTextView::emptyLineCount() const
+{
+    int count = 0;
+    QTextBlock block = m_edit->document()->begin();
+    while (block.isValid()) {
+        if (block.text().isEmpty()) count++;
+        block = block.next();
+    }
+    return count;
+}
 bool FastTextView::eventFilter(QObject *watched, QEvent *event)
 {
 //    if (watched == m_edit && event->type() == QEvent::Wheel)
@@ -147,7 +171,7 @@ bool FastTextView::eventFilter(QObject *watched, QEvent *event)
 
 int FastTextView::calcReadSize() {
     int h = m_edit->viewport()->height();
-    return h > 0 ? h * 20 : 24000;
+    return h > 0 ? h * 20 : 2400;
 }
 void FastTextView::refresh()
 {
@@ -157,7 +181,7 @@ void FastTextView::refresh()
         return;
     }
     int readSize = calcReadSize();
-    int maxOffset = qMax(0, (int)m_data.size() - readSize/2);
+    int maxOffset = m_data.size();//qMax(0, (int)m_data.size() - readSize/2);
 
     m_scroll->blockSignals(true);
     m_scroll->setRange(0, maxOffset);
@@ -193,7 +217,7 @@ void FastTextView::showEvent(QShowEvent *e) {
 }
 
 /************************* onScroll只改setPlainText部分，其他完全不动 *************************/
-#if 1
+
 void FastTextView::onScroll(int byteOffset)
 {
     if (m_data.isEmpty()) {
@@ -203,9 +227,36 @@ void FastTextView::onScroll(int byteOffset)
     int readSize = calcReadSize();
     byteOffset = qBound(0, byteOffset, (int)m_data.size()-1);
     readSize = qMin(readSize, (int)(m_data.size() - byteOffset));
+#define M_DATA_OFFEST 6*1024
+//    int dispSize=0;
+//    QElapsedTimer timer;
+//    timer.start();
+//    if(m_data.size()>M_DATA_OFFEST){
+//        dispSize = calcTextPageBytes(m_data.mid(m_data.size() -
+//                                    M_DATA_OFFEST,M_DATA_OFFEST));
+//    }else{
+//        dispSize = calcTextPageBytes(m_data);
+//    }
+
+
+//    if(byteOffset > (m_data.size() - dispSize)){//数据能填充满控件
+//        byteOffset = m_data.size()- dispSize;
+//    }
+
+//    if(readSize < dispSize&&dispSize<M_DATA_OFFEST){
+//        readSize = dispSize;
+//    }
+//    qDebug()<<timer.nsecsElapsed() / 1000.0;
+//    qDebug()<<"byteOffset:"<<byteOffset<<readSize<<dispSize<<m_viewMode<<timer.nsecsElapsed() / 1000.0;
+    if(byteOffset > (m_data.size() - M_DATA_OFFEST)){//数据能填充满控件
+        byteOffset = m_data.size()- M_DATA_OFFEST;
+    }
+
+    if(readSize < M_DATA_OFFEST){
+        readSize = M_DATA_OFFEST;
+    }
+
     QByteArray chunk = m_data.mid(byteOffset, readSize);
-
-
     QString showText;
 
     if (m_viewMode == HexMode) {
@@ -239,7 +290,308 @@ void FastTextView::onScroll(int byteOffset)
     innerSb->setValue(innerSb->maximum() * progress);
 }
 
+
+// 常量统一定义（仅本文件可见，k开头表示常量）
+static const int kHorizontalPadding = 8;   // 左右内边距
+static const int kMinBytesPerLine  = 8;   // HEX模式每行最少字节数
+static const int kMaxAdjustTimes   = 5;   // 文本模式微调最大次数
+
+// ==================== HEX模式：精确计算一页字节数 ====================
+int FastTextView::calcHexPageBytes(int fixedBytesPerLine) const
+{
+    const QFontMetrics fontMetrics(m_edit->font());
+    const int viewportHeight = m_edit->viewport()->height();
+    const int lineHeight = fontMetrics.lineSpacing();
+    const int visibleLineCount = viewportHeight / lineHeight;
+
+    // 固定每行字节数：直接行数×每行字节数
+    if (fixedBytesPerLine > 0) {
+        return visibleLineCount * fixedBytesPerLine;
+    }
+
+    // 自适应宽度：计算当前宽度下一行能放多少个HEX字节
+    const int viewportWidth = m_edit->viewport()->width() - kHorizontalPadding;
+    const int hexByteWidth = fontMetrics.horizontalAdvance("FF "); // 1字节HEX占3字符宽度
+    const int autoBytesPerLine = qMax(kMinBytesPerLine, viewportWidth / hexByteWidth);
+    return visibleLineCount * autoBytesPerLine;
+}
+
+// ==================== 文本模式：预估+微调计算一页字节数 ====================
+int FastTextView::calcTextPageBytes() const
+{
+    if (m_data.isEmpty()) return 0;
+
+    const QFontMetrics fontMetrics(m_edit->font());
+    const int viewportHeight = m_edit->viewport()->height();
+    const int lineHeight = fontMetrics.lineSpacing();
+    const int visibleLineCount = viewportHeight / lineHeight;
+    const int viewportWidth = m_edit->viewport()->width() - kHorizontalPadding;
+
+    // 第一步：按等宽字符预估一页字节数（纯ASCII下完全精准）
+    const int singleCharWidth = fontMetrics.horizontalAdvance('0');
+    const int charsPerLine = viewportWidth / singleCharWidth;
+    int estimatedPageBytes = visibleLineCount * charsPerLine;
+    if (estimatedPageBytes >= m_data.size()) {
+        return m_data.size();
+    }
+
+    // 第二步：从末尾取预估字节，计算实际自动换行行数
+    int startOffset = qMax(0, m_data.size() - estimatedPageBytes);
+    QString pageText = QString::fromUtf8(m_data.mid(startOffset));
+    int actualLineCount = fontMetrics.size(Qt::TextWordWrap, pageText).height() / lineHeight;
+
+    // 第三步：微调对齐，最多调整kMaxAdjustTimes次，误差控制在1行内
+    int adjustTimes = 0;
+    while (actualLineCount < visibleLineCount && startOffset > 0 && adjustTimes < kMaxAdjustTimes) {
+        startOffset = qMax(0, startOffset - charsPerLine); // 往前补一行
+        pageText = QString::fromUtf8(m_data.mid(startOffset));
+        actualLineCount = fontMetrics.size(Qt::TextWordWrap, pageText).height() / lineHeight;
+        adjustTimes++;
+    }
+    while (actualLineCount > visibleLineCount + 1 && adjustTimes < kMaxAdjustTimes) {
+        startOffset += charsPerLine / 2; // 往后减一行
+        pageText = QString::fromUtf8(m_data.mid(startOffset));
+        actualLineCount = fontMetrics.size(Qt::TextWordWrap, pageText).height() / lineHeight;
+        adjustTimes++;
+    }
+
+    return m_data.size() - startOffset;
+}
+#if 0
+int FastTextView::calcTextPageBytes(const QByteArray &data) const
+{
+    if (data.isEmpty()) return 0;
+
+    const QFontMetrics fm(m_edit->font());
+    const int viewWidth = m_edit->viewport()->width() - kHorizontalPadding;
+    const int viewHeight = m_edit->viewport()->height();
+    const int lineHeight = fm.lineSpacing();
+
+    int accumulatedLines = 0;
+    int scanPos = data.size();
+    int lineEndPos = scanPos;
+
+    while (scanPos > 0) {
+        scanPos--;
+        // 遇到硬换行：结算当前行
+        if (data.at(scanPos) == '\n') {
+            const int lineLen = lineEndPos - scanPos - 1;
+            if (lineLen > 0) {
+                const QString lineText = QString::fromUtf8(data.mid(scanPos + 1, lineLen));
+                const int linePixelWidth = fm.horizontalAdvance(lineText);
+                accumulatedLines += qMax(1, (linePixelWidth + viewWidth - 1) / viewWidth); // 向上取整
+            } else {
+                accumulatedLines++; // 空行也算一行
+            }
+
+            if (accumulatedLines * lineHeight >= viewHeight) {
+                scanPos++;
+                return data.size() - scanPos;
+            }
+            lineEndPos = scanPos;
+        }
+    }
+
+    // 结算最顶部第一行
+    const int firstLineLen = lineEndPos;
+    if (firstLineLen > 0) {
+        const QString firstLine = QString::fromUtf8(data.left(firstLineLen));
+        const int firstLineWidth = fm.horizontalAdvance(firstLine);
+        accumulatedLines += qMax(1, (firstLineWidth + viewWidth - 1) / viewWidth);
+    }
+
+    if (accumulatedLines * lineHeight < viewHeight) {
+        return data.size();
+    }
+
+    return data.size() - scanPos;
+}
+#endif
+#if 0
+int FastTextView::calcTextPageBytes(const QByteArray &data) const
+{
+    if (data.isEmpty()) return 0;
+
+    const QFontMetrics fm(m_edit->font());
+    const int viewHeight = m_edit->viewport()->height();
+    const int lineHeight = fm.lineSpacing();
+    // 修复Bug3：宽度合法性兜底，避免除以0
+    int viewWidth = m_edit->viewport()->width() - kHorizontalPadding;
+    viewWidth = qMax(1, viewWidth);
+    const int singleAsciiWidth = fm.horizontalAdvance('0');
+
+    int accumulatedLines = 0;
+    const char *ptr = data.constData();
+    int scanPos = data.size();
+    int lineEndPos = scanPos;
+
+    while (scanPos > 0) {
+        scanPos--;
+        // 修复Bug4：兼容\r\n，跳过回车符
+        if (ptr[scanPos] == '\r') {
+            continue;
+        }
+
+        if (ptr[scanPos] == '\n') {
+            const int lineLen = lineEndPos - scanPos - 1;
+            if (lineLen > 0) {
+                // 纯ASCII快速路径
+                bool isAllAscii = true;
+                for (int i = scanPos + 1; i < lineEndPos; ++i) {
+                    if (static_cast<uchar>(ptr[i]) >= 0x80) {
+                        isAllAscii = false;
+                        break;
+                    }
+                }
+                int linePixelWidth;
+                if (isAllAscii) {
+                    linePixelWidth = lineLen * singleAsciiWidth;
+                } else {
+                    const QString lineText = QString::fromUtf8(ptr + scanPos + 1, lineLen);
+                    linePixelWidth = fm.horizontalAdvance(lineText);
+                }
+                accumulatedLines += qMax(1, (linePixelWidth + viewWidth - 1) / viewWidth);
+            } else {
+                accumulatedLines++; // 空行计入
+            }
+
+            // 修复Bug2：仅严格大于视口才停止，等于算放得下
+            if (accumulatedLines * lineHeight > viewHeight) {
+                scanPos++;
+                return data.size() - scanPos;
+            }
+            lineEndPos = scanPos;
+        }
+    }
+
+    // 修复Bug1：统一结算最顶部第一行，空行也必须计入
+    const int firstLineLen = lineEndPos;
+    if (firstLineLen > 0) {
+        bool isAllAscii = true;
+        for (int i = 0; i < firstLineLen; ++i) {
+            if (static_cast<uchar>(ptr[i]) >= 0x80) {
+                isAllAscii = false;
+                break;
+            }
+        }
+        int firstLineWidth;
+        if (isAllAscii) {
+            firstLineWidth = firstLineLen * singleAsciiWidth;
+        } else {
+            const QString firstLine = QString::fromUtf8(ptr, firstLineLen);
+            firstLineWidth = fm.horizontalAdvance(firstLine);
+        }
+        accumulatedLines += qMax(1, (firstLineWidth + viewWidth - 1) / viewWidth);
+    } else {
+        accumulatedLines++; // 开头空行也计入
+    }
+
+    // 全部数据放得下，返回总大小
+    if (accumulatedLines * lineHeight <= viewHeight) {
+        return data.size();
+    }
+
+    return data.size() - scanPos;
+}
 #else
+int FastTextView::calcTextPageBytes(const QByteArray &data) const
+{
+    if (data.isEmpty()) return 0;
 
+    const QFontMetrics fm(m_edit->font());
+    const int viewWidth = qMax(1, m_edit->viewport()->width() - kHorizontalPadding);
+    const int viewHeight = m_edit->viewport()->height();
+    const int lineHeight = fm.lineSpacing();
+    const int asciiCharWidth = fm.horizontalAdvance('0');
 
+    const char * const ptr = data.constData();
+    const int totalSize = data.size();
+
+    int accumulatedHeight = 0;
+    int scanPos = totalSize;
+    int lineEnd = totalSize; // 当前硬行的行尾（不含换行符）
+
+    while (scanPos > 0) {
+        scanPos--;
+
+        if (ptr[scanPos] != '\n') {
+            continue;
+        }
+
+        // ========== 遇到换行符：结算当前行 ==========
+        int contentEnd = scanPos; // 行内容结束位置（不含换行符）
+        // 兼容\r\n：往前跳一个回车符，行内容到\r为止
+        if (scanPos > 0 && ptr[scanPos - 1] == '\r') {
+            contentEnd--;
+        }
+
+        const int lineLen = contentEnd - (scanPos + 1);
+        int linePixelHeight;
+
+        if (lineLen > 0) {
+            // 纯ASCII快速路径
+            bool allAscii = true;
+            for (int i = scanPos + 1; i < contentEnd; ++i) {
+                if (static_cast<uchar>(ptr[i]) >= 0x80) {
+                    allAscii = false;
+                    break;
+                }
+            }
+            if (allAscii) {
+                const int softLines = qMax(1, (lineLen * asciiCharWidth + viewWidth - 1) / viewWidth);
+                linePixelHeight = softLines * lineHeight;
+            } else {
+                const QString lineText = QString::fromUtf8(ptr + scanPos + 1, lineLen);
+                linePixelHeight = fm.size(Qt::TextWordWrap, lineText).height();
+            }
+        } else {
+            linePixelHeight = lineHeight; // 空行
+        }
+
+        accumulatedHeight += linePixelHeight;
+
+        // 超过一屏：回退到当前行开头（换行符之后），返回刚好填满的字节数
+        if (accumulatedHeight > viewHeight) {
+            scanPos++;
+            return totalSize - scanPos;
+        }
+
+        lineEnd = contentEnd;
+        // 跳过回车符，继续往前扫
+        if (contentEnd < scanPos) {
+            scanPos--;
+        }
+    }
+
+    // ========== 结算最顶部第一行（前面无换行符） ==========
+    const int firstLineLen = lineEnd;
+    int firstLineHeight;
+    if (firstLineLen > 0) {
+        bool allAscii = true;
+        for (int i = 0; i < firstLineLen; ++i) {
+            if (static_cast<uchar>(ptr[i]) >= 0x80) {
+                allAscii = false;
+                break;
+            }
+        }
+        if (allAscii) {
+            const int softLines = qMax(1, (firstLineLen * asciiCharWidth + viewWidth - 1) / viewWidth);
+            firstLineHeight = softLines * lineHeight;
+        } else {
+            const QString firstLine = QString::fromUtf8(ptr, firstLineLen);
+            firstLineHeight = fm.size(Qt::TextWordWrap, firstLine).height();
+        }
+    } else {
+        firstLineHeight = lineHeight;
+    }
+
+    accumulatedHeight += firstLineHeight;
+
+    // 全部数据都放得下
+    if (accumulatedHeight <= viewHeight) {
+        return totalSize;
+    }
+
+    return totalSize - scanPos;
+}
 #endif

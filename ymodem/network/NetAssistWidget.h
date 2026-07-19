@@ -97,8 +97,8 @@ private:
     QCheckBox   *m_checkShowRecvAddr;   // 2. 显示接收/对端地址
     QCheckBox   *m_checkAddModbusCrc16; // 3. 16进制发送时自动追加CRC16 Modbus校验
     QCheckBox   *m_checkAppendCRLF;     // 4. 发送数据自动追加回车换行(\r\n)
-    QCheckBox   *m_checkBroadcastSend;  // 新增：广播发送（可勾选开关）
-
+    QCheckBox   *m_checkBroadcastSend;  // 广播发送（可勾选开关）
+    QCheckBox   *m_scrollToBottom;      //显示到最后一行
     // 复选框状态值，默认false=未勾选
     bool m_recvTimestamp  = false; // 加时间戳分包显示
     bool m_showRecvAddr   = false; // 显示接收地址

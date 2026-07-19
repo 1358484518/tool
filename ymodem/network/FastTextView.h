@@ -2,6 +2,8 @@
 #define FASTTEXTVIEW_H
 #include <QWidget>
 #include <QByteArray>
+#include <QTextDocument>
+
 class QPlainTextEdit;
 class QScrollBar;
 class QTimer;
@@ -24,6 +26,14 @@ public slots:
     void clear();
     void scrollToTop();
     void scrollToBottom();
+    //总共能显示行数
+    int totalVisualLineCount() const;
+    //空行数
+    int emptyLineCount() const;
+    // 新增：计算一页刚好能容纳的字节数
+    int  calcHexPageBytes(int fixedBytesPerLine = 0) const; // HEX模式，传0自动适配宽度
+    int  calcTextPageBytes() const;
+    int  calcTextPageBytes(const QByteArray &data) const;
 protected:
     void resizeEvent(QResizeEvent *e) override;
     void showEvent(QShowEvent *e) override;
@@ -46,5 +56,7 @@ private:
 
     int  calcReadSize();
     void refresh();
+
+
 };
 #endif
