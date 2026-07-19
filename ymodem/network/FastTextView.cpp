@@ -7,6 +7,7 @@
 #include <QShowEvent>
 #include <QTimer>
 #include <QWheelEvent>
+#include <QtDebug>
 
 FastTextView::FastTextView(QWidget *parent) : QWidget(parent)
 {
@@ -35,7 +36,7 @@ FastTextView::FastTextView(QWidget *parent) : QWidget(parent)
     m_pollTimer->start();
     m_lastScrollValue = m_scroll->value();
     // 事件过滤器监听滚轮
-    m_edit->installEventFilter(this);
+    m_edit->viewport()->installEventFilter(this);
 }
 
 /************************* 仅新增模式接口实现 *************************/
@@ -62,7 +63,7 @@ void FastTextView::addData(QByteArray data)
     if (!m_inited) return;
 
     int readSize = calcReadSize();
-    int maxOffset = qMax(0, (int)m_data.size() - readSize / 2);
+    int maxOffset = m_data.size();//readSize;//qMax(0, (int)m_data.size() - readSize / 2);
 
     // 只更新滑块范围，不主动刷新视图
     // 刷新由 onPollTimeout 检测滑块 value 变化触发（用户手拉 / setValue 均可）
@@ -123,19 +124,22 @@ void FastTextView::scrollToBottom()
 
 bool FastTextView::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_edit && event->type() == QEvent::Wheel) {
+//    if (watched == m_edit && event->type() == QEvent::Wheel)
+    if (watched == m_edit->viewport() && event->type() == QEvent::Wheel)
+    {
         QWheelEvent *wheel = static_cast<QWheelEvent*>(event);
         int delta = wheel->angleDelta().y();
-        int step = m_scroll->singleStep(); // 和滚动条单步一致，保证联动
+        int step = qMin(1024,m_scroll->singleStep()); // 和滚动条单步一致，保证联动
+
         if (delta > 0) {
-            m_scroll->setValue(m_scroll->value() - step * 3); // 滚一下动3步，手感合适
+            m_scroll->setValue(m_scroll->value() - step/* * 3*/); // 滚一下动3步，手感合适
         } else {
-            m_scroll->setValue(m_scroll->value() + step * 3);
+            m_scroll->setValue(m_scroll->value() + step /** 3*/);
         }
         // 立刻更新内容+滑块位置
         m_lastScrollValue = m_scroll->value();
         onScroll(m_lastScrollValue);
-//        handleWheelEvent(static_cast<QWheelEvent*>(event));
+        qDebug()<<delta<<step<<m_lastScrollValue;
         return true;
     }
     return QWidget::eventFilter(watched, event);
@@ -154,6 +158,7 @@ void FastTextView::refresh()
     }
     int readSize = calcReadSize();
     int maxOffset = qMax(0, (int)m_data.size() - readSize/2);
+
     m_scroll->blockSignals(true);
     m_scroll->setRange(0, maxOffset);
     m_scroll->setPageStep(readSize/2);
@@ -233,6 +238,7 @@ void FastTextView::onScroll(int byteOffset)
     QScrollBar *innerSb = m_edit->verticalScrollBar();
     innerSb->setValue(innerSb->maximum() * progress);
 }
+
 #else
 
 

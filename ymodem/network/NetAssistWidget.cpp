@@ -459,6 +459,7 @@ void NetAssistWidget::slotRecvData(QByteArray data, QString fromIp, quint16 from
     line += dataToText(data);
     if(m_recvTimestamp||m_showRecvAddr)line+="\r\n";
     m_editRecv->addData(line.toUtf8());
+    m_editRecv->scrollToBottom();
 }
 
 void NetAssistWidget::slotClientConnected(QString ip, quint16 port)
@@ -521,7 +522,7 @@ void NetAssistWidget::appendLog(const QString &text, const QColor &color)
     QString time = QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
     QString line = QString("[%1] %2\n").arg(time).arg(text);
     m_editRecv->addData(line.toUtf8());
-//    m_editRecv->scrollToBottom(); // 需要自动跟随就加这句
+    m_editRecv->scrollToBottom(); // 需要自动跟随就加这句
 }
 
 void NetAssistWidget::initNetWork()
