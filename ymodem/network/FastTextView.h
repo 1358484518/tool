@@ -56,7 +56,7 @@ private:
 
     int  calcReadSize();
     void refresh();
-
+    int WheelStep = 0;
 
 };
 #endif

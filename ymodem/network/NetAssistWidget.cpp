@@ -304,8 +304,8 @@ void NetAssistWidget::onOpenToggled(bool checked)
         m_spinLocalPort->setEnabled(false);
         m_btnSend->setEnabled(true);
         m_labelStatus->setText("启动中...");
-        m_recvBytes = 0;
-        m_sendBytes = 0;
+//        m_recvBytes = 0;
+//        m_sendBytes = 0;
         updateCountLabel();
 
         NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();

@@ -107,12 +107,12 @@ void FastTextView::onPollTimeout()
     if (curVal != m_lastScrollValue) {
         m_lastScrollValue = curVal;
         onScroll(curVal);
-        qDebug()<<1<<curVal;
+//        qDebug()<<1<<curVal;
     }
     if(calcReadSize()>m_data.size()&&m_lastSizeValue!=m_data.size()){
         m_lastSizeValue = m_data.size();
         onScroll(curVal);
-        qDebug()<<2<<curVal;
+//        qDebug()<<2<<curVal;
     }
 }
 
@@ -154,12 +154,13 @@ bool FastTextView::eventFilter(QObject *watched, QEvent *event)
         QWheelEvent *wheel = static_cast<QWheelEvent*>(event);
         int delta = wheel->angleDelta().y();
         int step = qMin(1024,m_scroll->singleStep()); // 和滚动条单步一致，保证联动
-
+        if(WheelStep)step = WheelStep;
         if (delta > 0) {
             m_scroll->setValue(m_scroll->value() - step/* * 3*/); // 滚一下动3步，手感合适
         } else {
             m_scroll->setValue(m_scroll->value() + step /** 3*/);
         }
+        WheelStep = 0;
         // 立刻更新内容+滑块位置
         m_lastScrollValue = m_scroll->value();
         onScroll(m_lastScrollValue);
@@ -285,6 +286,11 @@ void FastTextView::onScroll(int byteOffset)
     qreal progress = 0;
     if (m_scroll->maximum() > 0) {
         progress = (qreal)dataoffest / m_scroll->maximum();
+        if(m_scroll->value() + 2 * M_DATA_OFFEST > m_scroll->maximum()){
+            WheelStep = m_scroll->value() + 2 * M_DATA_OFFEST - m_scroll->maximum();
+//            WheelStep=2;
+//            qDebug()<<M_DATA_OFFEST;
+        }
     }
     //避免进度条拉到底都不显示最后文本的情况
     QScrollBar *innerSb = m_edit->verticalScrollBar();
