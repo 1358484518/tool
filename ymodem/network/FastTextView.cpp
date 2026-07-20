@@ -163,7 +163,7 @@ bool FastTextView::eventFilter(QObject *watched, QEvent *event)
         // 立刻更新内容+滑块位置
         m_lastScrollValue = m_scroll->value();
         onScroll(m_lastScrollValue);
-        qDebug()<<delta<<step<<m_lastScrollValue;
+//        qDebug()<<delta<<step<<m_lastScrollValue;
         return true;
     }
     return QWidget::eventFilter(watched, event);
@@ -227,6 +227,7 @@ void FastTextView::onScroll(int byteOffset)
     int readSize = calcReadSize();
     byteOffset = qBound(0, byteOffset, (int)m_data.size()-1);
     readSize = qMin(readSize, (int)(m_data.size() - byteOffset));
+    int dataoffest=byteOffset;
 #define M_DATA_OFFEST 6*1024
 //    int dispSize=0;
 //    QElapsedTimer timer;
@@ -283,7 +284,7 @@ void FastTextView::onScroll(int byteOffset)
 
     qreal progress = 0;
     if (m_scroll->maximum() > 0) {
-        progress = (qreal)byteOffset / m_scroll->maximum();
+        progress = (qreal)dataoffest / m_scroll->maximum();
     }
     //避免进度条拉到底都不显示最后文本的情况
     QScrollBar *innerSb = m_edit->verticalScrollBar();

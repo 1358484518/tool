@@ -158,8 +158,11 @@ void NetAssistWidget::initUi()
 
     m_checkRecvTimestamp = new QCheckBox("加时间戳,分包显示");
     m_checkShowRecvAddr = new QCheckBox("显示接收/对端地址");
+    m_scrollToBottom = new QCheckBox("显示最新接收数据");
+
     recvSettingLayout->addWidget(m_checkRecvTimestamp);
     recvSettingLayout->addWidget(m_checkShowRecvAddr);
+    recvSettingLayout->addWidget(m_scrollToBottom);
 
     m_btnClearRecv = new QPushButton("清空接收");
     m_btnClearRecv->setFixedHeight(24);
@@ -189,11 +192,10 @@ void NetAssistWidget::initUi()
     m_checkAddModbusCrc16 = new QCheckBox("CRC16 Modbus");
     m_checkAppendCRLF = new QCheckBox("加回车换行");
     m_checkBroadcastSend = new QCheckBox("广播发送");
-    m_scrollToBottom = new QCheckBox("显示末尾数据");
+
     sendSettingLayout->addWidget(m_checkAddModbusCrc16);
     sendSettingLayout->addWidget(m_checkAppendCRLF);
     sendSettingLayout->addWidget(m_checkBroadcastSend);
-    sendSettingLayout->addWidget(m_scrollToBottom);
     sendSettingLayout->addWidget(m_checkAutoSend);
 
     m_spinAutoSendInterval = new QSpinBox();
