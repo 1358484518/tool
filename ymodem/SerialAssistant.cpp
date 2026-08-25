@@ -1014,7 +1014,7 @@ void SerialAssistant::onDoubleSendSelected(int row, int column)
         if (!m_isConnected) return;
 
         QByteArray commandsToSend;
-        QString cmd = m_multiSendTable->item(row, column)->text();
+        QString cmd = m_multiSendTable->item(row, column + 1)->text();
         if (!cmd.trimmed().isEmpty()) commandsToSend = processSendData(cmd);
 
         if (commandsToSend.isEmpty()) {
