@@ -82,8 +82,8 @@ signals:
     void clientConnected(const TcpClientInfo &client);      // 接受了一个新连接
     void clientDisconnected(const TcpClientInfo &client);   // 某个客户端离开
     void clientDataReceived(ClientConnId connId, const QByteArray &data);  // 某个连接来了数据
-    void stateChanged(QTcpServerManager::State state);
-    void errorOccurred(QTcpServerManager::Error error, const QString &systemErrorString);
+    void stateChanged(QTcpServerManager::State state);  // Starting / Listening / Reconnecting
+    void errorOccurred(QTcpServerManager::Error error, const QString &systemErrorString);  // listen 失败、端口占用等
 
 private slots:
     void onNewConnection();                                 // pending 连接进来，超上限则关掉

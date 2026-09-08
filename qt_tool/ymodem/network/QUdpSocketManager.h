@@ -84,8 +84,8 @@ public slots:
 
 signals:
     void datagramReceived(const UdpDatagram &datagram);     // 收到一包 UDP
-    void stateChanged(QUdpSocketManager::State state);
-    void errorOccurred(QUdpSocketManager::Error error, const QString &systemErrorString);
+    void stateChanged(QUdpSocketManager::State state);  // Starting / Running / Reconnecting
+    void errorOccurred(QUdpSocketManager::Error error, const QString &systemErrorString);  // bind 失败、发送失败等
     void remoteHostAdded(const RemoteHost &host);           // 第一次见到这个对端
     void remoteHostRemoved(const RemoteHost &host);         // 超时或手动删掉
     void remoteHostListChanged();                           // 对端列表有增删
@@ -101,7 +101,7 @@ private slots:
 private:
     void setState(State newState);                          // 状态变了才发 stateChanged
     void updateRemoteHost(const QHostAddress &host, quint16 port);  // 刷新 lastSeen，没有则加入
-    Error mapQtSocketError(QAbstractSocket::SocketError err);
+    Error mapQtSocketError(QAbstractSocket::SocketError err);  // Qt 错误码转成本类 Error
     void applyConfig(const UdpConfig &config);              // 保存 bind 地址、端口、超时
 
     QUdpSocket *m_socket;

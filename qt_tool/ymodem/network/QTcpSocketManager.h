@@ -73,10 +73,10 @@ public slots:
 
 signals:
     void dataReceived(const QByteArray &data);              // 对端来了一段数据
-    void stateChanged(QTcpSocketManager::State state);
+    void stateChanged(QTcpSocketManager::State state);  // Connecting / Connected / Reconnecting
     void connected();                                       // 三次握手完成
     void disconnected();                                    // 套接字已断开
-    void errorOccurred(QTcpSocketManager::Error error, const QString &systemErrorString);
+    void errorOccurred(QTcpSocketManager::Error error, const QString &systemErrorString);  // 连接失败、超时、对端关闭等
 
 private slots:
     void onReadyRead();                                     // 有数据立刻读出发出，不攒包

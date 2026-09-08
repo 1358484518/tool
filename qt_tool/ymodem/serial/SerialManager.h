@@ -84,7 +84,7 @@ private slots:
 private:
     bool createSerialPort();    // new QSerialPort 并接线
     void destroySerialPort();   // 断开信号后 close，deleteLater
-    void setState(ConnectionState state);
+    void setState(ConnectionState state);  // 更新状态并发 connectionStateChanged
     bool applyConfig();         // 波特率等写入 QSerialPort
     void flushReceiveBuffer();  // 把 m_receiveBuffer 作为一包发出
     void emitReceived(const QByteArray &data);  // 同时发 dataReceived 和 IoPacket

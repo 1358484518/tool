@@ -41,18 +41,18 @@ private slots:
     void onTcpServerClientConnected(const TcpClientInfo &client);       // 转发新客户端并更新人数
     void onTcpServerClientDisconnected(const TcpClientInfo &client);    // 转发断开并更新人数
     void onTcpServerData(ClientConnId id, const QByteArray &data);      // 服务端收到某客户端数据
-    void onTcpServerError(QTcpServerManager::Error err, const QString &errStr);
+    void onTcpServerError(QTcpServerManager::Error err, const QString &errStr);  // 服务端错误转发给 UI
     void onTcpServerState(QTcpServerManager::State state);              // listen 状态变成文字
 
     void onTcpClientConnected();                        // 客户端连上，通知 UI
     void onTcpClientDisconnected();                     // 客户端断开，通知 UI
     void onTcpClientData(const QByteArray &data);       // 客户端收到对端数据
-    void onTcpClientError(QTcpSocketManager::Error err, const QString &errStr);
-    void onTcpClientState(QTcpSocketManager::State state);
+    void onTcpClientError(QTcpSocketManager::Error err, const QString &errStr);  // 客户端错误转发给 UI
+    void onTcpClientState(QTcpSocketManager::State state);  // Connecting / Connected 变成文字
 
     void onUdpDatagram(const UdpDatagram &dg);          // UDP 收到一包，转成 IoPacket
-    void onUdpError(QUdpSocketManager::Error err, const QString &errStr);
-    void onUdpState(QUdpSocketManager::State state);
+    void onUdpError(QUdpSocketManager::Error err, const QString &errStr);  // UDP 错误转发给 UI
+    void onUdpState(QUdpSocketManager::State state);    // bind 状态变成文字
     void onUdpHostAdded(const RemoteHost &host);        // 新见到的对端，让 UI 写入下拉
     void onUdpHostRemoved(const RemoteHost &host);      // 超时对端从列表拿掉
 
