@@ -11,6 +11,7 @@ int main(int argc, char *argv[])  // 启用高 DPI、登记跨线程类型，然
 #endif
     QCoreApplication::setOrganizationName(QStringLiteral("TMX"));
     QCoreApplication::setApplicationName(QStringLiteral("TMX_TOOL"));
+    QCoreApplication::setApplicationVersion(QStringLiteral("2.01"));
 
     QApplication a(argc, argv);
     qRegisterMetaType<NetProtocol>("NetProtocol");

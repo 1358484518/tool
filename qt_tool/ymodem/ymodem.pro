@@ -3,6 +3,7 @@ QT       += core gui serialport network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
+VERSION = 2.01
 
 # 源码按模块分目录：app 在根目录，串口/网络/公共工具各放各的目录
 INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network

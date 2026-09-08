@@ -2,6 +2,7 @@
 #include "ui_tmx_tool.h"
 #include "network/NetAssistWidget.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QFileDialog>
 #include <QIcon>
@@ -13,7 +14,10 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
     , ui(new Ui::TMX_TOOL)
 {
     ui->setupUi(this);
-    setWindowTitle(QStringLiteral("TMX 调试助手"));
+    const QString ver = QCoreApplication::applicationVersion();
+    setWindowTitle(ver.isEmpty()
+                       ? QStringLiteral("TMX 调试助手")
+                       : QStringLiteral("TMX 调试助手 %1").arg(ver));
     setWindowIcon(QIcon(QStringLiteral(":/image/tmx.png")));
     initSerialBackend();
     initUi();
