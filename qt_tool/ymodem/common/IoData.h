@@ -36,7 +36,7 @@ struct IoPacket
     quint16 port = 0;  // 串口为 0
     qint64 timestampMs = 0;
 
-    static IoPacket fromBytes(const QByteArray &payload)
+    static IoPacket fromBytes(const QByteArray &payload)          // 只填数据和时间，channel 默认 Serial
     {
         IoPacket packet;
         packet.data = payload;
@@ -44,7 +44,7 @@ struct IoPacket
         return packet;
     }
 
-    static IoPacket fromSerial(const QByteArray &payload, const QString &portName)
+    static IoPacket fromSerial(const QByteArray &payload, const QString &portName)  // 串口收/发包
     {
         IoPacket packet = fromBytes(payload);
         packet.channel = Serial;
@@ -53,7 +53,7 @@ struct IoPacket
     }
 
     static IoPacket fromNetwork(Channel ch, const QByteArray &payload,
-                               const QString &ip, quint16 port)
+                               const QString &ip, quint16 port)   // 网络收/发包，可带对端
     {
         IoPacket packet = fromBytes(payload);
         packet.channel = ch;
@@ -72,7 +72,7 @@ class IoSource : public QObject
 {
     Q_OBJECT
 public:
-    explicit IoSource(QObject *parent = nullptr)
+    explicit IoSource(QObject *parent = nullptr)  // 登记 IoPacket 的元类型，方便跨线程排队
         : QObject(parent)
     {
         qRegisterMetaType<IoPacket>("IoPacket");
@@ -80,11 +80,11 @@ public:
     }
 
 signals:
-    void ioDataReceived(const IoPacket &packet);
-    void ioDataSent(const IoPacket &packet);  // 实际写出之后，便于其它界面记 TX
+    void ioDataReceived(const IoPacket &packet);  // 链路收到一包，UI 或其它控件在这里显示
+    void ioDataSent(const IoPacket &packet);      // 链路真正写出之后，用来记 TX
 
 public slots:
-    /** 必须在本对象当前线程调用。Qt 只能“推”线程，不能从 UI 线程硬拉。 */
+    /** 把本对象推到 target 所在线程。必须在本对象当前线程调用。 */
     void handoverTo(QObject *target)
     {
         if (!target)
@@ -95,6 +95,7 @@ public slots:
         moveToThread(dest);
     }
 
+    /** 经当前已打开的串口/网口发送一包；可带对端。空数据直接忽略。 */
     void sendIoData(const IoPacket &packet)
     {
         if (packet.data.isEmpty())
@@ -106,14 +107,17 @@ public slots:
             emit ioDataSent(out);
     }
 
+    /** 只发载荷，对端用链路当前连接（TCP 客户端）或广播。 */
     void sendIoData(const QByteArray &data)
     {
         sendIoData(IoPacket::fromBytes(data));
     }
 
 protected:
+    /** 子类真正往串口/套接字写；成功返回 true。 */
     virtual bool writeIoData(const IoPacket &packet) = 0;
 
+    /** 子类收到数据时调用，对外发出 ioDataReceived。 */
     void emitIoData(const IoPacket &packet)
     {
         emit ioDataReceived(packet);

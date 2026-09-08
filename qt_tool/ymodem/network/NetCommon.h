@@ -25,12 +25,14 @@ struct RemoteHost
     quint16      port = 0;
     qint64       lastSeen = 0;
 
+    /** 给人看/去连接的主机名：优先用户输入原文，否则用解析出的 IP。 */
     QString endpoint() const {
         if (!host.isEmpty())
             return host;
         return address.toString();
     }
 
+    /** 同一端口且主机名（忽略大小写）相同则视为同一个对端。 */
     bool operator==(const RemoteHost &other) const {
         if (port != other.port)
             return false;
@@ -39,6 +41,7 @@ struct RemoteHost
 };
 Q_DECLARE_METATYPE(RemoteHost)
 
+/** 把纯数字端口字符串解析成 1–65535；非法则返回 false。 */
 inline bool parseTcpPort(const QString &portStr, quint16 *port)
 {
     if (!port || portStr.isEmpty())
@@ -55,6 +58,7 @@ inline bool parseTcpPort(const QString &portStr, quint16 *port)
     return true;
 }
 
+/** 粗查主机名：非空、不太长、不含空格和 URL 分隔符。 */
 inline bool isPlausibleHostName(const QString &host)
 {
     if (host.isEmpty() || host.size() > 253)

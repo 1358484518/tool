@@ -23,6 +23,7 @@ inline QByteArray hexStringToBytes(const QString &str)
     return QByteArray::fromHex(hex);
 }
 
+/** 字节转空格分隔的大写 HEX，例如 "01 0A FF"。 */
 inline QString bytesToHexString(const QByteArray &data)
 {
     return QString::fromLatin1(data.toHex(' ')).toUpper();
@@ -44,6 +45,7 @@ inline quint16 crc16Modbus(const QByteArray &data)
     return crc;
 }
 
+/** 在数据末尾追加 Modbus CRC16（低字节在前）。空数据原样返回。 */
 inline QByteArray appendCrc16Modbus(QByteArray data)
 {
     if (data.isEmpty())
@@ -54,6 +56,7 @@ inline QByteArray appendCrc16Modbus(QByteArray data)
     return data;
 }
 
+/** 当前时间，格式 HH:mm:ss.zzz，给接收区当时间戳。 */
 inline QString timestampMs()
 {
     return QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz"));

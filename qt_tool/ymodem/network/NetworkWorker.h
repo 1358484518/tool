@@ -17,56 +17,53 @@ class NetworkWorker : public IoSource
 {
     Q_OBJECT
 public:
-    explicit NetworkWorker(QObject *parent = nullptr);
-    ~NetworkWorker() override;
+    explicit NetworkWorker(QObject *parent = nullptr);  // 只登记类型，套接字在 open 时才建
+    ~NetworkWorker() override;                          // 关掉当前协议的 Manager
 
 public slots:
-    void slotOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort);
-    void slotCloseNetwork();
-    void slotTcpConnect(QString remoteIp, quint16 remotePort);      // 仅 TCP 客户端
-    void slotTcpDisconnect();
-    void slotSendData(QByteArray data, QString remoteIp, quint16 remotePort);
+    void slotOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort);  // 按协议 bind/listen；TCP 客户端只记本机地址
+    void slotCloseNetwork();                            // 关掉并删除当前 Manager
+    void slotTcpConnect(QString remoteIp, quint16 remotePort);  // 仅 TCP 客户端：去连对端
+    void slotTcpDisconnect();                           // 仅 TCP 客户端：主动断开
+    void slotSendData(QByteArray data, QString remoteIp, quint16 remotePort);  // 组 IoPacket 后走 sendIoData
 
 signals:
-    void sigRecvData(QByteArray data, QString fromIp, quint16 fromPort);
-    void sigClientConnected(QString ip, quint16 port);
-    void sigClientDisconnected(QString ip, quint16 port);
-    void sigTcpConnected();
-    void sigTcpDisconnected();
-    void sigError(QString errStr);
-    void sigStateText(QString text);
-    void sigClientCount(int count);
+    void sigRecvData(QByteArray data, QString fromIp, quint16 fromPort);  // 原始收包，给旧 UI 用
+    void sigClientConnected(QString ip, quint16 port);   // TCP 服务端新连接
+    void sigClientDisconnected(QString ip, quint16 port); // TCP 服务端连接断开
+    void sigTcpConnected();                             // TCP 客户端已连接
+    void sigTcpDisconnected();                          // TCP 客户端已断开
+    void sigError(QString errStr);                      // 把 Manager 错误转成字符串给 UI
+    void sigStateText(QString text);                    // Listening / Connecting 等给人看的状态
+    void sigClientCount(int count);                     // TCP 服务端当前连接数
 
 private slots:
-    // TCP服务端
-    void onTcpServerClientConnected(const TcpClientInfo &client);
-    void onTcpServerClientDisconnected(const TcpClientInfo &client);
-    void onTcpServerData(ClientConnId id, const QByteArray &data);
+    void onTcpServerClientConnected(const TcpClientInfo &client);       // 转发新客户端并更新人数
+    void onTcpServerClientDisconnected(const TcpClientInfo &client);    // 转发断开并更新人数
+    void onTcpServerData(ClientConnId id, const QByteArray &data);      // 服务端收到某客户端数据
     void onTcpServerError(QTcpServerManager::Error err, const QString &errStr);
-    void onTcpServerState(QTcpServerManager::State state);
+    void onTcpServerState(QTcpServerManager::State state);              // listen 状态变成文字
 
-    // TCP客户端
-    void onTcpClientConnected();
-    void onTcpClientDisconnected();
-    void onTcpClientData(const QByteArray &data);
+    void onTcpClientConnected();                        // 客户端连上，通知 UI
+    void onTcpClientDisconnected();                     // 客户端断开，通知 UI
+    void onTcpClientData(const QByteArray &data);       // 客户端收到对端数据
     void onTcpClientError(QTcpSocketManager::Error err, const QString &errStr);
     void onTcpClientState(QTcpSocketManager::State state);
 
-    // UDP
-    void onUdpDatagram(const UdpDatagram &dg);
+    void onUdpDatagram(const UdpDatagram &dg);          // UDP 收到一包，转成 IoPacket
     void onUdpError(QUdpSocketManager::Error err, const QString &errStr);
     void onUdpState(QUdpSocketManager::State state);
-    void onUdpHostAdded(const RemoteHost &host);
-    void onUdpHostRemoved(const RemoteHost &host);
+    void onUdpHostAdded(const RemoteHost &host);        // 新见到的对端，让 UI 写入下拉
+    void onUdpHostRemoved(const RemoteHost &host);      // 超时对端从列表拿掉
 
 private:
     void cleanupCurrentNet();   // 关掉并删掉当前协议的 Manager
-    void sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort);
+    void sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort);  // 按 IP:端口找连接再发
     void forwardPayload(IoPacket::Channel channel, const QByteArray &data,
-                        const QString &peer, quint16 port);
+                        const QString &peer, quint16 port);  // 同时发 sigRecvData 和 ioDataReceived
 
 protected:
-    bool writeIoData(const IoPacket &packet) override;
+    bool writeIoData(const IoPacket &packet) override;  // 按当前协议真正往套接字写
 
 private:
     NetProtocol m_currentProto = static_cast<NetProtocol>(-1);

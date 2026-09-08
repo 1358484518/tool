@@ -29,79 +29,79 @@ class SerialAssistant : public QWidget
 {
     Q_OBJECT
 public:
-    explicit SerialAssistant(QWidget *parent = nullptr);
-    ~SerialAssistant() override;
+    explicit SerialAssistant(QWidget *parent = nullptr);  // 搭界面、读上次保存的串口参数
+    ~SerialAssistant() override;                          // 把当前参数写回配置
 
-    QString selectedPortName() const;
-    qint32 selectedBaudRate() const;
-    QSerialPort::DataBits selectedDataBits() const;
-    QSerialPort::Parity selectedParity() const;
-    QSerialPort::StopBits selectedStopBits() const;
-    QSerialPort::FlowControl selectedFlowControl() const;
-    bool autoReconnectEnabled() const;
-    int reconnectInterval() const;
+    QString selectedPortName() const;                     // 下拉框里当前选中的 COM 口
+    qint32 selectedBaudRate() const;                      // 当前波特率
+    QSerialPort::DataBits selectedDataBits() const;       // 当前数据位
+    QSerialPort::Parity selectedParity() const;           // 当前校验位
+    QSerialPort::StopBits selectedStopBits() const;       // 当前停止位
+    QSerialPort::FlowControl selectedFlowControl() const; // 当前流控
+    bool autoReconnectEnabled() const;                    // 是否勾了掉线自动重连
+    int reconnectInterval() const;                        // 自动重连间隔，毫秒
 
-    void setConnectionState(bool connected);
-    void showStatusMessage(const QString &message, int timeout = 3000);
-    void updatePortList(const QList<QSerialPortInfo> &ports);
-    void resetCounters();
-    QByteArray getReceiveText();
+    void setConnectionState(bool connected);              // 按打开/关闭刷新按钮和控件可用状态
+    void showStatusMessage(const QString &message, int timeout = 3000);  // 状态栏提示，timeout 后清掉
+    void updatePortList(const QList<QSerialPortInfo> &ports);            // 刷新 COM 口下拉框
+    void resetCounters();                                 // RX/TX 计数清零
+    QByteArray getReceiveText();                          // 取出接收区当前文本，给保存日志用
 
 signals:
-    void openPortRequested();
-    void closePortRequested();
-    void sendDataRequested(const QByteArray &data);
-    void dtrToggled(bool enabled);
-    void rtsToggled(bool enabled);
-    void saveLogRequested();
-    void clearReceivedRequested();
-    void refreshPortsRequested();
-    void ymodemSendRequested(const QString &filePath);
-    void ioDataReceived(const IoPacket &packet);  // 转发，方便再接控件
+    void openPortRequested();                             // 用户点打开，主窗口拿参数去开串口
+    void closePortRequested();                            // 用户点关闭
+    void sendDataRequested(const QByteArray &data);       // 组好包后交给串口后端发出
+    void dtrToggled(bool enabled);                        // DTR 勾选变化
+    void rtsToggled(bool enabled);                        // RTS 勾选变化
+    void saveLogRequested();                              // 保存接收日志
+    void clearReceivedRequested();                        // 清空接收区
+    void refreshPortsRequested();                         // 刷新端口列表
+    void ymodemSendRequested(const QString &filePath);    // 选中文件后请求 YModem 发送
+    void ioDataReceived(const IoPacket &packet);          // 转发收到的包，方便再接其它控件
 
 public slots:
-    void onIoData(const IoPacket &packet);        // 统一收包入口
-    void appendReceivedData(const QByteArray &data);
+    void onIoData(const IoPacket &packet);                // 统一收包入口：串口包写入接收区
+    void appendReceivedData(const QByteArray &data);      // 把原始字节按 HEX/文本选项显示出来
 
 private slots:
-    void onOpenCloseClicked();
-    void onSendClicked();
-    void onAutoSendToggled(bool enabled);
-    void onAutoSendTimer();
-    void onResetCounterClicked();
-    void onPauseToggled(bool paused);
-    void onMultiSendAddRow();
-    void onMultiSendDeleteRow();
-    void onMultiSendImportCsv();
-    void onMultiSendImportCsv(QString fileName);
-    void onMultiSendExportCsv();
-    void onMultiSendExportCsv(QString filename);
-    void onMultiSendSelected();
-    void onYmodemSendClicked();
-    void onDoubleSendSelected(int row, int column);  // 双击多条发送表一行
+    void onOpenCloseClicked();                            // 打开/关闭按钮：按当前状态发请求
+    void onSendClicked();                                 // 发送按钮：组包后发 sendDataRequested
+    void onAutoSendToggled(bool enabled);                 // 定时发送开关
+    void onAutoSendTimer();                               // 定时器到点再发一次
+    void onResetCounterClicked();                         // 清零 RX/TX 计数
+    void onPauseToggled(bool paused);                     // 暂停显示接收（数据仍会进计数）
+    void onMultiSendAddRow();                             // 多条发送表加一行
+    void onMultiSendDeleteRow();                          // 删掉选中行
+    void onMultiSendImportCsv();                          // 弹文件框导入 CSV
+    void onMultiSendImportCsv(QString fileName);          // 按路径导入多条发送表
+    void onMultiSendExportCsv();                          // 弹文件框导出 CSV
+    void onMultiSendExportCsv(QString filename);          // 按路径导出多条发送表
+    void onMultiSendSelected();                           // 按间隔依次发送勾选的多条
+    void onYmodemSendClicked();                           // 选文件并发 ymodemSendRequested
+    void onDoubleSendSelected(int row, int column);       // 双击一行，立刻发这一条
 
 protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;  // Ctrl+Enter 发送
+    bool eventFilter(QObject *watched, QEvent *event) override;  // 发送框 Ctrl+Enter 触发发送
 
 private:
-    void setupUi();
-    void populateBaudRates();
-    void populateDataBits();
-    void populateParity();
-    void populateStopBits();
-    void populateFlowControl();
-    void populateLineEndings();
+    void setupUi();                                       // 拼左右面板、接收区、发送页签
+    void populateBaudRates();                             // 填波特率下拉
+    void populateDataBits();                              // 填数据位
+    void populateParity();                                // 填校验位
+    void populateStopBits();                              // 填停止位
+    void populateFlowControl();                           // 填流控
+    void populateLineEndings();                           // 填行结束符（无 / CR / LF / CRLF）
 
-    QStringList parseCsvLine(const QString &line);
-    QString csvEscape(const QString &field);
+    QStringList parseCsvLine(const QString &line);        // 按 CSV 规则拆一行
+    QString csvEscape(const QString &field);              // 导出时给字段加引号转义
 
-    QByteArray processSendData(const QString &text);  // 按 HEX / 换行 / CRC 选项组包
-    QString getTimestamp() const;
+    QByteArray processSendData(const QString &text);      // 按 HEX / 换行 / CRC 选项把文本编成要发的字节
+    QString getTimestamp() const;                         // 接收区时间戳前缀
 
-    void importCsvFile(const QString &fileName, bool interactive);
-    void exportCsvFile(const QString &fileName, bool interactive);
-    void loadSettings();
-    void saveSettings();
+    void importCsvFile(const QString &fileName, bool interactive);  // 读 CSV 填表，interactive 决定是否弹错
+    void exportCsvFile(const QString &fileName, bool interactive);  // 把表写成 CSV
+    void loadSettings();                                  // 从 QSettings 恢复上次串口参数
+    void saveSettings();                                  // 把当前参数写入 QSettings
 
     QHBoxLayout *m_mainLayout;
     QWidget *m_leftPanel;

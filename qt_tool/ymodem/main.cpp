@@ -3,7 +3,7 @@
 
 #include <QApplication>
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[])  // 启用高 DPI、登记跨线程类型，然后打开主窗口
 {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
