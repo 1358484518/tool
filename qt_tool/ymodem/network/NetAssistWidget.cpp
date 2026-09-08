@@ -130,7 +130,7 @@ void NetAssistWidget::initUi()
     connLayout->addWidget(m_btnOpen);
 
     connLayout->addSpacing(3);
-    connLayout->addWidget(new QLabel("远程地址:端口"));
+    connLayout->addWidget(new QLabel("远程地址（IP/网址:端口）"));
 //    m_cmbRemoteIp = new QComboBox();
 //    m_cmbRemoteIp->setFixedHeight(22);
 //    m_cmbRemoteIp->setEditable(true);
@@ -147,11 +147,17 @@ void NetAssistWidget::initUi()
 
     m_cmbRemoteAddr = new QComboBox();
     m_cmbRemoteAddr->setEditable(true);
+    m_cmbRemoteAddr->setToolTip(QStringLiteral("支持 127.0.0.1:80、www.example.com:443、https://www.example.com"));
     RemoteHost addr;
-    addr.port=13601;
-    addr.address=QHostAddress("127.0.0.1");
+    addr.port = 13601;
+    addr.address = QHostAddress(QStringLiteral("127.0.0.1"));
+    addr.host = QStringLiteral("127.0.0.1");
     addHostAddr(addr);
     connLayout->addWidget(m_cmbRemoteAddr);
+    if (m_cmbRemoteAddr->lineEdit()) {
+        m_cmbRemoteAddr->lineEdit()->setPlaceholderText(
+            QStringLiteral("127.0.0.1:80 或 www.example.com:443"));
+    }
 
     m_btnConnect = new QPushButton("连接");
     m_btnConnect->setEnabled(false);
@@ -461,13 +467,11 @@ void NetAssistWidget::onSendClicked()
 
 void NetAssistWidget::onConnectAddrChange(QString ip, quint16 port)
 {
-    // ==================== 1. 构造标准条目 ====================
     RemoteHost host;
     host.address = QHostAddress(ip);
+    host.host = ip;
     host.port = port;
     host.lastSeen = QDateTime::currentMSecsSinceEpoch();
-
-    // ==================== 2. 添加并选中 ====================
     addHostAddr(host);
 }
 
@@ -601,17 +605,14 @@ bool NetAssistWidget::hasHostInCombo(const RemoteHost &host)
 
 bool NetAssistWidget::addHostAddr(const RemoteHost &host)
 {
-    // 已存在则直接返回，不重复添加
-    if (hasHostInCombo( host)) {
+    if (hasHostInCombo(host))
         return false;
-    }
 
-    // 格式化显示文本，IPv6自动加方括号
     QString displayText;
     if (host.address.protocol() == QAbstractSocket::IPv6Protocol) {
-        displayText = QString("[%1]:%2").arg(host.address.toString()).arg(host.port);
+        displayText = QStringLiteral("[%1]:%2").arg(host.address.toString()).arg(host.port);
     } else {
-        displayText = QString("%1:%2").arg(host.address.toString()).arg(host.port);
+        displayText = QStringLiteral("%1:%2").arg(host.endpoint()).arg(host.port);
     }
 
     m_cmbRemoteAddr->addItem(displayText, QVariant::fromValue(host));
@@ -620,59 +621,12 @@ bool NetAssistWidget::addHostAddr(const RemoteHost &host)
 
 bool NetAssistWidget::commitCurrentHost()
 {
-    QString input = m_cmbRemoteAddr->currentText().trimmed();
-    if (input.isEmpty()) return false; // 空输入直接拦截
-
-    QHostAddress addr;
-    quint16 port = 0;
-
-    // ==================== 1. 严格IP+端口校验 ====================
-    if (input.startsWith('[')) {
-        // ---------- IPv6: 必须是[addr]:port标准格式 ----------
-        int rb = input.indexOf(']');
-        if (rb < 2 || rb+2 >= input.size() || input[rb+1] != ':') return false;
-
-        QString ipStr = input.mid(1, rb-1).trimmed();
-        QString portStr = input.mid(rb+2).trimmed();
-        if (ipStr.isEmpty() || portStr.isEmpty()) return false;
-
-        if (!addr.setAddress(ipStr) || addr.protocol() != QAbstractSocket::IPv6Protocol) return false;
-
-        // 端口校验：全数字、1-65535
-        bool ok = true;
-        for (QChar c : portStr) if (!c.isDigit()) { ok = false; break; }
-        if (!ok) return false;
-        port = portStr.toUShort(&ok);
-        if (!ok || port == 0) return false;
-
-    } else {
-        // ---------- IPv4: 必须是x.x.x.x:port标准格式 ----------
-        int colonCnt = input.count(':');
-        if (colonCnt != 1) return false;
-
-        int colonPos = input.lastIndexOf(':');
-        QString ipStr = input.left(colonPos).trimmed();
-        QString portStr = input.mid(colonPos+1).trimmed();
-        if (ipStr.isEmpty() || portStr.isEmpty()) return false;
-
-        if (!addr.setAddress(ipStr) || addr.protocol() != QAbstractSocket::IPv4Protocol) return false;
-        if (addr.toString() != ipStr) return false;
-
-        // 端口校验：全数字、1-65535
-        bool ok = true;
-        for (QChar c : portStr) if (!c.isDigit()) { ok = false; break; }
-        if (!ok) return false;
-        port = portStr.toUShort(&ok);
-        if (!ok || port == 0) return false;
-    }
-
-    // ==================== 2. 构造标准条目 ====================
+    const QString input = m_cmbRemoteAddr->currentText().trimmed();
     RemoteHost host;
-    host.address = addr;
-    host.port = port;
+    if (!parseRemoteEndpoint(input, &host))
+        return false;
     host.lastSeen = QDateTime::currentMSecsSinceEpoch();
 
-    // ==================== 3. 添加并选中 ====================
     addHostAddr(host);
     for (int i = 0; i < m_cmbRemoteAddr->count(); ++i) {
         if (m_cmbRemoteAddr->itemData(i).value<RemoteHost>() == host) {
@@ -680,7 +634,6 @@ bool NetAssistWidget::commitCurrentHost()
             break;
         }
     }
-
     return true;
 }
 
@@ -689,10 +642,11 @@ bool NetAssistWidget::currentRemote(QString *ip, quint16 *port)
     if (!commitCurrentHost())
         return false;
     const RemoteHost h = m_cmbRemoteAddr->currentData().value<RemoteHost>();
-    if (h.address.isNull() || h.port == 0)
+    const QString target = h.endpoint();
+    if (target.isEmpty() || h.port == 0)
         return false;
     if (ip)
-        *ip = h.address.toString();
+        *ip = target;
     if (port)
         *port = h.port;
     return true;

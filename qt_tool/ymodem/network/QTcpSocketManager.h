@@ -6,6 +6,7 @@
 #include <QHostAddress>
 #include <QQueue>
 #include <QAbstractSocket>
+#include <QString>
 
 class QTcpSocket;
 class QTimer;
@@ -13,7 +14,8 @@ class QTimer;
 // TCP连接配置
 struct TcpConfig
 {
-    QHostAddress remoteAddress;       // 远程服务器地址
+    QHostAddress remoteAddress;       // 远程 IP，可为空（走域名）
+    QString      remoteHost;          // 域名或 IP 文本，优先用于 connectToHost
     quint16      remotePort = 0;      // 远程端口
     QHostAddress bindAddress = QHostAddress::Any; // 本地绑定地址
     quint16      bindPort = 0;        // 本地绑定端口，0自动分配

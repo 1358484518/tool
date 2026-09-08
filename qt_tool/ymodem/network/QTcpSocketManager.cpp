@@ -52,6 +52,7 @@ void QTcpSocketManager::start(const QHostAddress &host, quint16 port)
 {
     TcpConfig config;
     config.remoteAddress = host;
+    config.remoteHost = host.toString();
     config.remotePort = port;
     start(config);
 }
@@ -213,7 +214,9 @@ void QTcpSocketManager::doReconnect()
         }
     }
 
-    m_socket->connectToHost(m_config.remoteAddress, m_config.remotePort);
+    m_socket->connectToHost(
+        m_config.remoteHost.isEmpty() ? m_config.remoteAddress.toString() : m_config.remoteHost,
+        m_config.remotePort);
     m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, m_config.keepAlive ? 1 : 0);
     m_connectTimer->start(m_config.connectTimeoutMs);
 }
@@ -241,6 +244,8 @@ QTcpSocketManager::Error QTcpSocketManager::mapQtSocketError(QAbstractSocket::So
 void QTcpSocketManager::applyConfig(const TcpConfig &config)
 {
     m_config = config;
+    if (m_config.remoteHost.isEmpty())
+        m_config.remoteHost = m_config.remoteAddress.toString();
     if (m_config.bindAddress.isNull()) {
         m_config.bindAddress = QHostAddress::Any;
     }

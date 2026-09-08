@@ -125,6 +125,7 @@ void QUdpSocketManager::addRemoteHost(const QHostAddress &host, quint16 port)
     if(m_remoteHosts.size()>256)return;
     RemoteHost h;
     h.address = host;
+    h.host = host.toString();
     h.port = port;
     h.lastSeen = QDateTime::currentMSecsSinceEpoch();
 
@@ -143,6 +144,7 @@ void QUdpSocketManager::removeRemoteHost(const QHostAddress &host, quint16 port)
 {
     RemoteHost h;
     h.address = host;
+    h.host = host.toString();
     h.port = port;
     int idx = m_remoteHosts.indexOf(h);
     if (idx >= 0) {
@@ -309,6 +311,7 @@ void QUdpSocketManager::updateRemoteHost(const QHostAddress &host, quint16 port)
 
     RemoteHost h;
     h.address = host;
+    h.host = host.toString();
     h.port = port;
 
     int idx = m_remoteHosts.indexOf(h);

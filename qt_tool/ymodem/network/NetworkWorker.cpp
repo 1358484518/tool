@@ -1,5 +1,6 @@
 #include "NetworkWorker.h"
 
+#include <QHostInfo>
 
 NetworkWorker::NetworkWorker(QObject *parent)
     : QObject(parent)
@@ -77,7 +78,8 @@ void NetworkWorker::slotTcpConnect(QString remoteIp, quint16 remotePort)
 {
     if (m_currentProto != NetProtocol::TcpClient || !m_tcpClient) return;
     TcpConfig cfg = m_tcpClient->currentConfig();
-    cfg.remoteAddress = QHostAddress(remoteIp);
+    cfg.remoteHost = remoteIp.trimmed();
+    cfg.remoteAddress = QHostAddress(cfg.remoteHost);
     cfg.remotePort = remotePort;
     cfg.bindAddress = m_bindAddress;
     cfg.bindPort = m_bindPort;
@@ -104,10 +106,26 @@ void NetworkWorker::slotSendData(QByteArray data, QString remoteIp, quint16 remo
     } else if (m_currentProto == NetProtocol::TcpClient && m_tcpClient) {
         m_tcpClient->send(data);
     } else if (m_currentProto == NetProtocol::Udp && m_udp) {
-        if (remoteIp.isEmpty())
+        if (remoteIp.isEmpty()) {
             m_udp->broadcast(data, remotePort);
-        else
-            m_udp->sendTo(data, QHostAddress(remoteIp), remotePort);
+        } else {
+            QHostAddress addr(remoteIp);
+            if (addr.isNull()) {
+                const QHostInfo info = QHostInfo::fromName(remoteIp);
+                if (info.addresses().isEmpty()) {
+                    emit sigError(QStringLiteral("无法解析主机 %1").arg(remoteIp));
+                    return;
+                }
+                addr = info.addresses().first();
+                for (const QHostAddress &item : info.addresses()) {
+                    if (item.protocol() == QAbstractSocket::IPv4Protocol) {
+                        addr = item;
+                        break;
+                    }
+                }
+            }
+            m_udp->sendTo(data, addr, remotePort);
+        }
     }
 }
 
