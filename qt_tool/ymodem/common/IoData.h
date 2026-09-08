@@ -6,6 +6,7 @@
 #include <QMetaType>
 #include <QObject>
 #include <QString>
+#include <QThread>
 
 /**
  * 串口和网络共用的一包数据。
@@ -66,6 +67,22 @@ public:
 
 signals:
     void ioDataReceived(const IoPacket &packet);
+
+public slots:
+    /**
+     * 必须在本对象当前线程里调用（关闭时用 BlockingQueued 从工作线程推回 UI）。
+     * Qt 的 moveToThread 只能“推”不能“拉”，UI 线程直接 move 会报
+     * Current thread is not the object's thread。
+     */
+    void handoverTo(QObject *target)
+    {
+        if (!target)
+            return;
+        QThread *dest = target->thread();
+        if (!dest || thread() == dest)
+            return;
+        moveToThread(dest);
+    }
 
 protected:
     void emitIoData(const IoPacket &packet)

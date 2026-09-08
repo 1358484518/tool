@@ -40,7 +40,9 @@ void NetworkWorker::slotOpenNetwork(NetProtocol proto, QString localIp, quint16 
         m_tcpClient = new QTcpSocketManager(this);
         TcpConfig cfg;
         cfg.bindAddress = bindAddr;
-        cfg.bindPort = localPort;
+        // 客户端不要把「本地端口」当成 bind 口：断开后套接字尚未 Unconnected 时再 bind
+        // 会报 QNativeSocketEngine::bind() was not called in UnconnectedState。
+        cfg.bindPort = 0;
 
         connect(m_tcpClient, &QTcpSocketManager::connected, this, &NetworkWorker::onTcpClientConnected);
         connect(m_tcpClient, &QTcpSocketManager::disconnected, this, &NetworkWorker::onTcpClientDisconnected);
@@ -81,7 +83,7 @@ void NetworkWorker::slotTcpConnect(QString remoteIp, quint16 remotePort)
     cfg.remoteAddress = QHostAddress(cfg.remoteHost);
     cfg.remotePort = remotePort;
     cfg.bindAddress = m_bindAddress;
-    cfg.bindPort = m_bindPort;
+    cfg.bindPort = 0;
     m_tcpClient->start(cfg);
 }
 

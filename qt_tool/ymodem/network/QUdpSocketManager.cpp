@@ -78,10 +78,11 @@ void QUdpSocketManager::stop()
     m_sendTimer->stop();
     m_hostCleanupTimer->stop();
     m_sendQueue.clear();
-    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
-        m_socket->close();
-    }
+    // 先标 Stopped，避免 close/abort 触发的 error 又把重连定时器拉起来。
     setState(Stopped);
+    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
+        m_socket->abort();
+    }
 }
 
 void QUdpSocketManager::sendTo(const QByteArray &data, const QHostAddress &host, quint16 port)
@@ -178,6 +179,8 @@ void QUdpSocketManager::onReadyRead()
 
 void QUdpSocketManager::onSocketError(QAbstractSocket::SocketError err)
 {
+    if (m_state == Stopped) return;
+
     Error code = mapQtSocketError(err);
     emit errorOccurred(code, m_socket->errorString());
 
@@ -255,6 +258,8 @@ void QUdpSocketManager::doReconnect()
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
         m_socket->abort();
     }
+    if (m_socket->state() != QAbstractSocket::UnconnectedState)
+        return;
 
     bool ok = m_socket->bind(m_config.bindAddress, m_config.listenPort);
 #ifdef Q_OS_WIN

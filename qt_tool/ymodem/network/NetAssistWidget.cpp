@@ -81,11 +81,13 @@ NetAssistWidget::~NetAssistWidget()
         disconnect(this, nullptr, m_netWorker, nullptr);
         if (workerThread.isRunning()) {
             QMetaObject::invokeMethod(m_netWorker, "slotCloseNetwork", Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(m_netWorker, "handoverTo",
+                                      Qt::BlockingQueuedConnection,
+                                      Q_ARG(QObject *, this));
+            m_netWorker->setParent(this);
             workerThread.quit();
             workerThread.wait(5000);
-        }
-        if (!workerThread.isRunning()) {
-            m_netWorker->moveToThread(QThread::currentThread());
+        } else {
             m_netWorker->setParent(this);
         }
         m_netWorker = nullptr;

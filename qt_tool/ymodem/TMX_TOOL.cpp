@@ -30,13 +30,14 @@ TMX_TOOL::~TMX_TOOL()
         disconnect(this, nullptr, m_serial_operate, nullptr);
         if (m_serialThread && m_serialThread->isRunning()) {
             QMetaObject::invokeMethod(m_serial_operate, "close", Qt::BlockingQueuedConnection);
+            // 必须在工作线程里把对象推回 UI，不能从 UI 线程 moveToThread。
+            QMetaObject::invokeMethod(m_serial_operate, "handoverTo",
+                                      Qt::BlockingQueuedConnection,
+                                      Q_ARG(QObject *, this));
+            m_serial_operate->setParent(this);
             m_serialThread->quit();
             m_serialThread->wait(5000);
-        }
-        // 工作线程对象不能带 parent（否则无法 moveToThread）。
-        // 停线程后拉回 UI 线程并 setParent，交给 Qt 对象树在 ~QObject 时释放。
-        if (!m_serialThread || !m_serialThread->isRunning()) {
-            m_serial_operate->moveToThread(QThread::currentThread());
+        } else {
             m_serial_operate->setParent(this);
         }
         m_serial_operate = nullptr;

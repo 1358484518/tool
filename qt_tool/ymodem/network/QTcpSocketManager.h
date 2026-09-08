@@ -95,8 +95,10 @@ private:
     void setState(State newState);
     Error mapQtSocketError(QAbstractSocket::SocketError err);
     void applyConfig(const TcpConfig &config);
+    void recreateSocket();
+    bool shouldBindLocal() const;
 
-    QTcpSocket *m_socket;
+    QTcpSocket *m_socket = nullptr;
     QTimer     *m_recvTimer;
     QTimer     *m_sendTimer;
     QTimer     *m_reconnectTimer;
