@@ -262,8 +262,8 @@ void NetAssistWidget::initUi()
 
     m_checkHexRecv = new QCheckBox(QStringLiteral("十六进制"), m_groupRecvSetting);
     recvGrid->addWidget(m_checkHexRecv, r, 0);
-    m_checkRecvTimestamp = new QCheckBox(QStringLiteral("时间戳"), m_groupRecvSetting);
-    recvGrid->addWidget(m_checkRecvTimestamp, r, 1);
+    m_checkTimestamp = new QCheckBox(QStringLiteral("时间戳"), m_groupRecvSetting);
+    recvGrid->addWidget(m_checkTimestamp, r, 1);
     r++;
 
     m_scrollToBottom = new QCheckBox(QStringLiteral("自动滚屏"), m_groupRecvSetting);
@@ -271,6 +271,13 @@ void NetAssistWidget::initUi()
     recvGrid->addWidget(m_scrollToBottom, r, 0);
     m_checkShowRecvAddr = new QCheckBox(QStringLiteral("显示地址"), m_groupRecvSetting);
     recvGrid->addWidget(m_checkShowRecvAddr, r, 1);
+    r++;
+
+    m_checkShowSend = new QCheckBox(QStringLiteral("显示发送"), m_groupRecvSetting);
+    m_checkShowSend->setChecked(true);
+    recvGrid->addWidget(m_checkShowSend, r, 0);
+    m_checkShowDirection = new QCheckBox(QStringLiteral("显示方向"), m_groupRecvSetting);
+    recvGrid->addWidget(m_checkShowDirection, r, 1);
     rightLayout->addWidget(m_groupRecvSetting);
 
     m_btnResetCount = new QPushButton(QStringLiteral("计数清零"), rightPanel);
@@ -336,11 +343,17 @@ void NetAssistWidget::initConnect()
     });
 
     // 复选框状态自动同步
-    connect(m_checkRecvTimestamp, &QCheckBox::toggled, this, [this](bool checked){
-        m_recvTimestamp = checked;
+    connect(m_checkTimestamp, &QCheckBox::toggled, this, [this](bool checked){
+        m_showTimestamp = checked;
     });
     connect(m_checkShowRecvAddr, &QCheckBox::toggled, this, [this](bool checked){
         m_showRecvAddr = checked;
+    });
+    connect(m_checkShowSend, &QCheckBox::toggled, this, [this](bool checked){
+        m_showSend = checked;
+    });
+    connect(m_checkShowDirection, &QCheckBox::toggled, this, [this](bool checked){
+        m_showDirection = checked;
     });
     connect(m_checkAddModbusCrc16, &QCheckBox::toggled, this, [this](bool checked){
         m_addModbusCrc16 = checked;
@@ -354,8 +367,10 @@ void NetAssistWidget::initConnect()
     });
 
     // 强制初始状态同步（避免UI设计器误勾选导致初始值不一致）
-    m_checkRecvTimestamp->setChecked(false);
+    m_checkTimestamp->setChecked(false);
     m_checkShowRecvAddr->setChecked(false);
+    m_checkShowSend->setChecked(true);
+    m_checkShowDirection->setChecked(false);
     m_checkAddModbusCrc16->setChecked(false);
     m_checkAppendCRLF->setChecked(false);
     m_checkBroadcastSend->setChecked(false);
@@ -525,7 +540,7 @@ void NetAssistWidget::onSendClicked()
     emit sigSendData(data, remoteIp, remotePort);
     m_sendBytes += static_cast<quint64>(data.size());
     updateCountLabel();
-    appendLog(QStringLiteral("[TX] %1").arg(dataToText(data)), Qt::blue);
+    appendTrafficLog(true, data, remoteIp, remotePort);
 }
 
 void NetAssistWidget::onConnectAddrChange(QString ip, quint16 port)
@@ -548,23 +563,7 @@ void NetAssistWidget::slotRecvData(QByteArray data, QString fromIp, quint16 from
 {
     m_recvBytes += data.size();
     updateCountLabel();
-    QString line=QString();
-//    QString time = QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
-//    QString line = QString("[%1] %2\n").arg(time).arg(dataToText(data));
-
-//    QString prefix;
-//    if (!fromIp.isEmpty()) {
-//        prefix = QString("[RX][%1:%2] ").arg(fromIp).arg(fromPort);
-//    } else {
-//        prefix = "[RX] ";
-//    }
-//    appendLog(prefix + dataToText(data), Qt::black);
-    if(m_recvTimestamp)line+=QString("[%1] ").arg(QDateTime::currentDateTime().toString("hh:mm:ss.zzz"));
-    if(m_showRecvAddr)line+=QString("[RX][%1:%2] ").arg(fromIp).arg(fromPort);
-    line += dataToText(data);
-    if(m_recvTimestamp||m_showRecvAddr)line+="\r\n";
-    m_editRecv->addData(line.toUtf8());
-    if(m_scrollToBottom->isChecked())m_editRecv->scrollToBottom();
+    appendTrafficLog(false, data, fromIp, fromPort);
 }
 
 void NetAssistWidget::slotClientConnected(QString ip, quint16 port)
@@ -656,13 +655,44 @@ void NetAssistWidget::applyConnectButtonStyle(bool connected)
     m_btnConnect->setStyleSheet(QString::fromLatin1(connected ? kBtnRed : kBtnOrange));
 }
 
+QString NetAssistWidget::timestampPrefix() const
+{
+    if (!m_showTimestamp)
+        return QString();
+    return QStringLiteral("[%1] ").arg(ProtocolUtils::timestampMs());
+}
+
 void NetAssistWidget::appendLog(const QString &text, const QColor &color)
 {
-    Q_UNUSED(color) // 颜色参数暂时不用
-    QString time = QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
-    QString line = QString("[%1] %2\n").arg(time).arg(text);
+    Q_UNUSED(color)
+    QString line = timestampPrefix() + text + QLatin1Char('\n');
     m_editRecv->addData(line.toUtf8());
-    if(m_scrollToBottom->isChecked())m_editRecv->scrollToBottom(); // 需要自动跟随就加这句
+    if (m_scrollToBottom->isChecked())
+        m_editRecv->scrollToBottom();
+}
+
+void NetAssistWidget::appendTrafficLog(bool isSend, const QByteArray &data,
+                                       const QString &peer, quint16 port)
+{
+    if (isSend && !m_showSend)
+        return;
+
+    QString line = timestampPrefix();
+    const bool hasAddr = m_showRecvAddr && !peer.isEmpty();
+    if (m_showDirection)
+        line += isSend ? QStringLiteral("[TX]") : QStringLiteral("[RX]");
+    if (hasAddr)
+        line += QStringLiteral("[%1:%2]").arg(peer).arg(port);
+    if (m_showDirection || hasAddr)
+        line += QLatin1Char(' ');
+    line += dataToText(data);
+
+    const bool ownLine = isSend || m_showTimestamp || m_showDirection || hasAddr;
+    if (ownLine)
+        line += QStringLiteral("\r\n");
+    m_editRecv->addData(line.toUtf8());
+    if (m_scrollToBottom->isChecked())
+        m_editRecv->scrollToBottom();
 }
 
 void NetAssistWidget::initNetWork()
@@ -769,8 +799,10 @@ void NetAssistWidget::loadSettings()
     m_spinLocalPort->setValue(settings.value(QStringLiteral("localPort"), 13601).toInt());
     m_checkHexRecv->setChecked(settings.value(QStringLiteral("hexRecv"), false).toBool());
     m_checkHexSend->setChecked(settings.value(QStringLiteral("hexSend"), false).toBool());
-    m_checkRecvTimestamp->setChecked(settings.value(QStringLiteral("timestamp"), false).toBool());
+    m_checkTimestamp->setChecked(settings.value(QStringLiteral("timestamp"), false).toBool());
     m_checkShowRecvAddr->setChecked(settings.value(QStringLiteral("showAddr"), false).toBool());
+    m_checkShowSend->setChecked(settings.value(QStringLiteral("showSend"), true).toBool());
+    m_checkShowDirection->setChecked(settings.value(QStringLiteral("showDirection"), false).toBool());
     m_scrollToBottom->setChecked(settings.value(QStringLiteral("scrollBottom"), true).toBool());
     m_checkAddModbusCrc16->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
     m_checkAppendCRLF->setChecked(settings.value(QStringLiteral("crlf"), false).toBool());
@@ -787,8 +819,10 @@ void NetAssistWidget::saveSettings()
     settings.setValue(QStringLiteral("localPort"), m_spinLocalPort->value());
     settings.setValue(QStringLiteral("hexRecv"), m_checkHexRecv->isChecked());
     settings.setValue(QStringLiteral("hexSend"), m_checkHexSend->isChecked());
-    settings.setValue(QStringLiteral("timestamp"), m_checkRecvTimestamp->isChecked());
+    settings.setValue(QStringLiteral("timestamp"), m_checkTimestamp->isChecked());
     settings.setValue(QStringLiteral("showAddr"), m_checkShowRecvAddr->isChecked());
+    settings.setValue(QStringLiteral("showSend"), m_checkShowSend->isChecked());
+    settings.setValue(QStringLiteral("showDirection"), m_checkShowDirection->isChecked());
     settings.setValue(QStringLiteral("scrollBottom"), m_scrollToBottom->isChecked());
     settings.setValue(QStringLiteral("crc16"), m_checkAddModbusCrc16->isChecked());
     settings.setValue(QStringLiteral("crlf"), m_checkAppendCRLF->isChecked());

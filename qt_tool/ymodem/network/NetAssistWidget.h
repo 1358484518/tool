@@ -68,7 +68,10 @@ private:
     void saveSettings();                            // 把当前网络页参数写入 QSettings
     QString dataToText(const QByteArray &data);     // 按 HEX/文本把字节变成显示字符串
     void updateCountLabel();                        // 刷新 RX/TX 字节计数
-    void appendLog(const QString &text, const QColor &color = Qt::black);  // 往接收窗口追加一行
+    QString timestampPrefix() const;                // 勾了时间戳才返回 [HH:mm:ss.zzz]
+    void appendLog(const QString &text, const QColor &color = Qt::black);  // 状态行：时间戳规则与收发相同
+    void appendTrafficLog(bool isSend, const QByteArray &data,
+                          const QString &peer, quint16 port);  // 收发包：按时间戳/方向/地址/显示发送写入窗口
     void setStatus(const QString &text, const QString &color);             // 底部状态文字
     void applyOpenButtonStyle(bool opened);         // 打开按钮的按下/松开样式
     void applyConnectButtonStyle(bool connected);   // 连接按钮的按下/松开样式
@@ -102,14 +105,18 @@ private:
     QCheckBox    *m_checkHexSend;
     QCheckBox    *m_checkAutoSend;
 
-    QCheckBox   *m_checkRecvTimestamp;
+    QCheckBox   *m_checkTimestamp;      // 收、发、状态行共用：有则都有，无则都没有
     QCheckBox   *m_checkShowRecvAddr;
+    QCheckBox   *m_checkShowSend;       // 是否把发出的内容回显到接收窗口
+    QCheckBox   *m_checkShowDirection;  // 是否在收发日志前加 [RX]/[TX]
     QCheckBox   *m_checkAddModbusCrc16;
     QCheckBox   *m_checkAppendCRLF;
     QCheckBox   *m_checkBroadcastSend;
     QCheckBox   *m_scrollToBottom;
-    bool m_recvTimestamp  = false;
+    bool m_showTimestamp  = false;
     bool m_showRecvAddr   = false;
+    bool m_showSend       = true;
+    bool m_showDirection  = false;
     bool m_addModbusCrc16 = false;
     bool m_appendCRLF     = false;
     bool m_broadcastSend  = false;
