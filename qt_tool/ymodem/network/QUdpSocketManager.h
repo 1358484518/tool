@@ -11,19 +11,17 @@
 class QUdpSocket;
 class QTimer;
 
-// 启动配置：所有可配置参数打包，带默认值
 struct UdpConfig
 {
-    QHostAddress bindAddress = QHostAddress::Any; // 绑定地址，默认所有网卡
-    quint16      listenPort = 0;                  // 监听端口，必填
-    int          reconnectMs = 3000;              // 重连间隔，默认3秒
-    int          maxPacketSize = 65535;            // 最大包长，默认1472(以太网MTU)
-    int          maxQueueSize = 128;              // 发送队列最大长度
-    int          hostTimeoutSec = 300;            // 主机超时时间，默认5分钟
+    QHostAddress bindAddress = QHostAddress::Any;
+    quint16      listenPort = 0;
+    int          reconnectMs = 3000;
+    int          maxPacketSize = 65535;
+    int          maxQueueSize = 128;
+    int          hostTimeoutSec = 300;  // 对端多久没包就从列表拿掉
 };
 Q_DECLARE_METATYPE(UdpConfig)
 
-// 网络包
 struct UdpDatagram
 {
     QByteArray    data;
@@ -34,8 +32,7 @@ struct UdpDatagram
 };
 Q_DECLARE_METATYPE(UdpDatagram)
 
-
-
+/** UDP：bind 本地口、按对端发、记住最近见过的主机。 */
 class QUdpSocketManager : public QObject
 {
     Q_OBJECT
@@ -61,56 +58,51 @@ public:
     };
     Q_ENUM(Error)
 
-    explicit QUdpSocketManager(QObject *parent = nullptr);
-    ~QUdpSocketManager() override;
+    explicit QUdpSocketManager(QObject *parent = nullptr);  // 建发送/重连/对端超时三个定时器
+    ~QUdpSocketManager() override;                          // stop 并释放套接字
 
-    // 便捷接口：只传端口启动，其他参数用默认值
-    void start(quint16 listenPort);
+    void start(quint16 listenPort);                         // 只指定本地端口，地址用 Any
 
-    // 发送接口
-    void sendTo(const QByteArray &data, const QHostAddress &host, quint16 port);
-    void sendToAll(const QByteArray &data);
-    void broadcast(const QByteArray &data, quint16 targetPort);
-    void reply(const QByteArray &data, const UdpDatagram &recvDatagram);
+    void sendTo(const QByteArray &data, const QHostAddress &host, quint16 port);  // 发给指定对端
+    void sendToAll(const QByteArray &data);                 // 发给列表里记过的所有对端
+    void broadcast(const QByteArray &data, quint16 targetPort);  // 255.255.255.255 广播
+    void reply(const QByteArray &data, const UdpDatagram &recvDatagram);  // 回给刚才来包的地址
 
-    // 主机管理
-    void addRemoteHost(const QHostAddress &host, quint16 port);
-    void removeRemoteHost(const QHostAddress &host, quint16 port);
-    void clearRemoteHosts();
-    QList<RemoteHost> remoteHosts() const;
+    void addRemoteHost(const QHostAddress &host, quint16 port);     // 手动记一个对端
+    void removeRemoteHost(const QHostAddress &host, quint16 port);  // 从列表拿掉
+    void clearRemoteHosts();                                // 清空已见过的对端
+    QList<RemoteHost> remoteHosts() const;                  // 当前记住的对端列表
 
-    // 状态查询
-    State state() const;
-    bool isRunning() const;
-    quint16 listenPort() const;
-    UdpConfig currentConfig() const;
+    State state() const;                                    // Starting / Running / Reconnecting
+    bool isRunning() const;                                 // 是否已 bind 成功
+    quint16 listenPort() const;                             // 当前本地端口
+    UdpConfig currentConfig() const;                        // 拷贝一份 bind 参数
 
 public slots:
-    // 标准槽函数：可直接连接UI按钮
-    void start(const UdpConfig &config); // 传配置启动/重启
-    void stop();                         // 停止
+    void start(const UdpConfig &config);                    // 按完整配置 bind
+    void stop();                                            // 关套接字、停定时器、清空发送队列
 
 signals:
-    void datagramReceived(const UdpDatagram &datagram);
-    void stateChanged(QUdpSocketManager::State state);
-    void errorOccurred(QUdpSocketManager::Error error, const QString &systemErrorString);
-    void remoteHostAdded(const RemoteHost &host);
-    void remoteHostRemoved(const RemoteHost &host);
-    void remoteHostListChanged();
+    void datagramReceived(const UdpDatagram &datagram);     // 收到一包 UDP
+    void stateChanged(QUdpSocketManager::State state);  // Starting / Running / Reconnecting
+    void errorOccurred(QUdpSocketManager::Error error, const QString &systemErrorString);  // bind 失败、发送失败等
+    void remoteHostAdded(const RemoteHost &host);           // 第一次见到这个对端
+    void remoteHostRemoved(const RemoteHost &host);         // 超时或手动删掉
+    void remoteHostListChanged();                           // 对端列表有增删
 
 private slots:
-    void onReadyRead();
-    void onSocketError(QAbstractSocket::SocketError err);
-    void processRecv();
-    void processSendQueue();
-    void doReconnect();
-    void cleanupStaleHosts();
+    void onReadyRead();                                     // 有数据报立刻读出发出
+    void onSocketError(QAbstractSocket::SocketError err);   // 映射错误并决定是否重新 bind
+    void processRecv();                                     // 兼容旧定时读路径
+    void processSendQueue();                                // 把排队的数据报尽量发出
+    void doReconnect();                                     // bind 失败后按间隔再试
+    void cleanupStaleHosts();                               // 把太久没来包的对端从列表拿掉
 
 private:
-    void setState(State newState);
-    void updateRemoteHost(const QHostAddress &host, quint16 port);
-    Error mapQtSocketError(QAbstractSocket::SocketError err);
-    void applyConfig(const UdpConfig &config);
+    void setState(State newState);                          // 状态变了才发 stateChanged
+    void updateRemoteHost(const QHostAddress &host, quint16 port);  // 刷新 lastSeen，没有则加入
+    Error mapQtSocketError(QAbstractSocket::SocketError err);  // Qt 错误码转成本类 Error
+    void applyConfig(const UdpConfig &config);              // 保存 bind 地址、端口、超时
 
     QUdpSocket *m_socket;
 //    QTimer     *m_recvTimer;

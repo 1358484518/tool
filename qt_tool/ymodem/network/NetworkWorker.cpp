@@ -1,23 +1,24 @@
 #include "NetworkWorker.h"
-#include <QDebug>
+
+#include <QHostInfo>
 
 NetworkWorker::NetworkWorker(QObject *parent)
-    : QObject(parent)
+    : IoSource(parent)
 {
 }
 
 NetworkWorker::~NetworkWorker()
 {
-    // 析构时直接delete，线程即将退出事件循环停止，deleteLater不会执行
-    cleanupCurrentNet(true);
+    cleanupCurrentNet();
 }
 
 void NetworkWorker::slotOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort)
 {
-    // 先彻底清理旧实例，再创建新的
     cleanupCurrentNet();
     m_currentProto = proto;
-    QHostAddress bindAddr(localIp);
+    m_bindAddress = QHostAddress(localIp);
+    m_bindPort = localPort;
+    QHostAddress bindAddr = m_bindAddress;
 
     if (proto == NetProtocol::TcpServer) {
         m_tcpServer = new QTcpServerManager(this);
@@ -39,7 +40,9 @@ void NetworkWorker::slotOpenNetwork(NetProtocol proto, QString localIp, quint16 
         m_tcpClient = new QTcpSocketManager(this);
         TcpConfig cfg;
         cfg.bindAddress = bindAddr;
-        cfg.bindPort = localPort;
+        // 客户端不要把「本地端口」当成 bind 口：断开后套接字尚未 Unconnected 时再 bind
+        // 会报 QNativeSocketEngine::bind() was not called in UnconnectedState。
+        cfg.bindPort = 0;
 
         connect(m_tcpClient, &QTcpSocketManager::connected, this, &NetworkWorker::onTcpClientConnected);
         connect(m_tcpClient, &QTcpSocketManager::disconnected, this, &NetworkWorker::onTcpClientDisconnected);
@@ -75,9 +78,12 @@ void NetworkWorker::slotCloseNetwork()
 void NetworkWorker::slotTcpConnect(QString remoteIp, quint16 remotePort)
 {
     if (m_currentProto != NetProtocol::TcpClient || !m_tcpClient) return;
-    TcpConfig cfg;
-    cfg.remoteAddress = QHostAddress(remoteIp);
+    TcpConfig cfg = m_tcpClient->currentConfig();
+    cfg.remoteHost = remoteIp.trimmed();
+    cfg.remoteAddress = QHostAddress(cfg.remoteHost);
     cfg.remotePort = remotePort;
+    cfg.bindAddress = m_bindAddress;
+    cfg.bindPort = 0;
     m_tcpClient->start(cfg);
 }
 
@@ -89,56 +95,103 @@ void NetworkWorker::slotTcpDisconnect()
 }
 
 void NetworkWorker::slotSendData(QByteArray data, QString remoteIp, quint16 remotePort)
-{   qDebug()<<"send"<<remoteIp<<remotePort<<data;
-    if (m_currentProto == NetProtocol::TcpServer && m_tcpServer) {
-        m_tcpServer->broadcast(data);
-    }
-    else if (m_currentProto == NetProtocol::TcpClient && m_tcpClient) {
-        m_tcpClient->send(data);
-    }
-    else if (m_currentProto == NetProtocol::Udp && m_udp) {
-        QHostAddress remoteAddr(remoteIp);
-        m_udp->sendTo(data, remoteAddr, remotePort);
-        qDebug()<<"udp send data"<<remoteAddr<<remotePort;
-    }
+{
+    IoPacket packet = IoPacket::fromBytes(data);
+    packet.peer = remoteIp;
+    packet.port = remotePort;
+    if (m_currentProto == NetProtocol::TcpServer)
+        packet.channel = IoPacket::TcpServer;
+    else if (m_currentProto == NetProtocol::TcpClient)
+        packet.channel = IoPacket::TcpClient;
+    else if (m_currentProto == NetProtocol::Udp)
+        packet.channel = IoPacket::Udp;
+    sendIoData(packet);
 }
 
-void NetworkWorker::cleanupCurrentNet(bool isDestructing)
+bool NetworkWorker::writeIoData(const IoPacket &packet)
 {
-    // 清理TCP服务端
-    if (m_tcpServer) {
-        m_tcpServer->blockSignals(true); // 阻塞所有信号，防止清理过程中发信号
-        disconnect(m_tcpServer, nullptr, this, nullptr); // 断开所有和Worker的连接
-        m_tcpServer->stop(); // 同步停止服务，断开所有客户端
-        if (isDestructing) {
-            delete m_tcpServer;
-        } else {
-            m_tcpServer->deleteLater(); // 运行时投递到事件循环安全删除
+    if (packet.data.isEmpty())
+        return false;
+
+    const QString remoteIp = packet.peer;
+    const quint16 remotePort = packet.port;
+
+    if (m_currentProto == NetProtocol::TcpServer && m_tcpServer) {
+        if (remoteIp.isEmpty() || remotePort == 0)
+            m_tcpServer->broadcast(packet.data);
+        else
+            sendToTcpClient(packet.data, remoteIp, remotePort);
+        return true;
+    }
+    if (m_currentProto == NetProtocol::TcpClient && m_tcpClient) {
+        m_tcpClient->send(packet.data);
+        return true;
+    }
+    if (m_currentProto == NetProtocol::Udp && m_udp) {
+        if (remoteIp.isEmpty()) {
+            m_udp->broadcast(packet.data, remotePort);
+            return true;
         }
+        QHostAddress addr(remoteIp);
+        if (addr.isNull()) {
+            const QHostInfo info = QHostInfo::fromName(remoteIp);
+            if (info.addresses().isEmpty()) {
+                emit sigError(QStringLiteral("无法解析主机 %1").arg(remoteIp));
+                return false;
+            }
+            addr = info.addresses().first();
+            for (const QHostAddress &item : info.addresses()) {
+                if (item.protocol() == QAbstractSocket::IPv4Protocol) {
+                    addr = item;
+                    break;
+                }
+            }
+        }
+        m_udp->sendTo(packet.data, addr, remotePort);
+        return true;
+    }
+    return false;
+}
+
+void NetworkWorker::forwardPayload(IoPacket::Channel channel, const QByteArray &data,
+                                  const QString &peer, quint16 port)
+{
+    emit sigRecvData(data, peer, port);
+    emitIoData(IoPacket::fromNetwork(channel, data, peer, port));
+}
+
+void NetworkWorker::sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort)
+{
+    for (const TcpClientInfo &info : m_tcpServer->clients()) {
+        if (info.peerAddress.toString() == remoteIp && info.peerPort == remotePort) {
+            m_tcpServer->sendToClient(info.connId, data);
+            return;
+        }
+    }
+    emit sigError(QStringLiteral("未找到客户端 %1:%2").arg(remoteIp).arg(remotePort));
+}
+
+void NetworkWorker::cleanupCurrentNet()
+{
+    if (m_tcpServer) {
+        m_tcpServer->blockSignals(true);
+        disconnect(m_tcpServer, nullptr, this, nullptr);
+        m_tcpServer->stop();
+        delete m_tcpServer;
         m_tcpServer = nullptr;
     }
-    // 清理TCP客户端
     if (m_tcpClient) {
         m_tcpClient->blockSignals(true);
         disconnect(m_tcpClient, nullptr, this, nullptr);
-        m_tcpClient->stop(); // 断开连接，释放socket
-        if (isDestructing) {
-            delete m_tcpClient;
-        } else {
-            m_tcpClient->deleteLater();
-        }
+        m_tcpClient->stop();
+        delete m_tcpClient;
         m_tcpClient = nullptr;
     }
-    // 清理UDP
     if (m_udp) {
         m_udp->blockSignals(true);
         disconnect(m_udp, nullptr, this, nullptr);
-        m_udp->stop(); // 关闭socket，清空主机列表
-        if (isDestructing) {
-            delete m_udp;
-        } else {
-            m_udp->deleteLater();
-        }
+        m_udp->stop();
+        delete m_udp;
         m_udp = nullptr;
     }
 }
@@ -164,7 +217,7 @@ void NetworkWorker::onTcpServerData(ClientConnId id, const QByteArray &data)
     if (!m_tcpServer) return;
     for (const TcpClientInfo &info : m_tcpServer->clients()) {
         if (info.connId == id) {
-            emit sigRecvData(data, info.peerAddress.toString(), info.peerPort);
+            forwardPayload(IoPacket::TcpServer, data, info.peerAddress.toString(), info.peerPort);
             break;
         }
     }
@@ -198,7 +251,10 @@ void NetworkWorker::onTcpClientDisconnected()
 void NetworkWorker::onTcpClientData(const QByteArray &data)
 {
     if (!m_tcpClient) return;
-    emit sigRecvData(data, m_tcpClient->remoteAddress().toString(), m_tcpClient->remotePort());
+    QString peer = m_tcpClient->currentConfig().remoteHost;
+    if (peer.isEmpty())
+        peer = m_tcpClient->remoteAddress().toString();
+    forwardPayload(IoPacket::TcpClient, data, peer, m_tcpClient->remotePort());
 }
 
 void NetworkWorker::onTcpClientError(QTcpSocketManager::Error err, const QString &errStr)
@@ -218,7 +274,7 @@ void NetworkWorker::onTcpClientState(QTcpSocketManager::State state)
 void NetworkWorker::onUdpDatagram(const UdpDatagram &dg)
 {
     if (!m_udp) return;
-    emit sigRecvData(dg.data, dg.host.toString(), dg.port);
+    forwardPayload(IoPacket::Udp, dg.data, dg.host.toString(), dg.port);
 }
 
 void NetworkWorker::onUdpError(QUdpSocketManager::Error err, const QString &errStr)
@@ -245,54 +301,3 @@ void NetworkWorker::onUdpHostRemoved(const RemoteHost &host)
     emit sigClientDisconnected(host.address.toString(), host.port);
 }
 
-#if 0
-
-#include <QApplication>
-#include "NetAssistWidget.h"
-#include "NetworkWorker.h"
-#include <QThread>
-
-int main(int argc, char *argv[])
-{
-    QApplication a(argc, argv);
-    qRegisterMetaType<NetProtocol>("NetProtocol");
-
-    NetAssistWidget ui;
-
-    QThread workerThread;
-    NetworkWorker *worker = new NetworkWorker; // 无parent，手动管理生命周期
-    worker->moveToThread(&workerThread);
-
-    // 移除原来的finished→deleteLater连接，改为手动销毁
-    // QObject::connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
-
-    // UI -> 网络线程
-    QObject::connect(&ui, &NetAssistWidget::sigOpenNetwork, worker, &NetworkWorker::slotOpenNetwork);
-    QObject::connect(&ui, &NetAssistWidget::sigCloseNetwork, worker, &NetworkWorker::slotCloseNetwork);
-    QObject::connect(&ui, &NetAssistWidget::sigTcpConnect, worker, &NetworkWorker::slotTcpConnect);
-    QObject::connect(&ui, &NetAssistWidget::sigTcpDisconnect, worker, &NetworkWorker::slotTcpDisconnect);
-    QObject::connect(&ui, &NetAssistWidget::sigSendData, worker, &NetworkWorker::slotSendData);
-
-    // 网络线程 -> UI
-    QObject::connect(worker, &NetworkWorker::sigRecvData, &ui, &NetAssistWidget::slotRecvData);
-    QObject::connect(worker, &NetworkWorker::sigClientConnected, &ui, &NetAssistWidget::slotClientConnected);
-    QObject::connect(worker, &NetworkWorker::sigClientDisconnected, &ui, &NetAssistWidget::slotClientDisconnected);
-    QObject::connect(worker, &NetworkWorker::sigTcpConnected, &ui, &NetAssistWidget::slotTcpConnected);
-    QObject::connect(worker, &NetworkWorker::sigTcpDisconnected, &ui, &NetAssistWidget::slotTcpDisconnected);
-    QObject::connect(worker, &NetworkWorker::sigError, &ui, &NetAssistWidget::slotError);
-    QObject::connect(worker, &NetworkWorker::sigStateText, &ui, &NetAssistWidget::slotStateText);
-    QObject::connect(worker, &NetworkWorker::sigClientCount, &ui, &NetAssistWidget::slotClientCount);
-
-    workerThread.start();
-    ui.show();
-
-    int ret = a.exec();
-
-    // 安全退出顺序：先停止线程事件循环，等待线程结束，再delete Worker
-    workerThread.quit();
-    workerThread.wait();
-    delete worker; // 线程结束后直接删除，不依赖事件循环，100%释放内存
-
-    return ret;
-}
-#endif

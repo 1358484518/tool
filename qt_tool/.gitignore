@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+
+# Qt build artifacts
+Makefile
+*.stash
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+ymodem/ymodem
+qt_tool/ymodem/ymodem
+object_script.*

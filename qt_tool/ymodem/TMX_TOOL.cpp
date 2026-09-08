@@ -1,31 +1,81 @@
 #include "TMX_TOOL.h"
 #include "ui_tmx_tool.h"
-#include "QFile"
-#include "QMessageBox"
-#include "QFileDialog"
 #include "network/NetAssistWidget.h"
+
+#include <QCoreApplication>
+#include <QFile>
+#include <QFileDialog>
+#include <QIcon>
+#include <QMessageBox>
+#include <QMetaObject>
 
 TMX_TOOL::TMX_TOOL(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::TMX_TOOL)
 {
     ui->setupUi(this);
-
-    initConnections();
-
+    const QString ver = QCoreApplication::applicationVersion();
+    setWindowTitle(ver.isEmpty()
+                       ? QStringLiteral("TMX 调试助手")
+                       : QStringLiteral("TMX 调试助手 %1").arg(ver));
+    setWindowIcon(QIcon(QStringLiteral(":/image/tmx.png")));
+    initSerialBackend();
+    initUi();
+    initYmodemBridge();
 }
 
 TMX_TOOL::~TMX_TOOL()
 {
+    stopYmodemTransfer();
+    if (m_serial_operate) {
+        m_serial_operate->disconnect();
+        if (m_serial_ui)
+            disconnect(m_serial_ui, nullptr, m_serial_operate, nullptr);
+        disconnect(this, nullptr, m_serial_operate, nullptr);
+
+        SerialManager *worker = m_serial_operate;
+        m_serial_operate = nullptr;
+        // 后端一直待在工作线程：就地 close + delete，不要 move 回 UI。
+        if (m_serialThread && m_serialThread->isRunning()
+            && worker->thread() == m_serialThread) {
+            QMetaObject::invokeMethod(worker, [worker]() {
+                worker->close();
+                delete worker;
+            }, Qt::BlockingQueuedConnection);
+            m_serialThread->quit();
+            m_serialThread->wait(5000);
+        } else {
+            delete worker;
+        }
+    }
     delete ui;
 }
 
-void TMX_TOOL::initConnections()
+void TMX_TOOL::initSerialBackend()
 {
-    m_serial_ui = new SerialAssistant;
+    m_serialThread = new QThread(this);
+    // SerialManager 先不设 parent：有 parent 的 QObject 不能 moveToThread
     m_serial_operate = new SerialManager;
-    // ========== UI -> Backend ==========
-    // Open port
+    m_serial_operate->moveToThread(m_serialThread);
+    connect(m_serialThread, &QThread::started, m_serial_operate, &SerialManager::initWorker);
+    m_serialThread->start();
+}
+
+void TMX_TOOL::initUi()
+{
+    m_serial_ui = new SerialAssistant(this);
+    m_net_ui = new NetAssistWidget(this);
+
+    m_tool_tab = new QTabWidget(this);
+    m_tool_tab->addTab(m_net_ui, QStringLiteral("网络工具"));
+    m_tool_tab->addTab(m_serial_ui, QStringLiteral("串口工具"));
+
+    auto *layout = new QHBoxLayout;
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->addWidget(m_tool_tab);
+    setLayout(layout);
+    setMinimumSize(1000, 850);
+
     connect(m_serial_ui, &SerialAssistant::openPortRequested, this, [this]() {
         SerialManager::SerialConfig config;
         config.portName = m_serial_ui->selectedPortName();
@@ -36,123 +86,129 @@ void TMX_TOOL::initConnections()
         config.flowControl = m_serial_ui->selectedFlowControl();
         config.autoReconnect = m_serial_ui->autoReconnectEnabled();
         config.reconnectIntervalMs = m_serial_ui->reconnectInterval();
-        config.readBufferTimeoutMs = 0;
-        m_serial_operate->setConfig(config);
-
-        if (m_serial_operate->open()) {
-            m_serial_ui->setConnectionState(true);
-            m_serial_ui->showStatusMessage("Connected to " + config.portName);
-        } else {
-            m_serial_ui->showStatusMessage("Open failed: " + m_serial_operate->lastError());
-            QMessageBox::warning(this, "Error", "Failed to open port: " + m_serial_operate->lastError());
-        }
+        config.readBufferTimeoutMs = 16;
+        emit serialOpenRequested(config);
     });
+    connect(this, &TMX_TOOL::serialOpenRequested,
+            m_serial_operate, &SerialManager::openWithConfig, Qt::QueuedConnection);
 
-    // Close port
-    connect(m_serial_ui, &SerialAssistant::closePortRequested, this, [this]() {
-        m_serial_operate->close();
-        m_serial_ui->setConnectionState(false);
-    });
+    connect(m_serial_ui, &SerialAssistant::closePortRequested,
+            m_serial_operate, &SerialManager::close, Qt::QueuedConnection);
+    connect(m_serial_ui, &SerialAssistant::sendDataRequested,
+            m_serial_operate, &SerialManager::sendBinary, Qt::QueuedConnection);
+    connect(m_serial_ui, &SerialAssistant::dtrToggled,
+            m_serial_operate, &SerialManager::setDtr, Qt::QueuedConnection);
+    connect(m_serial_ui, &SerialAssistant::rtsToggled,
+            m_serial_operate, &SerialManager::setRts, Qt::QueuedConnection);
 
-    // Send data
-    connect(m_serial_ui, &SerialAssistant::sendDataRequested, m_serial_operate, &SerialManager::sendBinary);
-
-    // DTR/RTS control
-    connect(m_serial_ui, &SerialAssistant::dtrToggled, m_serial_operate, &SerialManager::setDtr);
-    connect(m_serial_ui, &SerialAssistant::rtsToggled, m_serial_operate, &SerialManager::setRts);
-
-    // Save log
     connect(m_serial_ui, &SerialAssistant::saveLogRequested, this, [this]() {
-        QString fileName = QFileDialog::getSaveFileName(this, "Save Log", "", "Text Files (*.txt);;All Files (*)");
-        if (fileName.isEmpty()) return;
+        const QString fileName = QFileDialog::getSaveFileName(
+            this, QStringLiteral("Save Log"), QString(),
+            QStringLiteral("Text Files (*.txt);;All Files (*)"));
+        if (fileName.isEmpty())
+            return;
         QFile file(fileName);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             file.write(m_serial_ui->getReceiveText());
             file.close();
-            m_serial_ui->showStatusMessage("Log saved to " + fileName);
+            m_serial_ui->showStatusMessage(QStringLiteral("Log saved to ") + fileName);
         } else {
-            QMessageBox::warning(this, "Error", "Failed to save file");
+            QMessageBox::warning(this, QStringLiteral("Error"),
+                                 QStringLiteral("Failed to save file"));
         }
     });
 
-    // ========== Backend -> UI ==========
-    connect(m_serial_operate, &SerialManager::dataReceived, m_serial_ui, &SerialAssistant::appendReceivedData);
-
+    connect(m_serial_operate, &IoSource::ioDataReceived,
+            m_serial_ui, &SerialAssistant::onIoData, Qt::QueuedConnection);
     connect(m_serial_operate, &SerialManager::portConnected, this, [this]() {
         m_serial_ui->setConnectionState(true);
-        m_serial_ui->showStatusMessage("Connected to " + m_serial_operate->getConfig().portName);
+        m_serial_ui->showStatusMessage(
+            QStringLiteral("Connected to ") + m_serial_ui->selectedPortName());
     });
-
     connect(m_serial_operate, &SerialManager::portDisconnected, this, [this]() {
         m_serial_ui->setConnectionState(false);
-        m_serial_ui->showStatusMessage("Disconnected");
+        if (m_serial_ui->autoReconnectEnabled())
+            m_serial_ui->showStatusMessage(QStringLiteral("串口断开，正在重连..."));
+        else
+            m_serial_ui->showStatusMessage(QStringLiteral("Disconnected"));
+        stopYmodemTransfer();
     });
-
-    connect(m_serial_operate, &SerialManager::errorOccurred, this, [this](QSerialPort::SerialPortError err, const QString &str) {
-        Q_UNUSED(err)
-        m_serial_ui->showStatusMessage("Error: " + str);
+    connect(m_serial_operate, &SerialManager::openResult, this,
+            [this](bool ok, const QString &errorString) {
+        if (ok)
+            return;
+        m_serial_ui->showStatusMessage(QStringLiteral("Open failed: ") + errorString);
+        QMessageBox::warning(this, QStringLiteral("Error"),
+                             QStringLiteral("Failed to open port: ") + errorString);
     });
+    connect(m_serial_operate, &SerialManager::errorOccurred, this,
+            [this](int, const QString &str) {
+        m_serial_ui->showStatusMessage(QStringLiteral("Error: ") + str);
+    });
+}
 
-    // ========== ymodem ==========
-    // YModem file send
-    connect(m_serial_ui, &SerialAssistant::ymodemSendRequested, this, [this](const QString &filePath) {
-        // 先停止上一次发送，安全清理，不wait避免死锁
-        if (m_ymodem) {
-            m_ymodem->requestStop();
-            disconnect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
-            disconnect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary);
-            m_ymodem->deleteLater();
-            m_ymodem = nullptr;
-        }
-        qDebug()<<"执行ymodem";
-        // 创建实例
+IoSource *TMX_TOOL::serialIoSource() const
+{
+    return m_serial_operate;
+}
+
+IoSource *TMX_TOOL::networkIoSource() const
+{
+    return m_net_ui ? m_net_ui->ioSource() : nullptr;
+}
+
+void TMX_TOOL::stopYmodemTransfer()
+{
+    if (!m_ymodem)
+        return;
+    m_ymodem->requestStop();
+    disconnect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
+    disconnect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary);
+    if (m_ymodem->isRunning())
+        m_ymodem->wait(5000);
+    delete m_ymodem;
+    m_ymodem = nullptr;
+}
+
+void TMX_TOOL::initYmodemBridge()
+{
+    connect(m_serial_ui, &SerialAssistant::ymodemSendRequested, this,
+            [this](const QString &filePath) {
+        stopYmodemTransfer();
         m_ymodem = new QYmodemFile(QStringList{filePath}, this);
 
-        // 数据通路，指定跨线程队列连接，保证线程安全
-        connect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive, Qt::QueuedConnection);
-        connect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary, Qt::QueuedConnection);
+        connect(m_serial_operate, &SerialManager::dataReceived,
+                m_ymodem, &QYmodemFile::receive, Qt::QueuedConnection);
+        connect(m_ymodem, &QYmodemFile::send,
+                m_serial_operate, &SerialManager::sendBinary, Qt::QueuedConnection);
 
-        // 状态提示
         connect(m_ymodem, &QYmodemFile::transferring, this, [this](const QString &name) {
-            m_serial_ui->showStatusMessage("Sending file: " + name);
+            m_serial_ui->showStatusMessage(QStringLiteral("Sending file: ") + name);
         }, Qt::QueuedConnection);
         connect(m_ymodem, &QYmodemFile::tick, this, [this](qint64 sent, qint64 total) {
             if (total > 0) {
-                m_serial_ui->showStatusMessage(QString("Sending: %1% (%2/%3 bytes)").arg(sent*100/total).arg(sent).arg(total));
+                m_serial_ui->showStatusMessage(
+                    QStringLiteral("Sending: %1% (%2/%3 bytes)")
+                        .arg(sent * 100 / total).arg(sent).arg(total));
             }
         }, Qt::QueuedConnection);
-
-        // 完成处理，所有操作都在主线程，安全
-        connect(m_ymodem, &QYmodemFile::complete, this, [this](const QString &name, int result, size_t size) {
+        connect(m_ymodem, &QYmodemFile::complete, this,
+                [this](const QString &name, int result, size_t size) {
             if (result == 0) {
-                m_serial_ui->showStatusMessage(QString("✅ Send success: %1, %2 bytes").arg(name).arg(size));
+                m_serial_ui->showStatusMessage(
+                    QStringLiteral("Send success: %1, %2 bytes").arg(name).arg(size));
+            } else if (result == QXYmodem::XMODEM_ERROR_IDLETIMEOUT) {
+                m_serial_ui->showStatusMessage(
+                    QStringLiteral("发送失败：5秒无响应，已自动退出"));
             } else {
-                m_serial_ui->showStatusMessage(QString("❌ Send failed: %1, error: %2").arg(name).arg(result));
+                m_serial_ui->showStatusMessage(
+                    QStringLiteral("Send failed: %1, error: %2").arg(name).arg(result));
             }
-            // 清理
-            if (m_ymodem) {
-                disconnect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
-                disconnect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary);
-                m_ymodem->requestStop();
-                m_ymodem->deleteLater();
-                m_ymodem = nullptr;
-            }
+            stopYmodemTransfer();
         }, Qt::QueuedConnection);
 
-        // 开始发送
         m_ymodem->startSend();
-        m_serial_ui->showStatusMessage("Start YModem send, waiting for device response...");
+        m_serial_ui->showStatusMessage(
+            QStringLiteral("Start YModem send, waiting for device response..."));
     });
-
-    QHBoxLayout *layout = new QHBoxLayout;
-    m_tool_tab = new QTabWidget;
-    NetAssistWidget * netAssist_ui = new NetAssistWidget;
-
-    m_tool_tab->addTab(netAssist_ui,"网络工具");
-    m_tool_tab->addTab(m_serial_ui,"串口工具");
-
-    layout->addWidget(m_tool_tab);
-    setMinimumSize(1000, 850);
-    setLayout(layout);
 }
-

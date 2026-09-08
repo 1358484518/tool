@@ -33,8 +33,12 @@ QUdpSocketManager::QUdpSocketManager(QObject *parent)
     m_hostCleanupTimer->setInterval(60000);
 
     connect(m_socket, &QUdpSocket::readyRead, this, &QUdpSocketManager::onReadyRead);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    connect(m_socket, &QAbstractSocket::errorOccurred, this, &QUdpSocketManager::onSocketError);
+#else
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error),
             this, &QUdpSocketManager::onSocketError);
+#endif
 //    connect(m_recvTimer, &QTimer::timeout, this, &QUdpSocketManager::processRecv);
     connect(m_sendTimer, &QTimer::timeout, this, &QUdpSocketManager::processSendQueue);
     connect(m_reconnectTimer, &QTimer::timeout, this, &QUdpSocketManager::doReconnect);
@@ -74,10 +78,11 @@ void QUdpSocketManager::stop()
     m_sendTimer->stop();
     m_hostCleanupTimer->stop();
     m_sendQueue.clear();
-    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
-        m_socket->close();
-    }
+    // 先标 Stopped，避免 close/abort 触发的 error 又把重连定时器拉起来。
     setState(Stopped);
+    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
+        m_socket->abort();
+    }
 }
 
 void QUdpSocketManager::sendTo(const QByteArray &data, const QHostAddress &host, quint16 port)
@@ -121,6 +126,7 @@ void QUdpSocketManager::addRemoteHost(const QHostAddress &host, quint16 port)
     if(m_remoteHosts.size()>256)return;
     RemoteHost h;
     h.address = host;
+    h.host = host.toString();
     h.port = port;
     h.lastSeen = QDateTime::currentMSecsSinceEpoch();
 
@@ -139,6 +145,7 @@ void QUdpSocketManager::removeRemoteHost(const QHostAddress &host, quint16 port)
 {
     RemoteHost h;
     h.address = host;
+    h.host = host.toString();
     h.port = port;
     int idx = m_remoteHosts.indexOf(h);
     if (idx >= 0) {
@@ -172,6 +179,8 @@ void QUdpSocketManager::onReadyRead()
 
 void QUdpSocketManager::onSocketError(QAbstractSocket::SocketError err)
 {
+    if (m_state == Stopped) return;
+
     Error code = mapQtSocketError(err);
     emit errorOccurred(code, m_socket->errorString());
 
@@ -182,7 +191,6 @@ void QUdpSocketManager::onSocketError(QAbstractSocket::SocketError err)
             m_reconnectTimer->start(m_config.reconnectMs);
         }
     }
-    qDebug()<<__FUNCTION__;
 }
 
 void QUdpSocketManager::processRecv()
@@ -250,6 +258,8 @@ void QUdpSocketManager::doReconnect()
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
         m_socket->abort();
     }
+    if (m_socket->state() != QAbstractSocket::UnconnectedState)
+        return;
 
     bool ok = m_socket->bind(m_config.bindAddress, m_config.listenPort);
 #ifdef Q_OS_WIN
@@ -261,7 +271,6 @@ void QUdpSocketManager::doReconnect()
              nullptr, 0, &bytesReturned, nullptr, nullptr);
 #endif
 
-    qDebug()<<m_config.bindAddress<<m_config.listenPort;
     if (ok) {
         setState(Running);
         m_reconnectTimer->stop();
@@ -307,6 +316,7 @@ void QUdpSocketManager::updateRemoteHost(const QHostAddress &host, quint16 port)
 
     RemoteHost h;
     h.address = host;
+    h.host = host.toString();
     h.port = port;
 
     int idx = m_remoteHosts.indexOf(h);
