@@ -96,7 +96,6 @@ private:
     bool shouldBindLocal() const;   // 只有选了具体网卡才 bind
 
     QTcpSocket *m_socket = nullptr;
-    QTimer     *m_recvTimer;
     QTimer     *m_sendTimer;
     QTimer     *m_reconnectTimer;
     QTimer     *m_connectTimer;

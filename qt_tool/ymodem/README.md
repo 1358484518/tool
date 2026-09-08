@@ -24,7 +24,7 @@ ymodem/
     ├── QTcpServerManager    TCP 服务端
     ├── QTcpSocketManager    TCP 客户端
     ├── QUdpSocketManager    UDP
-    ├── FastTextView         大日志窗口（只画当前页）
+    ├── FastTextView         大日志窗口（只画当前页，来包后下一事件循环刷新）
     └── NetCommon.h          协议枚举、对端地址解析
 ```
 

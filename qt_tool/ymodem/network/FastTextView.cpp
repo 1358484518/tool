@@ -8,6 +8,7 @@
 #include <QShowEvent>
 #include <QTextBlock>
 #include <QTextDocument>
+#include <QTimer>
 #include <QWheelEvent>
 #include <QtMath>
 
@@ -38,8 +39,16 @@ FastTextView::FastTextView(QWidget *parent)
     lay->addWidget(m_edit, 1);
     lay->addWidget(m_scroll);
 
-    connect(m_scroll, &QScrollBar::valueChanged, this, &FastTextView::onScroll);
+    connect(m_scroll, &QScrollBar::valueChanged, this, [this](int value) {
+        m_followBottom = (m_scroll->maximum() <= 0) || (value >= m_scroll->maximum() - 1);
+        onScroll(value);
+    });
     m_edit->viewport()->installEventFilter(this);
+
+    m_paintTimer = new QTimer(this);
+    m_paintTimer->setSingleShot(true);
+    m_paintTimer->setInterval(0);  // 下一轮事件循环刷一次，来包立刻能看见
+    connect(m_paintTimer, &QTimer::timeout, this, &FastTextView::flushPendingPaint);
 }
 
 void FastTextView::setViewMode(ViewMode mode)
@@ -78,26 +87,19 @@ void FastTextView::addData(QByteArray data)
 {
     if (data.isEmpty())
         return;
-    const bool first = m_data.isEmpty();
+    if (isAtBottom())
+        m_followBottom = true;
     m_data.append(data);
     trimIfNeeded();
-    if (!m_inited)
-        return;
-
-    const int readSize = calcReadSize();
-    m_scroll->blockSignals(true);
-    m_scroll->setMaximum(m_data.size());
-    m_scroll->setPageStep(qMax(1, readSize / 2));
-    m_scroll->setSingleStep(qMax(1, readSize / 20));
-    m_scroll->blockSignals(false);
-
-    if (first || readSize >= m_data.size())
-        onScroll(m_scroll->value());
+    schedulePaint();
 }
 
 void FastTextView::clear()
 {
     m_data.clear();
+    m_followBottom = true;
+    if (m_paintTimer)
+        m_paintTimer->stop();
     if (!m_inited)
         return;
     m_edit->clear();
@@ -106,6 +108,7 @@ void FastTextView::clear()
 
 void FastTextView::scrollToTop()
 {
+    m_followBottom = false;
     if (!m_inited || m_data.isEmpty())
         return;
     m_scroll->setValue(0);
@@ -113,9 +116,38 @@ void FastTextView::scrollToTop()
 
 void FastTextView::scrollToBottom()
 {
+    m_followBottom = true;
+    schedulePaint();
+}
+
+bool FastTextView::isAtBottom() const
+{
     if (!m_inited || m_data.isEmpty())
+        return true;
+    return m_scroll->value() >= m_scroll->maximum() - 1;
+}
+
+void FastTextView::schedulePaint()
+{
+    if (!m_inited)
         return;
-    m_scroll->setValue(m_scroll->maximum());
+    if (!m_paintTimer->isActive())
+        m_paintTimer->start();
+}
+
+void FastTextView::flushPendingPaint()
+{
+    if (!m_inited)
+        return;
+    const int readSize = calcReadSize();
+    m_scroll->blockSignals(true);
+    m_scroll->setRange(0, m_data.size());
+    m_scroll->setPageStep(qMax(1, readSize / 2));
+    m_scroll->setSingleStep(qMax(1, readSize / 20));
+    if (m_followBottom)
+        m_scroll->setValue(m_scroll->maximum());
+    m_scroll->blockSignals(false);
+    onScroll(m_scroll->value());
 }
 
 int FastTextView::totalVisualLineCount() const

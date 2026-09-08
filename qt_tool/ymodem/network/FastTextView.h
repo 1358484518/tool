@@ -6,9 +6,11 @@
 
 class QPlainTextEdit;
 class QScrollBar;
+class QTimer;
 
 /**
- * 接收窗口。数据存在 m_data 里，界面只画当前这一屏，避免大日志把 UI 卡死。
+ * 接收窗口。原文在 m_data，屏幕只画当前这一页。
+ * 来数据后在下一轮事件循环画一次（不是按秒定时刷新），同一批包只会重绘一次。
  */
 class FastTextView : public QWidget
 {
@@ -46,16 +48,21 @@ protected:
 
 private slots:
     void onScroll(int byteOffset);  // 滚动条单位是字节偏移，不是行号
+    void flushPendingPaint();
 
 private:
     int calcReadSize() const;
     void refresh();
-    void trimIfNeeded();  // 超过上限丢掉最旧的数据
+    void trimIfNeeded();
+    void schedulePaint();
+    bool isAtBottom() const;
 
     QPlainTextEdit *m_edit = nullptr;
     QScrollBar *m_scroll = nullptr;
+    QTimer *m_paintTimer = nullptr;
     QByteArray m_data;
     bool m_inited = false;
+    bool m_followBottom = true;
     ViewMode m_viewMode = TextMode;
     int m_wheelStep = 0;
 };

@@ -10,13 +10,10 @@ QTcpSocketManager::QTcpSocketManager(QObject *parent)
     qRegisterMetaType<QTcpSocketManager::Error>("QTcpSocketManager::Error");
 
     m_socket = nullptr;
-    m_recvTimer = new QTimer(this);
     m_sendTimer = new QTimer(this);
     m_reconnectTimer = new QTimer(this);
     m_connectTimer = new QTimer(this);
 
-    m_recvTimer->setSingleShot(true);
-    m_recvTimer->setInterval(0);
     m_sendTimer->setSingleShot(true);
     m_sendTimer->setInterval(0);
     m_reconnectTimer->setSingleShot(true);
@@ -24,7 +21,6 @@ QTcpSocketManager::QTcpSocketManager(QObject *parent)
 
     recreateSocket();
 
-    connect(m_recvTimer, &QTimer::timeout, this, &QTcpSocketManager::processRecv);
     connect(m_sendTimer, &QTimer::timeout, this, &QTcpSocketManager::processSendQueue);
     connect(m_reconnectTimer, &QTimer::timeout, this, &QTcpSocketManager::doReconnect);
     connect(m_connectTimer, &QTimer::timeout, this, &QTcpSocketManager::onConnectTimeout);
@@ -58,7 +54,6 @@ void QTcpSocketManager::start(const TcpConfig &config)
 void QTcpSocketManager::stop()
 {
     m_reconnectTimer->stop();
-    m_recvTimer->stop();
     m_sendTimer->stop();
     m_connectTimer->stop();
     m_sendQueue.clear();
@@ -101,9 +96,7 @@ TcpConfig QTcpSocketManager::currentConfig() const { return m_config; }
 
 void QTcpSocketManager::onReadyRead()
 {
-    if (!m_recvTimer->isActive()) {
-        m_recvTimer->start();
-    }
+    processRecv();
 }
 
 void QTcpSocketManager::onSocketError(QAbstractSocket::SocketError err)
