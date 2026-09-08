@@ -2,6 +2,7 @@
 #include "common/ProtocolUtils.h"
 
 #include <QDebug>
+#include <QMetaObject>
 
 static const int kMaxReceiveBufferBytes = 256 * 1024;
 
@@ -11,6 +12,7 @@ SerialManager::SerialManager(QObject *parent)
     qRegisterMetaType<SerialManager::SerialConfig>("SerialManager::SerialConfig");
     qRegisterMetaType<SerialManager::SerialConfig>("SerialConfig");
     qRegisterMetaType<SerialManager::ConnectionState>("SerialManager::ConnectionState");
+    qRegisterMetaType<QSerialPort::SerialPortError>("QSerialPort::SerialPortError");
 }
 
 SerialManager::SerialManager(const SerialConfig &config, QObject *parent)
@@ -84,11 +86,12 @@ void SerialManager::destroySerialPort()
 {
     if (!m_serial)
         return;
-    m_serial->disconnect();
-    if (m_serial->isOpen())
-        m_serial->close();
-    delete m_serial;
+    QSerialPort *port = m_serial;
     m_serial = nullptr;
+    port->disconnect();
+    if (port->isOpen())
+        port->close();
+    port->deleteLater();
 }
 
 bool SerialManager::open()
@@ -101,7 +104,7 @@ bool SerialManager::open()
     }
     if (m_config.portName.isEmpty()) {
         m_lastError = QStringLiteral("Port name is empty");
-        emit errorOccurred(QSerialPort::NotOpenError, m_lastError);
+        emit errorOccurred(static_cast<int>(QSerialPort::NotOpenError), m_lastError);
         setState(Error);
         return false;
     }
@@ -234,33 +237,40 @@ void SerialManager::onReadyRead()
 
 void SerialManager::onErrorOccurred(QSerialPort::SerialPortError error)
 {
-    if (error == QSerialPort::NoError || !m_serial)
+    if (error == QSerialPort::NoError)
+        return;
+    const QString errStr = m_serial ? m_serial->errorString() : m_lastError;
+    // Windows 上在 QSerialPort 的 errorOccurred 里 close/delete 会直接把进程打崩。
+    QMetaObject::invokeMethod(this, "handlePortError", Qt::QueuedConnection,
+                              Q_ARG(int, static_cast<int>(error)),
+                              Q_ARG(QString, errStr));
+}
+
+void SerialManager::handlePortError(int error, const QString &errorString)
+{
+    if (m_manualClose)
         return;
 
-    m_lastError = m_serial->errorString();
+    m_lastError = errorString;
     qWarning() << "SerialManager: Error on port" << m_config.portName << ":" << error << m_lastError;
     emit errorOccurred(error, m_lastError);
 
-    const bool isDisconnectionError = (error == QSerialPort::ResourceError ||
-                                       error == QSerialPort::DeviceNotFoundError ||
-                                       error == QSerialPort::PermissionError);
-    if (!isDisconnectionError || m_state != Connected)
+    if (m_state != Connected)
         return;
 
-    m_readBufferTimer->stop();
+    if (m_readBufferTimer)
+        m_readBufferTimer->stop();
     flushReceiveBuffer();
-    m_serial->close();
     setState(Disconnected);
     emit portDisconnected();
+    destroySerialPort();
 
     if (m_config.autoReconnect && !m_manualClose) {
         setState(Connecting);
-        destroySerialPort();
-        if (!m_reconnectTimer->isActive())
+        if (m_reconnectTimer && !m_reconnectTimer->isActive())
             m_reconnectTimer->start(m_config.reconnectIntervalMs);
     } else {
         setState(Error);
-        destroySerialPort();
     }
 }
 
@@ -311,7 +321,7 @@ bool SerialManager::applyConfig()
 
     auto fail = [this](const QString &what) {
         m_lastError = what + QStringLiteral(": ") + m_serial->errorString();
-        emit errorOccurred(QSerialPort::OpenError, m_lastError);
+        emit errorOccurred(static_cast<int>(QSerialPort::OpenError), m_lastError);
         return false;
     };
 

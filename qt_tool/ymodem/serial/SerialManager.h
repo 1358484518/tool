@@ -69,7 +69,7 @@ public slots:
 signals:
     void connectionStateChanged(SerialManager::ConnectionState state);
     void dataReceived(const QByteArray &data);  // YModem 也订阅这个
-    void errorOccurred(QSerialPort::SerialPortError error, const QString &errorString);
+    void errorOccurred(int error, const QString &errorString);  // error 即 QSerialPort::SerialPortError
     void portConnected();
     void portDisconnected();
     void openResult(bool ok, const QString &errorString);
@@ -77,6 +77,7 @@ signals:
 private slots:
     void onReadyRead();
     void onErrorOccurred(QSerialPort::SerialPortError error);
+    void handlePortError(int error, const QString &errorString);  // 必须延后执行，不能在 QSerialPort 回调里 close
     void onReconnectTimer();
     void onReadBufferTimeout();
 

@@ -121,7 +121,11 @@ void TMX_TOOL::initUi()
     });
     connect(m_serial_operate, &SerialManager::portDisconnected, this, [this]() {
         m_serial_ui->setConnectionState(false);
-        m_serial_ui->showStatusMessage(QStringLiteral("Disconnected"));
+        if (m_serial_ui->autoReconnectEnabled())
+            m_serial_ui->showStatusMessage(QStringLiteral("串口断开，正在重连..."));
+        else
+            m_serial_ui->showStatusMessage(QStringLiteral("Disconnected"));
+        stopYmodemTransfer();
     });
     connect(m_serial_operate, &SerialManager::openResult, this,
             [this](bool ok, const QString &errorString) {
@@ -132,7 +136,7 @@ void TMX_TOOL::initUi()
                              QStringLiteral("Failed to open port: ") + errorString);
     });
     connect(m_serial_operate, &SerialManager::errorOccurred, this,
-            [this](QSerialPort::SerialPortError, const QString &str) {
+            [this](int, const QString &str) {
         m_serial_ui->showStatusMessage(QStringLiteral("Error: ") + str);
     });
 }
