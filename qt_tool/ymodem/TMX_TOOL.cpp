@@ -23,16 +23,18 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
 TMX_TOOL::~TMX_TOOL()
 {
     stopYmodemTransfer();
-    if (m_serial_operate)
-        disconnect(m_serial_operate, nullptr, nullptr, nullptr);
-    if (m_serialThread && m_serialThread->isRunning()) {
-        QMetaObject::invokeMethod(m_serial_operate, "close", Qt::BlockingQueuedConnection);
-        m_serialThread->quit();
-        m_serialThread->wait(3000);
-    }
     if (m_serial_operate) {
+        disconnect(m_serial_operate, nullptr, this, nullptr);
+        disconnect(this, nullptr, m_serial_operate, nullptr);
+        if (m_serialThread && m_serialThread->isRunning()) {
+            QMetaObject::invokeMethod(m_serial_operate, "close", Qt::BlockingQueuedConnection);
+            m_serialThread->quit();
+            m_serialThread->wait(3000);
+        }
+        // 工作线程对象不能带 parent（否则无法 moveToThread）。
+        // 停线程后拉回 UI 线程并 setParent，交给 Qt 对象树在 ~QObject 时释放。
         m_serial_operate->moveToThread(QThread::currentThread());
-        delete m_serial_operate;
+        m_serial_operate->setParent(this);
         m_serial_operate = nullptr;
     }
     delete ui;
@@ -41,6 +43,7 @@ TMX_TOOL::~TMX_TOOL()
 void TMX_TOOL::initSerialBackend()
 {
     m_serialThread = new QThread(this);
+    // SerialManager 先不设 parent：有 parent 的 QObject 不能 moveToThread
     m_serial_operate = new SerialManager;
     m_serial_operate->moveToThread(m_serialThread);
     connect(m_serialThread, &QThread::started, m_serial_operate, &SerialManager::initWorker);
@@ -49,10 +52,10 @@ void TMX_TOOL::initSerialBackend()
 
 void TMX_TOOL::initUi()
 {
-    m_serial_ui = new SerialAssistant;
-    m_net_ui = new NetAssistWidget;
+    m_serial_ui = new SerialAssistant(this);
+    m_net_ui = new NetAssistWidget(this);
 
-    m_tool_tab = new QTabWidget;
+    m_tool_tab = new QTabWidget(this);
     m_tool_tab->addTab(m_net_ui, QStringLiteral("网络工具"));
     m_tool_tab->addTab(m_serial_ui, QStringLiteral("串口工具"));
 
