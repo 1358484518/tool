@@ -163,6 +163,9 @@ void TMX_TOOL::initYmodemBridge()
             if (result == 0) {
                 m_serial_ui->showStatusMessage(
                     QStringLiteral("Send success: %1, %2 bytes").arg(name).arg(size));
+            } else if (result == QXYmodem::XMODEM_ERROR_IDLETIMEOUT) {
+                m_serial_ui->showStatusMessage(
+                    QStringLiteral("发送失败：5秒无响应，已自动退出"));
             } else {
                 m_serial_ui->showStatusMessage(
                     QStringLiteral("Send failed: %1, error: %2").arg(name).arg(result));

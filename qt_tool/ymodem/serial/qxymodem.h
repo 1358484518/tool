@@ -13,11 +13,15 @@
 #include <QMutexLocker>
 #include <QThread>
 #include <QDebug>
+#include <QElapsedTimer>
+#include <QtGlobal>
 #include <atomic>
 
 class QXYmodem: public QThread {
     Q_OBJECT
 public:
+    static const int DefaultIdleTimeoutMs = 5000;
+
     explicit QXYmodem(int type, unsigned short sendPktSize = 128, int timeout = 3000, int retry_limit = 10, bool no_timeout = false, QObject *parent = nullptr):
         QThread(parent),m_type(type),m_sendPktSize(sendPktSize),m_timeout(timeout),m_retry_limit(retry_limit),m_no_timeout(no_timeout) {};
     ~QXYmodem() override {};
@@ -45,15 +49,18 @@ public:
         XMODEM_ERROR_REMOTECANCEL = -1,
         XMODEM_ERROR_OUTOFSYNC	  = -2,
         XMODEM_ERROR_RETRYEXCEED  = -3,
+        XMODEM_ERROR_IDLETIMEOUT  = -4,
     };
     void startSend(void) {
         dir=SEND;
         m_abort.store(false);
+        m_result = XMODEM_OK;
         start();
     }
     void startRecv(void) {
         dir=RECV;
         m_abort.store(false);
+        m_result = XMODEM_OK;
         start();
     }
     void requestStop(void) {
@@ -62,28 +69,42 @@ public:
     bool getStopFlag(void) {
         return m_abort.load();
     }
+    int lastResult() const {
+        return m_result;
+    }
+    void setIdleTimeoutMs(int ms) {
+        m_idleTimeoutMs = qMax(0, ms);
+    }
 protected:
     void run() override {
+        m_idleTimer.start();
         _start();
+        int ret = XMODEM_OK;
         if(m_type == XMODEM) {
             if(dir == SEND) {
-                xmodemTransmit(m_sendPktSize);
+                ret = xmodemTransmit(m_sendPktSize);
             } else {
-                xmodemReceive();
+                ret = xmodemReceive();
             }
         } else {
-            int ret = 0;
             do {
                 ret = ymodemTransmit(m_sendPktSize);
                 if(ret == XMODEM_OK) {
                     transferOnce();
                 }
-                if(getStopFlag()) break;
+                if(getStopFlag()) {
+                    ret = idleTimedOut() ? XMODEM_ERROR_IDLETIMEOUT : XMODEM_ABORT;
+                    break;
+                }
             } while(ret != XMODEM_ERROR_REMOTECANCEL &&
                     ret != XMODEM_ERROR_RETRYEXCEED &&
                     ret != XMODEM_ABORT &&
+                    ret != XMODEM_ERROR_IDLETIMEOUT &&
                     ret != XMODEM_END);
         }
+        if(getStopFlag() && idleTimedOut())
+            ret = XMODEM_ERROR_IDLETIMEOUT;
+        m_result = ret;
         _end();
     }
 private:
@@ -115,6 +136,13 @@ private:
     int xmodemCrcCheck(int crcflag, const unsigned char *buffer, int size);
     int xmodemInTime(unsigned char *c, unsigned short timeout);
     void xmodemInFlush(void);
+    bool idleTimedOut() const {
+        return m_idleTimeoutMs > 0 && m_idleTimer.isValid() && m_idleTimer.hasExpired(m_idleTimeoutMs);
+    }
+    void notePeerResponse() {
+        if (m_idleTimeoutMs > 0)
+            m_idleTimer.restart();
+    }
 private:
     int dir=SEND;
     int m_type=XMODEM;
@@ -123,6 +151,9 @@ private:
     int m_retry_limit = 10;
     bool m_no_timeout = false;
     std::atomic<bool> m_abort{false};
+    int m_idleTimeoutMs = DefaultIdleTimeoutMs;
+    int m_result = XMODEM_OK;
+    QElapsedTimer m_idleTimer;
 };
 
 class QXmodemFile: public QXYmodem {
@@ -170,7 +201,7 @@ private:
     }
     void _end(void) override {
         QFileInfo info(m_file->fileName());
-        emit complete(info.fileName(), getStopFlag()?-1:0, m_file->size());
+        emit complete(info.fileName(), lastResult(), m_file->size());
         if(m_file->isOpen()) m_file->close();
     }
     int writefile(const char* buffer, int size) override {
@@ -263,10 +294,9 @@ private:
         m_fileIndex = 0;
     }
     void _end(void) override {
-        // 整个传输完全结束才发成功信号
         if (!m_filePathList.isEmpty()) {
             QFileInfo info(m_filePathList.first());
-            emit complete(info.fileName(), getStopFlag()?-1:0, info.size());
+            emit complete(info.fileName(), lastResult(), info.size());
         }
     }
     int writefile(const char* buffer, int size) override {
