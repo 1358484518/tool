@@ -69,10 +69,10 @@ void TMX_TOOL::initUi()
         config.autoReconnect = m_serial_ui->autoReconnectEnabled();
         config.reconnectIntervalMs = m_serial_ui->reconnectInterval();
         config.readBufferTimeoutMs = 16;
-        QMetaObject::invokeMethod(m_serial_operate, "openWithConfig",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(SerialManager::SerialConfig, config));
+        emit serialOpenRequested(config);
     });
+    connect(this, &TMX_TOOL::serialOpenRequested,
+            m_serial_operate, &SerialManager::openWithConfig, Qt::QueuedConnection);
 
     connect(m_serial_ui, &SerialAssistant::closePortRequested,
             m_serial_operate, &SerialManager::close, Qt::QueuedConnection);

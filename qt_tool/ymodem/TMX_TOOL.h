@@ -27,6 +27,9 @@ private:
     void initYmodemBridge();
     void stopYmodemTransfer();
 
+signals:
+    void serialOpenRequested(const SerialManager::SerialConfig &config);
+
 private:
     Ui::TMX_TOOL *ui;
     QTabWidget *m_tool_tab = nullptr;

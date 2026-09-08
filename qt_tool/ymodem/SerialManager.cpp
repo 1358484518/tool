@@ -11,6 +11,7 @@ SerialManager::SerialManager(QObject *parent)
     , m_readBufferTimer(new QTimer(this))
 {
     qRegisterMetaType<SerialManager::SerialConfig>("SerialManager::SerialConfig");
+    qRegisterMetaType<SerialManager::SerialConfig>("SerialConfig");
     qRegisterMetaType<SerialManager::ConnectionState>("SerialManager::ConnectionState");
 
     m_reconnectTimer->setSingleShot(true);
@@ -43,7 +44,7 @@ QList<QSerialPortInfo> SerialManager::availablePorts()
     return QSerialPortInfo::availablePorts();
 }
 
-void SerialManager::setConfig(const SerialConfig &config)
+void SerialManager::setConfig(const SerialManager::SerialConfig &config)
 {
     if (m_state == Connected || m_state == Connecting) {
         qWarning() << "SerialManager: Cannot change config while port is open";
@@ -52,7 +53,7 @@ void SerialManager::setConfig(const SerialConfig &config)
     m_config = config;
 }
 
-void SerialManager::openWithConfig(const SerialConfig &config)
+void SerialManager::openWithConfig(const SerialManager::SerialConfig &config)
 {
     if (m_state == Connected || m_state == Connecting)
         close();

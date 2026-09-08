@@ -62,8 +62,8 @@ public:
     void clearReceiveBuffer();
 
 public slots:
-    void setConfig(const SerialConfig &config);
-    void openWithConfig(const SerialConfig &config);
+    void setConfig(const SerialManager::SerialConfig &config);
+    void openWithConfig(const SerialManager::SerialConfig &config);
     bool open();
     void close();
     qint64 sendBinary(const QByteArray &data);
