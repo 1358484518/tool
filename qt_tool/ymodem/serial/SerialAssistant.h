@@ -23,6 +23,7 @@
 /**
  * 串口页 UI。只读控件、发请求，不创建 QSerialPort。
  * 打开/发送由 TMX_TOOL 转到 SerialManager；收包走 onIoData。
+ * 其它控件请用 TMX_TOOL::serialIoSource() 的 sendIoData / ioDataReceived。
  */
 class SerialAssistant : public QWidget
 {

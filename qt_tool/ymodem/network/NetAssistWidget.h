@@ -20,7 +20,7 @@ class NetworkWorker;
 
 /**
  * 网络页 UI。套接字都在 m_netWorker 所在线程。
- * 打开/连接/发送用信号丢过去；收包走 onIoData。
+ * 打开/连接由本页管理；收 onIoData，发走 IoSource::sendIoData。
  */
 class NetAssistWidget : public QWidget
 {
@@ -29,7 +29,7 @@ public:
     explicit NetAssistWidget(QWidget *parent = nullptr);
     ~NetAssistWidget();
 
-    IoSource *ioSource() const;  // 即 NetworkWorker，给主窗口和其它控件用
+    IoSource *ioSource() const;  // NetworkWorker：收 ioDataReceived，发 sendIoData
 
 signals:
     void sigOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort);

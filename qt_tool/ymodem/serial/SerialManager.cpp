@@ -340,7 +340,13 @@ bool SerialManager::applyConfig()
 
 qint64 SerialManager::sendBinary(const QByteArray &data)
 {
-    return write(data);
+    sendIoData(IoPacket::fromSerial(data, m_config.portName));
+    return (m_state == Connected) ? data.size() : -1;
+}
+
+bool SerialManager::writeIoData(const IoPacket &packet)
+{
+    return write(packet.data) >= 0;
 }
 
 qint64 SerialManager::sendString(const QString &text, bool appendCRLF)

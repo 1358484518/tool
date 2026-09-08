@@ -28,8 +28,8 @@ public:
     TMX_TOOL(QWidget *parent = nullptr);
     ~TMX_TOOL() override;
 
-    IoSource *serialIoSource() const;   // 串口收包出口，其它控件可订阅
-    IoSource *networkIoSource() const;  // 网络收包出口
+    IoSource *serialIoSource() const;   // 收 ioDataReceived，发 sendIoData
+    IoSource *networkIoSource() const;
 
 private:
     void initUi();

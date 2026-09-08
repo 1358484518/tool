@@ -34,7 +34,7 @@ ymodem/
 
 1. **界面**：`SerialAssistant`、`NetAssistWidget` 在 UI 线程，不创建 `QSerialPort` / `QTcpSocket`。
 2. **后端**：`SerialManager`、`NetworkWorker` 各自一条 `QThread`，定时器和套接字都在这条线程上创建。
-3. **数据出口**：两边都继承 `IoSource`，收到数据只发 `ioDataReceived(IoPacket)`。其它控件连这一个信号即可。
+3. **数据口**：两边都继承 `IoSource`。收 `ioDataReceived(IoPacket)`，发 `sendIoData`。新控件只连这个对象，不要自己开关串口或套接字。
 
 不要给还在工作线程上的对象设 Qt parent（有 parent 就不能 `moveToThread`）。退出时必须先在工作线程里把对象“推”回 UI，再 `setParent`。
 
@@ -85,7 +85,15 @@ main
 设备有数据 → SerialManager 拼 IoPacket
           → ioDataReceived → SerialAssistant::onIoData → 文本框
 
-点「发送」→ sendDataRequested → SerialManager::sendBinary
+点「发送」→ sendDataRequested → IoSource::sendIoData → SerialManager 写出
+```
+
+其它控件：
+
+```
+connect(widget, &W::payloadReady, tmx->serialIoSource(),
+        QOverload<const QByteArray &>::of(&IoSource::sendIoData), Qt::QueuedConnection);
+connect(tmx->serialIoSource(), &IoSource::ioDataReceived, widget, &W::onIoData);
 ```
 
 ### 网络收发
@@ -98,8 +106,12 @@ TCP 客户端再点「连接」→ slotTcpConnect → QTcpSocketManager::start
                       （客户端不 bind 本地监听口，重连时换新套接字）
 
 收到数据 → NetworkWorker::forwardPayload
-        → ioDataReceived + sigRecvData → NetAssistWidget::onIoData
+        → ioDataReceived → NetAssistWidget::onIoData
+
+点「发送」→ sigSendData → sendIoData → 当前协议的 Manager
 ```
+
+其它控件用 `tmx->networkIoSource()` 的 `sendIoData`。UDP/TCP 服务端可在 `IoPacket.peer/port` 里指定对端；TCP 客户端或广播则留空。
 
 域名、`host:port`、`https://...` 在 `NetCommon.h` 的 `parseRemoteEndpoint` 里解析。UDP 发到主机名时用 `QHostInfo::fromName`。
 
@@ -119,11 +131,11 @@ TCP 客户端再点「连接」→ slotTcpConnect → QTcpSocketManager::start
 
 ## 类怎么管
 
-- **主窗口 `TMX_TOOL`**：只组装，不实现协议。对外提供 `serialIoSource()` / `networkIoSource()`，方便以后再接控件。
+- **主窗口 `TMX_TOOL`**：只组装，不实现协议。对外提供 `serialIoSource()` / `networkIoSource()`。
 - **UI 类**：读控件、组配置、显示 `IoPacket`。不持有套接字。
 - **Worker 类**：`SerialManager`、`NetworkWorker` 是唯一碰硬件的地方。`NetworkWorker` 切换协议时 `cleanupCurrentNet()`，三个 Manager 不同时存在。
 - **Manager 类**：各自管连接、重连、发送队列。TCP 客户端 `stop()` 先断信号再 `abort`，避免重连定时器在退出时再 `bind`。
-- **`IoSource`**：基类只做两件事——发收包、退出时把线程亲和性交回 UI。
+- **`IoSource`**：收 `ioDataReceived`，发 `sendIoData`，退出时 `handoverTo` 把线程交回 UI。新控件不要自己管链路。
 
 ## 编译
 

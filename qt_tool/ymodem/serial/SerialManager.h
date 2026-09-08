@@ -15,7 +15,7 @@
 /**
  * 串口后端，必须活在工作线程（见 TMX_TOOL::initSerialBackend）。
  * QSerialPort 和定时器只在 initWorker()/open() 里创建，不要在 UI 线程 new。
- * 收到的数据走 IoSource::ioDataReceived。
+ * 收：IoSource::ioDataReceived；发：IoSource::sendIoData。
  */
 class SerialManager : public IoSource
 {
@@ -58,7 +58,7 @@ public slots:
     void openWithConfig(const SerialManager::SerialConfig &config);
     bool open();
     void close();               // 手动关闭，不会自动重连
-    qint64 sendBinary(const QByteArray &data);
+    qint64 sendBinary(const QByteArray &data);  // 转 sendIoData，留给旧连接
     qint64 sendString(const QString &text, bool appendCRLF = false);
     qint64 sendHex(const QString &hexStr);
     void setDtr(bool enabled);
@@ -90,6 +90,10 @@ private:
     void emitReceived(const QByteArray &data);
     qint64 write(const QByteArray &data);
 
+protected:
+    bool writeIoData(const IoPacket &packet) override;
+
+private:
     QSerialPort *m_serial = nullptr;
     SerialConfig m_config;
     ConnectionState m_state = Disconnected;

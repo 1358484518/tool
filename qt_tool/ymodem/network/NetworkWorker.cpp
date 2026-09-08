@@ -96,38 +96,61 @@ void NetworkWorker::slotTcpDisconnect()
 
 void NetworkWorker::slotSendData(QByteArray data, QString remoteIp, quint16 remotePort)
 {
-    if (data.isEmpty())
-        return;
+    IoPacket packet = IoPacket::fromBytes(data);
+    packet.peer = remoteIp;
+    packet.port = remotePort;
+    if (m_currentProto == NetProtocol::TcpServer)
+        packet.channel = IoPacket::TcpServer;
+    else if (m_currentProto == NetProtocol::TcpClient)
+        packet.channel = IoPacket::TcpClient;
+    else if (m_currentProto == NetProtocol::Udp)
+        packet.channel = IoPacket::Udp;
+    sendIoData(packet);
+}
+
+bool NetworkWorker::writeIoData(const IoPacket &packet)
+{
+    if (packet.data.isEmpty())
+        return false;
+
+    const QString remoteIp = packet.peer;
+    const quint16 remotePort = packet.port;
 
     if (m_currentProto == NetProtocol::TcpServer && m_tcpServer) {
         if (remoteIp.isEmpty() || remotePort == 0)
-            m_tcpServer->broadcast(data);
+            m_tcpServer->broadcast(packet.data);
         else
-            sendToTcpClient(data, remoteIp, remotePort);
-    } else if (m_currentProto == NetProtocol::TcpClient && m_tcpClient) {
-        m_tcpClient->send(data);
-    } else if (m_currentProto == NetProtocol::Udp && m_udp) {
+            sendToTcpClient(packet.data, remoteIp, remotePort);
+        return true;
+    }
+    if (m_currentProto == NetProtocol::TcpClient && m_tcpClient) {
+        m_tcpClient->send(packet.data);
+        return true;
+    }
+    if (m_currentProto == NetProtocol::Udp && m_udp) {
         if (remoteIp.isEmpty()) {
-            m_udp->broadcast(data, remotePort);
-        } else {
-            QHostAddress addr(remoteIp);
-            if (addr.isNull()) {
-                const QHostInfo info = QHostInfo::fromName(remoteIp);
-                if (info.addresses().isEmpty()) {
-                    emit sigError(QStringLiteral("无法解析主机 %1").arg(remoteIp));
-                    return;
-                }
-                addr = info.addresses().first();
-                for (const QHostAddress &item : info.addresses()) {
-                    if (item.protocol() == QAbstractSocket::IPv4Protocol) {
-                        addr = item;
-                        break;
-                    }
+            m_udp->broadcast(packet.data, remotePort);
+            return true;
+        }
+        QHostAddress addr(remoteIp);
+        if (addr.isNull()) {
+            const QHostInfo info = QHostInfo::fromName(remoteIp);
+            if (info.addresses().isEmpty()) {
+                emit sigError(QStringLiteral("无法解析主机 %1").arg(remoteIp));
+                return false;
+            }
+            addr = info.addresses().first();
+            for (const QHostAddress &item : info.addresses()) {
+                if (item.protocol() == QAbstractSocket::IPv4Protocol) {
+                    addr = item;
+                    break;
                 }
             }
-            m_udp->sendTo(data, addr, remotePort);
         }
+        m_udp->sendTo(packet.data, addr, remotePort);
+        return true;
     }
+    return false;
 }
 
 void NetworkWorker::forwardPayload(IoPacket::Channel channel, const QByteArray &data,

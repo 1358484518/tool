@@ -10,7 +10,8 @@
 
 /**
  * 网络后端，活在 NetAssistWidget 的 workerThread。
- * 同一时刻只保留一种协议对应的 Manager；收包走 IoSource。
+ * 同一时刻只保留一种协议对应的 Manager。
+ * 收：IoSource::ioDataReceived；发：IoSource::sendIoData。
  */
 class NetworkWorker : public IoSource
 {
@@ -64,6 +65,10 @@ private:
     void forwardPayload(IoPacket::Channel channel, const QByteArray &data,
                         const QString &peer, quint16 port);
 
+protected:
+    bool writeIoData(const IoPacket &packet) override;
+
+private:
     NetProtocol m_currentProto = static_cast<NetProtocol>(-1);
     QHostAddress m_bindAddress = QHostAddress::Any;
     quint16 m_bindPort = 0;     // TCP/UDP 监听口；TCP 客户端不拿它去 bind
