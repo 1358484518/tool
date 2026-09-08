@@ -68,6 +68,9 @@ private:
     QString dataToText(const QByteArray &data);
     void updateCountLabel();
     void appendLog(const QString &text, const QColor &color = Qt::black);
+    void setStatus(const QString &text, const QString &color);
+    void applyOpenButtonStyle(bool opened);
+    void applyConnectButtonStyle(bool connected);
 
     void initNetWork();
 
@@ -116,6 +119,8 @@ private:
 
     QSpinBox     *m_spinAutoSendInterval;
     QPushButton  *m_btnSend;
+    QPushButton  *m_btnClearSend;
+    QPushButton  *m_btnResetCount;
     QLabel       *m_labelSendCount;
     QPlainTextEdit *m_editSend;
 

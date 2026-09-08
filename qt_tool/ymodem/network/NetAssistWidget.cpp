@@ -8,6 +8,9 @@
 #include <QDateTime>
 #include <QFile>
 #include <QFileDialog>
+#include <QFont>
+#include <QFrame>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHostAddress>
@@ -24,11 +27,41 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
+namespace {
+
+const char kBtnGreen[] =
+    "QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 3px; border-radius: 2px; }"
+    "QPushButton:hover { background-color: #43A047; }"
+    "QPushButton:disabled { background-color: #A5D6A7; color: #f5f5f5; }";
+const char kBtnRed[] =
+    "QPushButton { background-color: #f44336; color: white; font-weight: bold; padding: 3px; border-radius: 2px; }"
+    "QPushButton:hover { background-color: #E53935; }"
+    "QPushButton:disabled { background-color: #EF9A9A; color: #f5f5f5; }";
+const char kBtnBlue[] =
+    "QPushButton { background-color: #2196F3; color: white; font-weight: bold; padding: 4px; border-radius: 2px; }"
+    "QPushButton:hover { background-color: #1E88E5; }"
+    "QPushButton:disabled { background-color: #90CAF9; color: white; }";
+const char kBtnOrange[] =
+    "QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 3px; border-radius: 2px; }"
+    "QPushButton:hover { background-color: #FB8C00; }"
+    "QPushButton:disabled { background-color: #FFCC80; color: white; }";
+const char kEditBorder[] =
+    "QPlainTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #c0c0c0; }";
+
+QFrame *makeHLine(QWidget *parent)
+{
+    auto *line = new QFrame(parent);
+    line->setFrameShape(QFrame::HLine);
+    line->setFrameShadow(QFrame::Sunken);
+    return line;
+}
+
+} // namespace
+
 NetAssistWidget::NetAssistWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setWindowTitle("网络调试助手");
-    resize(850, 600);
+    setWindowTitle(QStringLiteral("网络调试助手"));
     initUi();
     initConnect();
     initNetWork();
@@ -61,99 +94,90 @@ NetAssistWidget::~NetAssistWidget()
 
 void NetAssistWidget::initUi()
 {
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(4);
+    auto *mainLayout = new QHBoxLayout(this);
+    mainLayout->setSpacing(6);
     mainLayout->setContentsMargins(6, 6, 6, 6);
 
-    QHBoxLayout *contentLayout = new QHBoxLayout();
-    contentLayout->setSpacing(6);
+    // ========== 左侧：接收 + 发送 ==========
+    auto *leftPanel = new QWidget(this);
+    auto *leftLayout = new QVBoxLayout(leftPanel);
+    leftLayout->setSpacing(4);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
 
-    // 左侧日志区
-    QVBoxLayout *logLayout = new QVBoxLayout();
-    logLayout->setSpacing(4);
+    m_editRecv = new FastTextView(leftPanel);
+    m_editRecv->setStyleSheet(QString::fromLatin1(kEditBorder));
+    leftLayout->addWidget(m_editRecv, 2);
 
-    QGroupBox *groupRecvLog = new QGroupBox("接收区");
-    QVBoxLayout *recvLogLayout = new QVBoxLayout(groupRecvLog);
-    recvLogLayout->setContentsMargins(6, 10, 6, 6);
-    m_editRecv = new FastTextView;
-//    m_editRecv->setReadOnly(true);
-//    m_editRecv->setFont(QFont("Consolas", 10));
-    recvLogLayout->addWidget(m_editRecv);
-    logLayout->addWidget(groupRecvLog, 1);
+    auto *sendPanel = new QFrame(leftPanel);
+    sendPanel->setFrameShape(QFrame::StyledPanel);
+    sendPanel->setFrameShadow(QFrame::Plain);
+    sendPanel->setMinimumHeight(180);
+    auto *sendLayout = new QHBoxLayout(sendPanel);
+    sendLayout->setSpacing(4);
+    sendLayout->setContentsMargins(4, 4, 4, 4);
 
-    QGroupBox *groupSendLog = new QGroupBox("发送区");
-    QVBoxLayout *sendLogLayout = new QVBoxLayout(groupSendLog);
-    sendLogLayout->setContentsMargins(6, 10, 6, 6);
-    m_editSend = new QPlainTextEdit();
-    m_editSend->setFixedHeight(90);
-    m_editSend->setFont(QFont("Consolas", 10));
+    m_editSend = new QPlainTextEdit(sendPanel);
+    m_editSend->setFont(QFont(QStringLiteral("Consolas"), 10));
     m_editSend->setPlaceholderText(QStringLiteral("输入要发送的数据... (Ctrl+Enter 发送)"));
-    sendLogLayout->addWidget(m_editSend);
-    logLayout->addWidget(groupSendLog);
+    m_editSend->setStyleSheet(QString::fromLatin1(kEditBorder));
+    sendLayout->addWidget(m_editSend, 1);
 
-    contentLayout->addLayout(logLayout, 7);
+    auto *sendBtnCol = new QVBoxLayout();
+    sendBtnCol->setSpacing(4);
+    m_btnSend = new QPushButton(QStringLiteral("发送"), sendPanel);
+    m_btnSend->setMinimumWidth(70);
+    m_btnSend->setEnabled(false);
+    m_btnSend->setStyleSheet(QString::fromLatin1(kBtnBlue));
+    sendBtnCol->addWidget(m_btnSend);
+    m_btnClearSend = new QPushButton(QStringLiteral("清空"), sendPanel);
+    m_btnClearSend->setMinimumWidth(70);
+    sendBtnCol->addWidget(m_btnClearSend);
+    sendBtnCol->addStretch();
+    sendLayout->addLayout(sendBtnCol);
+    leftLayout->addWidget(sendPanel, 1);
+    mainLayout->addWidget(leftPanel, 5);
 
-    // 右侧设置区
-    QVBoxLayout *settingLayout = new QVBoxLayout();
-    settingLayout->setSpacing(4);
-    const int settingWidth = 220;
+    // ========== 右侧设置栏 ==========
+    auto *rightPanel = new QWidget(this);
+    rightPanel->setMaximumWidth(220);
+    auto *rightLayout = new QVBoxLayout(rightPanel);
+    rightLayout->setSpacing(6);
+    rightLayout->setContentsMargins(4, 0, 0, 0);
 
-    // 连接设置
-    m_groupConnection = new QGroupBox("连接设置");
-    m_groupConnection->setFixedWidth(settingWidth);
-    QVBoxLayout *connLayout = new QVBoxLayout(m_groupConnection);
-    connLayout->setSpacing(3);
-    connLayout->setContentsMargins(8, 10, 8, 8);
+    m_groupConnection = new QGroupBox(QStringLiteral("连接设置"), rightPanel);
+    auto *connGrid = new QGridLayout(m_groupConnection);
+    connGrid->setSpacing(4);
+    connGrid->setContentsMargins(6, 14, 6, 6);
+    int r = 0;
 
-    connLayout->addWidget(new QLabel("协议类型:"));
-    m_cmbProtocol = new QComboBox();
-    m_cmbProtocol->setFixedHeight(22);
-    m_cmbProtocol->addItem("TCP 服务端", QVariant::fromValue(NetProtocol::TcpServer));
-    m_cmbProtocol->addItem("TCP 客户端", QVariant::fromValue(NetProtocol::TcpClient));
-    m_cmbProtocol->addItem("UDP", QVariant::fromValue(NetProtocol::Udp));
-    connLayout->addWidget(m_cmbProtocol);
+    connGrid->addWidget(new QLabel(QStringLiteral("协议:"), m_groupConnection), r, 0);
+    m_cmbProtocol = new QComboBox(m_groupConnection);
+    m_cmbProtocol->addItem(QStringLiteral("TCP 服务端"), QVariant::fromValue(NetProtocol::TcpServer));
+    m_cmbProtocol->addItem(QStringLiteral("TCP 客户端"), QVariant::fromValue(NetProtocol::TcpClient));
+    m_cmbProtocol->addItem(QStringLiteral("UDP"), QVariant::fromValue(NetProtocol::Udp));
+    connGrid->addWidget(m_cmbProtocol, r, 1);
+    r++;
 
-    connLayout->addWidget(new QLabel("本地地址:"));
-    m_cmbLocalIp = new QComboBox();
-    m_cmbLocalIp->setFixedHeight(22);
-    m_cmbLocalIp->addItem("0.0.0.0 (所有网卡)");
+    connGrid->addWidget(new QLabel(QStringLiteral("地址:"), m_groupConnection), r, 0);
+    m_cmbLocalIp = new QComboBox(m_groupConnection);
+    m_cmbLocalIp->addItem(QStringLiteral("0.0.0.0 (所有网卡)"));
     for (const QHostAddress &addr : QNetworkInterface::allAddresses()) {
-        if (addr.protocol() == QAbstractSocket::IPv4Protocol && addr != QHostAddress::LocalHost) {
+        if (addr.protocol() == QAbstractSocket::IPv4Protocol && addr != QHostAddress::LocalHost)
             m_cmbLocalIp->addItem(addr.toString());
-        }
     }
-    m_cmbLocalIp->addItem("127.0.0.1 (本机回环)");
-    connLayout->addWidget(m_cmbLocalIp);
+    m_cmbLocalIp->addItem(QStringLiteral("127.0.0.1 (本机回环)"));
+    connGrid->addWidget(m_cmbLocalIp, r, 1);
+    r++;
 
-    connLayout->addWidget(new QLabel("本地端口:"));
-    m_spinLocalPort = new QSpinBox();
-    m_spinLocalPort->setFixedHeight(22);
+    connGrid->addWidget(new QLabel(QStringLiteral("端口:"), m_groupConnection), r, 0);
+    m_spinLocalPort = new QSpinBox(m_groupConnection);
     m_spinLocalPort->setRange(1, 65535);
     m_spinLocalPort->setValue(13601);
-    connLayout->addWidget(m_spinLocalPort);
+    connGrid->addWidget(m_spinLocalPort, r, 1);
+    r++;
 
-    m_btnOpen = new QPushButton("打开");
-    m_btnOpen->setCheckable(true);
-    m_btnOpen->setFixedHeight(24);
-    connLayout->addWidget(m_btnOpen);
-
-    connLayout->addSpacing(3);
-    connLayout->addWidget(new QLabel("远程地址（IP/网址:端口）"));
-//    m_cmbRemoteIp = new QComboBox();
-//    m_cmbRemoteIp->setFixedHeight(22);
-//    m_cmbRemoteIp->setEditable(true);
-//    m_cmbRemoteIp->addItem("127.0.0.1");
-//    m_cmbRemoteIp->setEnabled(false);
-//    connLayout->addWidget(m_cmbRemoteIp);
-
-//    connLayout->addWidget(new QLabel("远程端口:"));
-//    m_spinRemotePort = new QSpinBox();
-//    m_spinRemotePort->setFixedHeight(22);
-//    m_spinRemotePort->setRange(1, 65535);
-//    m_spinRemotePort->setValue(13649);
-//    m_spinRemotePort->setEnabled(false);
-
-    m_cmbRemoteAddr = new QComboBox();
+    connGrid->addWidget(new QLabel(QStringLiteral("远程:"), m_groupConnection), r, 0);
+    m_cmbRemoteAddr = new QComboBox(m_groupConnection);
     m_cmbRemoteAddr->setEditable(true);
     m_cmbRemoteAddr->setToolTip(QStringLiteral("支持 127.0.0.1:80、www.example.com:443、https://www.example.com"));
     RemoteHost addr;
@@ -161,101 +185,114 @@ void NetAssistWidget::initUi()
     addr.address = QHostAddress(QStringLiteral("127.0.0.1"));
     addr.host = QStringLiteral("127.0.0.1");
     addHostAddr(addr);
-    connLayout->addWidget(m_cmbRemoteAddr);
     if (m_cmbRemoteAddr->lineEdit()) {
         m_cmbRemoteAddr->lineEdit()->setPlaceholderText(
-            QStringLiteral("127.0.0.1:80 或 www.example.com:443"));
+            QStringLiteral("IP/网址:端口"));
     }
+    connGrid->addWidget(m_cmbRemoteAddr, r, 1);
+    rightLayout->addWidget(m_groupConnection);
 
-    m_btnConnect = new QPushButton("连接");
+    m_btnOpen = new QPushButton(QStringLiteral("打开"), rightPanel);
+    m_btnOpen->setCheckable(true);
+    m_btnOpen->setMinimumHeight(28);
+    applyOpenButtonStyle(false);
+    rightLayout->addWidget(m_btnOpen);
+
+    m_btnConnect = new QPushButton(QStringLiteral("连接"), rightPanel);
     m_btnConnect->setEnabled(false);
-    m_btnConnect->setFixedHeight(24);
-    connLayout->addWidget(m_btnConnect);
-    settingLayout->addWidget(m_groupConnection);
+    m_btnConnect->setMinimumHeight(28);
+    applyConnectButtonStyle(false);
+    rightLayout->addWidget(m_btnConnect);
 
-    // 接收设置
-    m_groupRecvSetting = new QGroupBox("接收设置");
-    m_groupRecvSetting->setFixedWidth(settingWidth);
-    QVBoxLayout *recvSettingLayout = new QVBoxLayout(m_groupRecvSetting);
-    recvSettingLayout->setSpacing(3);
-    recvSettingLayout->setContentsMargins(8, 10, 8, 8);
+    rightLayout->addWidget(makeHLine(rightPanel));
 
-    m_checkHexRecv = new QCheckBox("十六进制显示");
-    recvSettingLayout->addWidget(m_checkHexRecv);
+    m_groupSendSetting = new QGroupBox(QStringLiteral("发送设置"), rightPanel);
+    auto *sendGrid = new QGridLayout(m_groupSendSetting);
+    sendGrid->setSpacing(4);
+    sendGrid->setContentsMargins(6, 14, 6, 6);
+    r = 0;
+    m_checkAutoSend = new QCheckBox(QStringLiteral("定时发送"), m_groupSendSetting);
+    sendGrid->addWidget(m_checkAutoSend, r, 0, 1, 2);
+    r++;
 
-    m_checkRecvTimestamp = new QCheckBox("加时间戳,分包显示");
-    m_checkShowRecvAddr = new QCheckBox("显示接收/对端地址");
-    m_scrollToBottom = new QCheckBox("显示最新接收数据");
-
-    recvSettingLayout->addWidget(m_checkRecvTimestamp);
-    recvSettingLayout->addWidget(m_checkShowRecvAddr);
-    recvSettingLayout->addWidget(m_scrollToBottom);
-
-    m_btnClearRecv = new QPushButton("清空接收");
-    m_btnClearRecv->setFixedHeight(24);
-    recvSettingLayout->addWidget(m_btnClearRecv);
-
-    m_btnSaveLog = new QPushButton("保存日志");
-    m_btnSaveLog->setFixedHeight(24);
-    recvSettingLayout->addWidget(m_btnSaveLog);
-
-    recvSettingLayout->addSpacing(2);
-    m_labelRecvCount = new QLabel("接收: 0 字节");
-    recvSettingLayout->addWidget(m_labelRecvCount);
-    settingLayout->addWidget(m_groupRecvSetting);
-
-    // 发送设置
-    m_groupSendSetting = new QGroupBox("发送设置");
-    m_groupSendSetting->setFixedWidth(settingWidth);
-    QVBoxLayout *sendSettingLayout = new QVBoxLayout(m_groupSendSetting);
-    sendSettingLayout->setSpacing(3);
-    sendSettingLayout->setContentsMargins(8, 10, 8, 8);
-
-    m_checkHexSend = new QCheckBox("十六进制发送");
-    sendSettingLayout->addWidget(m_checkHexSend);
-
-    m_checkAutoSend = new QCheckBox("定时发送");
-
-    m_checkAddModbusCrc16 = new QCheckBox("CRC16 Modbus");
-    m_checkAppendCRLF = new QCheckBox("加回车换行");
-    m_checkBroadcastSend = new QCheckBox("广播发送");
-
-    sendSettingLayout->addWidget(m_checkAddModbusCrc16);
-    sendSettingLayout->addWidget(m_checkAppendCRLF);
-    sendSettingLayout->addWidget(m_checkBroadcastSend);
-    sendSettingLayout->addWidget(m_checkAutoSend);
-
-    m_spinAutoSendInterval = new QSpinBox();
-    m_spinAutoSendInterval->setFixedHeight(22);
+    auto *intervalRow = new QHBoxLayout();
+    intervalRow->setSpacing(4);
+    intervalRow->addWidget(new QLabel(QStringLiteral("间隔:"), m_groupSendSetting));
+    m_spinAutoSendInterval = new QSpinBox(m_groupSendSetting);
     m_spinAutoSendInterval->setRange(100, 60000);
     m_spinAutoSendInterval->setValue(1000);
-    m_spinAutoSendInterval->setSuffix(" ms");
+    m_spinAutoSendInterval->setSuffix(QStringLiteral("ms"));
     m_spinAutoSendInterval->setEnabled(false);
-    sendSettingLayout->addWidget(m_spinAutoSendInterval);
+    intervalRow->addWidget(m_spinAutoSendInterval, 1);
+    sendGrid->addLayout(intervalRow, r, 0, 1, 2);
+    r++;
 
-    m_btnSend = new QPushButton("发送");
-    m_btnSend->setEnabled(false);
-    m_btnSend->setFixedHeight(24);
-    sendSettingLayout->addWidget(m_btnSend);
+    m_checkHexSend = new QCheckBox(QStringLiteral("十六进制"), m_groupSendSetting);
+    sendGrid->addWidget(m_checkHexSend, r, 0);
+    m_checkAddModbusCrc16 = new QCheckBox(QStringLiteral("CRC16"), m_groupSendSetting);
+    sendGrid->addWidget(m_checkAddModbusCrc16, r, 1);
+    r++;
 
-    sendSettingLayout->addSpacing(2);
-    m_labelSendCount = new QLabel("发送: 0 字节");
-    sendSettingLayout->addWidget(m_labelSendCount);
-    settingLayout->addWidget(m_groupSendSetting);
-    settingLayout->addStretch();
+    m_checkAppendCRLF = new QCheckBox(QStringLiteral("加回车换行"), m_groupSendSetting);
+    sendGrid->addWidget(m_checkAppendCRLF, r, 0);
+    m_checkBroadcastSend = new QCheckBox(QStringLiteral("广播"), m_groupSendSetting);
+    sendGrid->addWidget(m_checkBroadcastSend, r, 1);
+    rightLayout->addWidget(m_groupSendSetting);
 
-    contentLayout->addLayout(settingLayout, 3);
-    mainLayout->addLayout(contentLayout, 1);
+    rightLayout->addWidget(makeHLine(rightPanel));
 
-    // 状态栏
-    QHBoxLayout *statusLayout = new QHBoxLayout();
-    statusLayout->setContentsMargins(3, 0, 3, 0);
-    m_labelStatus = new QLabel("未打开");
-    m_labelClientCount = new QLabel("连接数: 0");
-    statusLayout->addWidget(m_labelStatus);
-    statusLayout->addStretch();
-    statusLayout->addWidget(m_labelClientCount);
-    mainLayout->addLayout(statusLayout);
+    m_groupRecvSetting = new QGroupBox(QStringLiteral("接收设置"), rightPanel);
+    auto *recvGrid = new QGridLayout(m_groupRecvSetting);
+    recvGrid->setSpacing(4);
+    recvGrid->setContentsMargins(6, 14, 6, 6);
+    r = 0;
+
+    auto *recvBtnRow = new QHBoxLayout();
+    recvBtnRow->setSpacing(4);
+    m_btnSaveLog = new QPushButton(QStringLiteral("保存日志"), m_groupRecvSetting);
+    recvBtnRow->addWidget(m_btnSaveLog);
+    m_btnClearRecv = new QPushButton(QStringLiteral("清空接收"), m_groupRecvSetting);
+    recvBtnRow->addWidget(m_btnClearRecv);
+    recvGrid->addLayout(recvBtnRow, r, 0, 1, 2);
+    r++;
+
+    m_checkHexRecv = new QCheckBox(QStringLiteral("十六进制"), m_groupRecvSetting);
+    recvGrid->addWidget(m_checkHexRecv, r, 0);
+    m_checkRecvTimestamp = new QCheckBox(QStringLiteral("时间戳"), m_groupRecvSetting);
+    recvGrid->addWidget(m_checkRecvTimestamp, r, 1);
+    r++;
+
+    m_scrollToBottom = new QCheckBox(QStringLiteral("自动滚屏"), m_groupRecvSetting);
+    m_scrollToBottom->setChecked(true);
+    recvGrid->addWidget(m_scrollToBottom, r, 0);
+    m_checkShowRecvAddr = new QCheckBox(QStringLiteral("显示地址"), m_groupRecvSetting);
+    recvGrid->addWidget(m_checkShowRecvAddr, r, 1);
+    rightLayout->addWidget(m_groupRecvSetting);
+
+    m_btnResetCount = new QPushButton(QStringLiteral("计数清零"), rightPanel);
+    rightLayout->addWidget(m_btnResetCount);
+
+    rightLayout->addWidget(makeHLine(rightPanel));
+
+    auto *countRow = new QHBoxLayout();
+    countRow->setSpacing(10);
+    m_labelRecvCount = new QLabel(QStringLiteral("R: 0 B"), rightPanel);
+    countRow->addWidget(m_labelRecvCount);
+    m_labelSendCount = new QLabel(QStringLiteral("S: 0 B"), rightPanel);
+    countRow->addWidget(m_labelSendCount);
+    countRow->addStretch();
+    rightLayout->addLayout(countRow);
+
+    m_labelStatus = new QLabel(rightPanel);
+    setStatus(QStringLiteral("未打开"), QStringLiteral("#f44336"));
+    rightLayout->addWidget(m_labelStatus);
+
+    m_labelClientCount = new QLabel(QStringLiteral("连接数: 0"), rightPanel);
+    m_labelClientCount->setWordWrap(true);
+    rightLayout->addWidget(m_labelClientCount);
+
+    rightLayout->addStretch();
+    mainLayout->addWidget(rightPanel);
 
     m_timerAutoSend = new QTimer(this);
 }
@@ -273,6 +310,12 @@ void NetAssistWidget::initConnect()
     connect(m_spinAutoSendInterval, QOverload<int>::of(&QSpinBox::valueChanged), this, &NetAssistWidget::onAutoSendIntervalChanged);
     connect(m_timerAutoSend, &QTimer::timeout, this, &NetAssistWidget::onSendClicked);
     connect(m_btnSend, &QPushButton::clicked, this, &NetAssistWidget::onSendClicked);
+    connect(m_btnClearSend, &QPushButton::clicked, m_editSend, &QPlainTextEdit::clear);
+    connect(m_btnResetCount, &QPushButton::clicked, this, [this]() {
+        m_recvBytes = 0;
+        m_sendBytes = 0;
+        updateCountLabel();
+    });
     auto *sendShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Return")), m_editSend);
     connect(sendShortcut, &QShortcut::activated, this, &NetAssistWidget::onSendClicked);
     auto *sendShortcutPad = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Enter")), m_editSend);
@@ -312,7 +355,6 @@ void NetAssistWidget::initConnect()
     m_checkAddModbusCrc16->setChecked(false);
     m_checkAppendCRLF->setChecked(false);
     m_checkBroadcastSend->setChecked(false);
-    m_scrollToBottom->setChecked(false);
 }
 
 
@@ -329,6 +371,8 @@ void NetAssistWidget::updateProtocolDependentUi()
     const bool isTcpClient = (proto == NetProtocol::TcpClient);
     const bool canBroadcast = (proto == NetProtocol::Udp || proto == NetProtocol::TcpServer);
     m_btnConnect->setEnabled(isTcpClient && opened);
+    if (!isTcpClient || !opened)
+        applyConnectButtonStyle(false);
     m_checkBroadcastSend->setEnabled(canBroadcast);
     if (!canBroadcast)
         m_checkBroadcastSend->setChecked(false);
@@ -342,7 +386,8 @@ void NetAssistWidget::onOpenToggled(bool checked)
         m_cmbLocalIp->setEnabled(false);
         m_spinLocalPort->setEnabled(false);
         m_btnSend->setEnabled(true);
-        m_labelStatus->setText(QStringLiteral("启动中..."));
+        setStatus(QStringLiteral("启动中..."), QStringLiteral("#FF9800"));
+        applyOpenButtonStyle(true);
         updateCountLabel();
 
         const NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
@@ -365,9 +410,11 @@ void NetAssistWidget::onOpenToggled(bool checked)
         m_spinLocalPort->setEnabled(true);
         m_btnConnect->setEnabled(false);
         m_btnConnect->setText(QStringLiteral("连接"));
+        applyConnectButtonStyle(false);
         m_btnSend->setEnabled(false);
         m_checkAutoSend->setChecked(false);
-        m_labelStatus->setText(QStringLiteral("未打开"));
+        setStatus(QStringLiteral("未打开"), QStringLiteral("#f44336"));
+        applyOpenButtonStyle(false);
         m_labelClientCount->setText(QStringLiteral("连接数: 0"));
         m_manualTcpDisconnect = true;
         emit sigCloseNetwork();
@@ -381,18 +428,20 @@ void NetAssistWidget::onConnectClicked()
         QString remoteIp;
         quint16 remotePort = 0;
         if (!currentRemote(&remoteIp, &remotePort)) {
-            m_labelStatus->setText(QStringLiteral("远程地址无效"));
+            setStatus(QStringLiteral("远程地址无效"), QStringLiteral("#f44336"));
             return;
         }
         m_manualTcpDisconnect = false;
         emit sigTcpConnect(remoteIp, remotePort);
         m_btnConnect->setText(QStringLiteral("断开"));
-        m_labelStatus->setText(QStringLiteral("连接中..."));
+        applyConnectButtonStyle(true);
+        setStatus(QStringLiteral("连接中..."), QStringLiteral("#FF9800"));
     } else {
         m_manualTcpDisconnect = true;
         emit sigTcpDisconnect();
         m_btnConnect->setText(QStringLiteral("连接"));
-        m_labelStatus->setText(QStringLiteral("已断开"));
+        applyConnectButtonStyle(false);
+        setStatus(QStringLiteral("已断开"), QStringLiteral("#f44336"));
         m_labelClientCount->setText(QStringLiteral("未连接"));
     }
 }
@@ -412,11 +461,13 @@ void NetAssistWidget::onSaveLog()
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             file.write(m_editRecv->getData());
             file.close();
-            QString oldStatus = m_labelStatus->text();
-            m_labelStatus->setText("日志已保存");
-            QTimer::singleShot(2000, this, [=](){
-                if (m_labelStatus->text() == "日志已保存") {
+            const QString oldStatus = m_labelStatus->text();
+            const QString oldStyle = m_labelStatus->styleSheet();
+            setStatus(QStringLiteral("日志已保存"), QStringLiteral("#4CAF50"));
+            QTimer::singleShot(2000, this, [this, oldStatus, oldStyle]() {
+                if (m_labelStatus->text().contains(QStringLiteral("日志已保存"))) {
                     m_labelStatus->setText(oldStatus);
+                    m_labelStatus->setStyleSheet(oldStyle);
                 }
             });
         }
@@ -462,7 +513,7 @@ void NetAssistWidget::onSendClicked()
     } else if (!currentRemote(&remoteIp, &remotePort)) {
         const NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
         if (proto != NetProtocol::TcpClient) {
-            m_labelStatus->setText(QStringLiteral("请选择有效的远程地址"));
+            setStatus(QStringLiteral("请选择有效的远程地址"), QStringLiteral("#f44336"));
             return;
         }
     }
@@ -524,20 +575,23 @@ void NetAssistWidget::slotClientDisconnected(QString ip, quint16 port)
 
 void NetAssistWidget::slotTcpConnected()
 {
-    appendLog("TCP连接成功", Qt::darkGreen);
-    m_labelStatus->setText("已连接");
-    m_labelClientCount->setText("已连接");
+    appendLog(QStringLiteral("TCP连接成功"), Qt::darkGreen);
+    setStatus(QStringLiteral("已连接"), QStringLiteral("#4CAF50"));
+    applyConnectButtonStyle(true);
+    m_labelClientCount->setText(QStringLiteral("已连接"));
 }
 
 void NetAssistWidget::slotTcpDisconnected()
 {
     appendLog(QStringLiteral("TCP连接断开"), Qt::darkGray);
     if (m_manualTcpDisconnect) {
-        m_labelStatus->setText(QStringLiteral("已断开"));
+        setStatus(QStringLiteral("已断开"), QStringLiteral("#f44336"));
         m_btnConnect->setText(QStringLiteral("连接"));
+        applyConnectButtonStyle(false);
     } else {
-        m_labelStatus->setText(QStringLiteral("重连中..."));
+        setStatus(QStringLiteral("重连中..."), QStringLiteral("#FF9800"));
         m_btnConnect->setText(QStringLiteral("断开"));
+        applyConnectButtonStyle(true);
     }
     m_labelClientCount->setText(QStringLiteral("未连接"));
 }
@@ -545,11 +599,21 @@ void NetAssistWidget::slotTcpDisconnected()
 void NetAssistWidget::slotError(QString errStr)
 {
     appendLog("[错误] " + errStr, Qt::red);
+    setStatus(errStr, QStringLiteral("#f44336"));
 }
 
 void NetAssistWidget::slotStateText(QString text)
 {
-    m_labelStatus->setText(text);
+    QString color = QStringLiteral("#FF9800");
+    if (text.contains(QStringLiteral("失败")) || text.contains(QStringLiteral("错误"))
+        || text.contains(QStringLiteral("未打开")) || text.contains(QStringLiteral("已断开"))
+        || text.contains(QStringLiteral("已关闭")) || text.contains(QStringLiteral("无效"))) {
+        color = QStringLiteral("#f44336");
+    } else if (text.contains(QStringLiteral("已连接")) || text.contains(QStringLiteral("监听"))
+               || text.contains(QStringLiteral("UDP"))) {
+        color = QStringLiteral("#4CAF50");
+    }
+    setStatus(text, color);
 }
 
 void NetAssistWidget::slotClientCount(int count)
@@ -566,8 +630,26 @@ QString NetAssistWidget::dataToText(const QByteArray &data)
 
 void NetAssistWidget::updateCountLabel()
 {
-    m_labelRecvCount->setText(QString("接收: %1 字节").arg(m_recvBytes));
-    m_labelSendCount->setText(QString("发送: %1 字节").arg(m_sendBytes));
+    m_labelRecvCount->setText(QStringLiteral("R: %1 B").arg(m_recvBytes));
+    m_labelSendCount->setText(QStringLiteral("S: %1 B").arg(m_sendBytes));
+}
+
+void NetAssistWidget::setStatus(const QString &text, const QString &color)
+{
+    m_labelStatus->setText(QStringLiteral("● %1").arg(text));
+    m_labelStatus->setStyleSheet(
+        QStringLiteral("QLabel { color: %1; font-weight: bold; }").arg(color));
+}
+
+void NetAssistWidget::applyOpenButtonStyle(bool opened)
+{
+    m_btnOpen->setText(opened ? QStringLiteral("关闭") : QStringLiteral("打开"));
+    m_btnOpen->setStyleSheet(QString::fromLatin1(opened ? kBtnRed : kBtnGreen));
+}
+
+void NetAssistWidget::applyConnectButtonStyle(bool connected)
+{
+    m_btnConnect->setStyleSheet(QString::fromLatin1(connected ? kBtnRed : kBtnOrange));
 }
 
 void NetAssistWidget::appendLog(const QString &text, const QColor &color)
@@ -685,7 +767,7 @@ void NetAssistWidget::loadSettings()
     m_checkHexSend->setChecked(settings.value(QStringLiteral("hexSend"), false).toBool());
     m_checkRecvTimestamp->setChecked(settings.value(QStringLiteral("timestamp"), false).toBool());
     m_checkShowRecvAddr->setChecked(settings.value(QStringLiteral("showAddr"), false).toBool());
-    m_scrollToBottom->setChecked(settings.value(QStringLiteral("scrollBottom"), false).toBool());
+    m_scrollToBottom->setChecked(settings.value(QStringLiteral("scrollBottom"), true).toBool());
     m_checkAddModbusCrc16->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
     m_checkAppendCRLF->setChecked(settings.value(QStringLiteral("crlf"), false).toBool());
     settings.endGroup();
