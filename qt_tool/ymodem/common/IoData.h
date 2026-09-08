@@ -6,7 +6,6 @@
 #include <QMetaType>
 #include <QObject>
 #include <QString>
-#include <QThread>
 
 /**
  * 串口、TCP、UDP 共用的一包数据。
@@ -84,17 +83,6 @@ signals:
     void ioDataSent(const IoPacket &packet);      // 链路真正写出之后，用来记 TX
 
 public slots:
-    /** 把本对象推到 target 所在线程。必须在本对象当前线程调用。 */
-    void handoverTo(QObject *target)
-    {
-        if (!target)
-            return;
-        QThread *dest = target->thread();
-        if (!dest || thread() == dest)
-            return;
-        moveToThread(dest);
-    }
-
     /** 经当前已打开的串口/网口发送一包；可带对端。空数据直接忽略。 */
     void sendIoData(const IoPacket &packet)
     {

@@ -27,7 +27,7 @@ class NetAssistWidget : public QWidget
     Q_OBJECT
 public:
     explicit NetAssistWidget(QWidget *parent = nullptr);  // 建 UI、工作线程、NetworkWorker
-    ~NetAssistWidget();                                   // 先 close 网络再 handover，再停线程
+    ~NetAssistWidget();                                   // 在网络线程里关掉并 delete NetworkWorker，再停线程
 
     IoSource *ioSource() const;  // 返回 NetworkWorker，给其它控件收发用
 
@@ -128,7 +128,7 @@ private:
     quint64 m_recvBytes = 0;
     quint64 m_sendBytes = 0;
 private:
-    NetworkWorker *m_netWorker = nullptr;  // 运行时无 parent
+    NetworkWorker *m_netWorker = nullptr;  // 无 parent，一直活在 workerThread
     QThread workerThread;
     bool m_manualTcpDisconnect = false;    // 用户点断开，不要立刻自动当失败重连
 };

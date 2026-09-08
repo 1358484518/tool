@@ -36,7 +36,7 @@ ymodem/
 2. **后端**：`SerialManager`、`NetworkWorker` 各自一条 `QThread`，定时器和套接字都在这条线程上创建。
 3. **数据口**：两边都继承 `IoSource`。收 `ioDataReceived(IoPacket)`，发 `sendIoData`。新控件只连这个对象，不要自己开关串口或套接字。
 
-不要给还在工作线程上的对象设 Qt parent（有 parent 就不能 `moveToThread`）。退出时必须先在工作线程里把对象“推”回 UI，再 `setParent`。
+不要给工作线程上的对象设 Qt parent（有 parent 就不能 `moveToThread`）。对象创建后一直留在那条线程，退出时也在那条线程上 `delete`，不要再搬回 UI。
 
 ```
 main
@@ -56,13 +56,11 @@ main
 | 对象 | 所在线程 | parent | 说明 |
 |------|----------|--------|------|
 | `TMX_TOOL` / 两个 UI | UI | 主窗口 | 只发信号、显示数据 |
-| `SerialManager` | `m_serialThread` | 运行时无；退出时交给主窗口 | `QSerialPort`、定时器在 `initWorker()` 里创建 |
-| `NetworkWorker` | `workerThread` | 同上 | 同一时刻只存在一种协议的 Manager |
+| `SerialManager` | `m_serialThread` | 无（退出时在本线程 `delete`） | `QSerialPort`、定时器在 `initWorker()` 里创建 |
+| `NetworkWorker` | `workerThread` | 无（退出时在本线程 `delete`） | 同一时刻只存在一种协议的 Manager |
 | `QYmodemFile` | 自己的 `QThread::run` | `TMX_TOOL` | 和串口用信号收发字节，5 秒无应答退出 |
 
-跨线程一律 `Qt::QueuedConnection`。退出时 `close` / `slotCloseNetwork` / `handoverTo` 用 `BlockingQueuedConnection`，保证工作线程处理完再停。
-
-`QObject::moveToThread` 只能从对象**当前线程**把对象推出去，不能从 UI 线程拉回来。所以 `IoSource::handoverTo` 必须在工作线程上调用。
+跨线程一律 `Qt::QueuedConnection`。退出时在工作线程里 `close` / `slotCloseNetwork` 然后 `delete` 后端（`BlockingQueuedConnection`），再 `quit` / `wait` 停空线程。`IoSource` 只负责收发，不管线程搬家。
 
 ## 流程
 
@@ -123,11 +121,10 @@ TCP 客户端再点「连接」→ slotTcpConnect → QTcpSocketManager::start
 
 对串口、网络各做一遍：
 
-1. `invokeMethod(close / slotCloseNetwork, BlockingQueued)` 先停设备。
-2. `invokeMethod(handoverTo, BlockingQueued)` 在工作线程里 `moveToThread(UI)`。
-3. `setParent(主窗口或网络页)`，交给 Qt 对象树释放。
-4. `quit()` + `wait()` 停空线程。
-5. YModem：`requestStop` → `wait` → `delete`（不要 `deleteLater`，会和 parent 析构撞车）。
+1. 断开 UI 与后端的信号。
+2. `invokeMethod(..., BlockingQueued)` 在工作线程里关掉设备并 `delete` 后端。
+3. `quit()` + `wait()` 停已经空了的工作线程。
+4. YModem：`requestStop` → `wait` → `delete`（不要 `deleteLater`，会和 parent 析构撞车）。
 
 ## 类怎么管
 
@@ -135,7 +132,7 @@ TCP 客户端再点「连接」→ slotTcpConnect → QTcpSocketManager::start
 - **UI 类**：读控件、组配置、显示 `IoPacket`。不持有套接字。
 - **Worker 类**：`SerialManager`、`NetworkWorker` 是唯一碰硬件的地方。`NetworkWorker` 切换协议时 `cleanupCurrentNet()`，三个 Manager 不同时存在。
 - **Manager 类**：各自管连接、重连、发送队列。TCP 客户端 `stop()` 先断信号再 `abort`，避免重连定时器在退出时再 `bind`。
-- **`IoSource`**：收 `ioDataReceived`，发 `sendIoData`，退出时 `handoverTo` 把线程交回 UI。新控件不要自己管链路。
+- **`IoSource`**：只做收 `ioDataReceived`、发 `sendIoData`。线程生命周期由主窗口 / 网络页析构处理，新控件不要自己开关链路。
 
 ## 编译
 

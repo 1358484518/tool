@@ -79,18 +79,20 @@ NetAssistWidget::~NetAssistWidget()
     if (m_netWorker) {
         m_netWorker->disconnect();
         disconnect(this, nullptr, m_netWorker, nullptr);
-        if (workerThread.isRunning()) {
-            QMetaObject::invokeMethod(m_netWorker, "slotCloseNetwork", Qt::BlockingQueuedConnection);
-            QMetaObject::invokeMethod(m_netWorker, "handoverTo",
-                                      Qt::BlockingQueuedConnection,
-                                      Q_ARG(QObject *, this));
-            m_netWorker->setParent(this);
+
+        NetworkWorker *worker = m_netWorker;
+        m_netWorker = nullptr;
+        // 后端一直待在工作线程：就地关掉套接字并 delete，不要 move 回 UI。
+        if (workerThread.isRunning() && worker->thread() == &workerThread) {
+            QMetaObject::invokeMethod(worker, [worker]() {
+                worker->slotCloseNetwork();
+                delete worker;
+            }, Qt::BlockingQueuedConnection);
             workerThread.quit();
             workerThread.wait(5000);
         } else {
-            m_netWorker->setParent(this);
+            delete worker;
         }
-        m_netWorker = nullptr;
     }
 }
 

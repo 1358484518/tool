@@ -26,7 +26,7 @@ class TMX_TOOL : public QWidget
 
 public:
     TMX_TOOL(QWidget *parent = nullptr);  // 建页签、串口线程、YModem 桥接
-    ~TMX_TOOL() override;                 // 先停 YModem，再 close 串口并归还线程后退出
+    ~TMX_TOOL() override;                 // 先停 YModem，再在串口线程里关掉并 delete SerialManager
 
     IoSource *serialIoSource() const;   // 串口链路：收 ioDataReceived，发 sendIoData
     IoSource *networkIoSource() const;  // 网络链路，同上
@@ -43,7 +43,7 @@ signals:
 private:
     Ui::TMX_TOOL *ui;
     QTabWidget *m_tool_tab = nullptr;
-    SerialManager *m_serial_operate = nullptr;  // 串口后端，运行时无 parent
+    SerialManager *m_serial_operate = nullptr;  // 串口后端，无 parent，一直活在工作线程
     SerialAssistant *m_serial_ui = nullptr;
     NetAssistWidget *m_net_ui = nullptr;
     QThread *m_serialThread = nullptr;
