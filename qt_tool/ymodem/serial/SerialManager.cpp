@@ -1,5 +1,5 @@
 #include "SerialManager.h"
-#include "ProtocolUtils.h"
+#include "common/ProtocolUtils.h"
 
 #include <QDebug>
 

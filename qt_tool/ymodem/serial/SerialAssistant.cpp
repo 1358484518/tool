@@ -1,5 +1,5 @@
 #include "SerialAssistant.h"
-#include "ProtocolUtils.h"
+#include "common/ProtocolUtils.h"
 
 #include <QAbstractItemView>
 #include <QDateTime>

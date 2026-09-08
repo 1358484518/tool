@@ -1,7 +1,7 @@
 #include "NetAssistWidget.h"
 #include "FastTextView.h"
 #include "NetworkWorker.h"
-#include "ProtocolUtils.h"
+#include "common/ProtocolUtils.h"
 
 #include <QCheckBox>
 #include <QComboBox>

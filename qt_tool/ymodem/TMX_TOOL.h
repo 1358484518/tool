@@ -5,9 +5,9 @@
 #include <QTabWidget>
 #include <QHBoxLayout>
 #include <QThread>
-#include "SerialManager.h"
-#include "SerialAssistant.h"
-#include "qxymodem.h"
+#include "serial/SerialManager.h"
+#include "serial/SerialAssistant.h"
+#include "serial/qxymodem.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class TMX_TOOL; }
