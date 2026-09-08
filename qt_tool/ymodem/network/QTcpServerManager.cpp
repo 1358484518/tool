@@ -130,8 +130,12 @@ void QTcpServerManager::onNewConnection()
         // 连接客户端信号
         connect(socket, &QTcpSocket::readyRead, this, &QTcpServerManager::onClientReadyRead);
         connect(socket, &QTcpSocket::disconnected, this, &QTcpServerManager::onClientDisconnected);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+        connect(socket, &QAbstractSocket::errorOccurred, this, &QTcpServerManager::onClientError);
+#else
         connect(socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error),
                 this, &QTcpServerManager::onClientError);
+#endif
 
         emit clientConnected(getClientInfo(socket));
     }
@@ -147,21 +151,28 @@ void QTcpServerManager::onClientReadyRead()
 void QTcpServerManager::onClientDisconnected()
 {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
-    if (socket) {
-        TcpClientInfo info = getClientInfo(socket);
-        removeClient(socket);
-        emit clientDisconnected(info);
-    }
+    if (!socket)
+        return;
+    const ClientConnId id = reinterpret_cast<ClientConnId>(socket);
+    if (!m_clients.contains(id))
+        return;
+    const TcpClientInfo info = getClientInfo(socket);
+    removeClient(socket);
+    emit clientDisconnected(info);
 }
 
 void QTcpServerManager::onClientError(QAbstractSocket::SocketError)
 {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
-    if (!socket) return;
+    if (!socket)
+        return;
 
     emit errorOccurred(ClientError, socket->errorString());
     if (socket->state() != QAbstractSocket::ConnectedState) {
-        TcpClientInfo info = getClientInfo(socket);
+        const ClientConnId id = reinterpret_cast<ClientConnId>(socket);
+        if (!m_clients.contains(id))
+            return;
+        const TcpClientInfo info = getClientInfo(socket);
         removeClient(socket);
         emit clientDisconnected(info);
     }
@@ -239,12 +250,14 @@ TcpClientInfo QTcpServerManager::getClientInfo(QTcpSocket *socket) const
 
 void QTcpServerManager::removeClient(QTcpSocket *socket)
 {
-    if (!socket) return;
-    ClientConnId id = reinterpret_cast<ClientConnId>(socket);
-    if (m_clients.contains(id)) {
-        m_clients.remove(id);
-        socket->deleteLater();
-    }
+    if (!socket)
+        return;
+    const ClientConnId id = reinterpret_cast<ClientConnId>(socket);
+    if (!m_clients.contains(id))
+        return;
+    m_clients.remove(id);
+    socket->disconnect();
+    socket->deleteLater();
 }
 #if 0
 

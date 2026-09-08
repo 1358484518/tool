@@ -23,8 +23,12 @@ QTcpSocketManager::QTcpSocketManager(QObject *parent)
     m_connectTimer->setSingleShot(true);
 
     connect(m_socket, &QTcpSocket::readyRead, this, &QTcpSocketManager::onReadyRead);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    connect(m_socket, &QAbstractSocket::errorOccurred, this, &QTcpSocketManager::onSocketError);
+#else
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error),
             this, &QTcpSocketManager::onSocketError);
+#endif
     connect(m_socket, &QTcpSocket::connected, this, &QTcpSocketManager::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &QTcpSocketManager::onDisconnected);
     connect(m_socket, &QTcpSocket::bytesWritten, this, [=](qint64) {
@@ -70,11 +74,10 @@ void QTcpSocketManager::stop()
     m_sendTimer->stop();
     m_connectTimer->stop();
     m_sendQueue.clear();
-
-    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
-        m_socket->abort();
-    }
     setState(Stopped);
+    if (m_socket->state() != QAbstractSocket::UnconnectedState)
+        m_socket->abort();
+    m_reconnectTimer->stop();
 }
 
 void QTcpSocketManager::send(const QByteArray &data)
@@ -169,10 +172,13 @@ void QTcpSocketManager::processSendQueue()
 
     while (!m_sendQueue.isEmpty()) {
         QByteArray data = m_sendQueue.dequeue();
-        qint64 written = m_socket->write(data);
-
-        if (written <= 0) {
+        const qint64 written = m_socket->write(data);
+        if (written < 0) {
             m_sendQueue.prepend(data);
+            break;
+        }
+        if (written < data.size()) {
+            m_sendQueue.prepend(data.mid(static_cast<int>(written)));
             break;
         }
     }
@@ -196,10 +202,15 @@ void QTcpSocketManager::doReconnect()
         m_socket->abort();
     }
 
-    // 本地绑定（如果配置了），用QAbstractSocket标准枚举
+    // 本地绑定（如果配置了）
     if (m_config.bindPort != 0 || m_config.bindAddress != QHostAddress::Any) {
-        m_socket->bind(m_config.bindAddress, m_config.bindPort,
-                       QAbstractSocket::ShareAddress | QAbstractSocket::ReuseAddressHint);
+        if (!m_socket->bind(m_config.bindAddress, m_config.bindPort,
+                            QAbstractSocket::ShareAddress | QAbstractSocket::ReuseAddressHint)) {
+            emit errorOccurred(BindError, m_socket->errorString());
+            setState(Reconnecting);
+            m_reconnectTimer->start(m_config.reconnectMs);
+            return;
+        }
     }
 
     m_socket->connectToHost(m_config.remoteAddress, m_config.remotePort);

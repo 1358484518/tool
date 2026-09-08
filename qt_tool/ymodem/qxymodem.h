@@ -13,6 +13,7 @@
 #include <QMutexLocker>
 #include <QThread>
 #include <QDebug>
+#include <atomic>
 
 class QXYmodem: public QThread {
     Q_OBJECT
@@ -47,19 +48,19 @@ public:
     };
     void startSend(void) {
         dir=SEND;
-        m_abort = false;
+        m_abort.store(false);
         start();
     }
     void startRecv(void) {
         dir=RECV;
-        m_abort = false;
+        m_abort.store(false);
         start();
     }
     void requestStop(void) {
-        m_abort = true;
+        m_abort.store(true);
     }
     bool getStopFlag(void) {
-        return m_abort;
+        return m_abort.load();
     }
 protected:
     void run() override {
@@ -121,7 +122,7 @@ private:
     int m_timeout = 3000;
     int m_retry_limit = 10;
     bool m_no_timeout = false;
-    bool m_abort = false;
+    std::atomic<bool> m_abort{false};
 };
 
 class QXmodemFile: public QXYmodem {

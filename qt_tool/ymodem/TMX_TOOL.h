@@ -2,8 +2,9 @@
 #define TMX_TOOL_H
 
 #include <QWidget>
-#include "QTabWidget"
-#include "QHBoxLayout"
+#include <QTabWidget>
+#include <QHBoxLayout>
+#include <QThread>
 #include "SerialManager.h"
 #include "SerialAssistant.h"
 #include "qxymodem.h"
@@ -18,16 +19,21 @@ class TMX_TOOL : public QWidget
 
 public:
     TMX_TOOL(QWidget *parent = nullptr);
-    ~TMX_TOOL();
+    ~TMX_TOOL() override;
+
 private:
-    void initConnections();
+    void initUi();
+    void initSerialBackend();
+    void initYmodemBridge();
+    void stopYmodemTransfer();
+
 private:
     Ui::TMX_TOOL *ui;
-    QTabWidget *m_tool_tab;
-    SerialManager *m_serial_operate;
-    SerialAssistant *m_serial_ui;
+    QTabWidget *m_tool_tab = nullptr;
+    SerialManager *m_serial_operate = nullptr;
+    SerialAssistant *m_serial_ui = nullptr;
+    QThread *m_serialThread = nullptr;
     QYmodemFile *m_ymodem = nullptr;
-    bool m_prevHexMode = false; // 记住YModem发送前的显示模式
-//    SerialHelperWidget *m_shw;
 };
+
 #endif // TMX_TOOL_H

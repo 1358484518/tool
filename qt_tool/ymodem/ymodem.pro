@@ -1,8 +1,10 @@
-QT       += core gui serialport network websockets
+QT       += core gui serialport network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
+
+INCLUDEPATH += $$PWD $$PWD/common $$PWD/network
 
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings
@@ -32,6 +34,7 @@ HEADERS += \
     SerialAssistant.h \
     SerialManager.h \
     TMX_TOOL.h \
+    common/ProtocolUtils.h \
     network/FastTextView.h \
     network/NetAssistWidget.h \
     network/NetCommon.h \

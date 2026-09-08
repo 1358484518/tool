@@ -85,10 +85,12 @@ private:
     QString csvEscape(const QString &field);
 
     QByteArray processSendData(const QString &text);
-    QByteArray hexStringToBytes(const QString &str) const;
-    QString bytesToHexString(const QByteArray &data) const;
     QString getTimestamp() const;
-    quint16 crc16Modbus(const QByteArray &data) const;
+
+    void importCsvFile(const QString &fileName, bool interactive);
+    void exportCsvFile(const QString &fileName, bool interactive);
+    void loadSettings();
+    void saveSettings();
 
     QHBoxLayout *m_mainLayout;
     QWidget *m_leftPanel;
@@ -155,6 +157,7 @@ private:
 
     QCheckBox *m_addCrc16Check;
     QPushButton *m_ymodemSendBtn;
+    bool m_hasRecvData = false;
 };
 
 #endif // SERIALASSISTANT_H

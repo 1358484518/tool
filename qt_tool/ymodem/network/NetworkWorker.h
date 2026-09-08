@@ -56,7 +56,11 @@ private slots:
 private:
     // isDestructing: true=析构时直接delete，false=运行时用deleteLater投递到事件循环
     void cleanupCurrentNet(bool isDestructing = false);
+    void sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort);
+
     NetProtocol m_currentProto = static_cast<NetProtocol>(-1);
+    QHostAddress m_bindAddress = QHostAddress::Any;
+    quint16 m_bindPort = 0;
     QUdpSocketManager  *m_udp = nullptr;
     QTcpSocketManager  *m_tcpClient = nullptr;
     QTcpServerManager  *m_tcpServer = nullptr;

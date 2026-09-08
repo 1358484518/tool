@@ -33,8 +33,12 @@ QUdpSocketManager::QUdpSocketManager(QObject *parent)
     m_hostCleanupTimer->setInterval(60000);
 
     connect(m_socket, &QUdpSocket::readyRead, this, &QUdpSocketManager::onReadyRead);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    connect(m_socket, &QAbstractSocket::errorOccurred, this, &QUdpSocketManager::onSocketError);
+#else
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error),
             this, &QUdpSocketManager::onSocketError);
+#endif
 //    connect(m_recvTimer, &QTimer::timeout, this, &QUdpSocketManager::processRecv);
     connect(m_sendTimer, &QTimer::timeout, this, &QUdpSocketManager::processSendQueue);
     connect(m_reconnectTimer, &QTimer::timeout, this, &QUdpSocketManager::doReconnect);
@@ -182,7 +186,6 @@ void QUdpSocketManager::onSocketError(QAbstractSocket::SocketError err)
             m_reconnectTimer->start(m_config.reconnectMs);
         }
     }
-    qDebug()<<__FUNCTION__;
 }
 
 void QUdpSocketManager::processRecv()
@@ -261,7 +264,6 @@ void QUdpSocketManager::doReconnect()
              nullptr, 0, &bytesReturned, nullptr, nullptr);
 #endif
 
-    qDebug()<<m_config.bindAddress<<m_config.listenPort;
     if (ok) {
         setState(Running);
         m_reconnectTimer->stop();

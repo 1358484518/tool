@@ -1,11 +1,12 @@
 #ifndef QTCPSERVERMANAGER_H
 #define QTCPSERVERMANAGER_H
 
-#include <QObject>
+#include <QAbstractSocket>
 #include <QByteArray>
 #include <QHostAddress>
-#include <QMap>
 #include <QList>
+#include <QMap>
+#include <QObject>
 
 class QTcpServer;
 class QTcpSocket;

@@ -497,10 +497,10 @@ int QXYmodem::xmodemInTime(unsigned char *c, unsigned short timeout)
     int ret=-1;
 retry:
     while( (timeout--) && ((ret = xmodemIn(c)) <= 0) ) {
-        if(m_abort) return -1;
+        if(getStopFlag()) return -1;
         timerPause(1);
     }
-    if(m_abort) return -1;
+    if(getStopFlag()) return -1;
     if(ret <= 0) {
         if(m_no_timeout) {
             timeout = 0xffff;

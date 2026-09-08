@@ -1,24 +1,28 @@
 #include "NetAssistWidget.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QGroupBox>
-#include <QLabel>
-#include <QComboBox>
-#include <QSpinBox>
-#include <QPushButton>
-#include <QCheckBox>
-#include <QPlainTextEdit>
 #include "FastTextView.h"
-#include <QFont>
-#include <QTimer>
-#include <QNetworkInterface>
-#include <QFileDialog>
-#include <QFile>
-#include <QTextCursor>
-#include <QDateTime>
-#include <QHostAddress>
-#include <QLineEdit>
 #include "NetworkWorker.h"
+#include "ProtocolUtils.h"
+
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDateTime>
+#include <QFile>
+#include <QFileDialog>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QHostAddress>
+#include <QKeySequence>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMetaObject>
+#include <QNetworkInterface>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QSettings>
+#include <QShortcut>
+#include <QSpinBox>
+#include <QTimer>
+#include <QVBoxLayout>
 
 NetAssistWidget::NetAssistWidget(QWidget *parent)
     : QWidget(parent)
@@ -28,14 +32,23 @@ NetAssistWidget::NetAssistWidget(QWidget *parent)
     initUi();
     initConnect();
     initNetWork();
+    loadSettings();
 }
 
 NetAssistWidget::~NetAssistWidget()
 {
-    // 安全退出顺序：先停止线程事件循环，等待线程结束，再delete Worker
-    workerThread.quit();
-    workerThread.wait();
-//    delete m_netWorker; // 线程结束后直接删除，不依赖事件循环，100%释放内存
+    saveSettings();
+    if (m_netWorker) {
+        disconnect(m_netWorker, nullptr, this, nullptr);
+        disconnect(this, nullptr, m_netWorker, nullptr);
+    }
+    if (m_netWorker && workerThread.isRunning()) {
+        QMetaObject::invokeMethod(m_netWorker, "slotCloseNetwork", Qt::BlockingQueuedConnection);
+        workerThread.quit();
+        workerThread.wait(3000);
+    }
+    delete m_netWorker;
+    m_netWorker = nullptr;
 }
 
 void NetAssistWidget::initUi()
@@ -66,7 +79,7 @@ void NetAssistWidget::initUi()
     m_editSend = new QPlainTextEdit();
     m_editSend->setFixedHeight(90);
     m_editSend->setFont(QFont("Consolas", 10));
-    m_editSend->setPlaceholderText("输入要发送的数据...");
+    m_editSend->setPlaceholderText(QStringLiteral("输入要发送的数据... (Ctrl+Enter 发送)"));
     sendLogLayout->addWidget(m_editSend);
     logLayout->addWidget(groupSendLog);
 
@@ -246,6 +259,10 @@ void NetAssistWidget::initConnect()
     connect(m_spinAutoSendInterval, QOverload<int>::of(&QSpinBox::valueChanged), this, &NetAssistWidget::onAutoSendIntervalChanged);
     connect(m_timerAutoSend, &QTimer::timeout, this, &NetAssistWidget::onSendClicked);
     connect(m_btnSend, &QPushButton::clicked, this, &NetAssistWidget::onSendClicked);
+    auto *sendShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Return")), m_editSend);
+    connect(sendShortcut, &QShortcut::activated, this, &NetAssistWidget::onSendClicked);
+    auto *sendShortcutPad = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Enter")), m_editSend);
+    connect(sendShortcutPad, &QShortcut::activated, this, &NetAssistWidget::onSendClicked);
 
     // 可选：输入框失焦自动提交
     connect(m_cmbRemoteAddr->lineEdit(), &QLineEdit::editingFinished, this, [this]{
@@ -288,77 +305,81 @@ void NetAssistWidget::initConnect()
 void NetAssistWidget::onProtocolChanged(int idx)
 {
     Q_UNUSED(idx)
-    NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
-    bool isTcpClient = (proto == NetProtocol::TcpClient);
-//    m_cmbRemoteIp->setEnabled(isTcpClient && m_btnOpen->isChecked());
-//    m_spinRemotePort->setEnabled(isTcpClient && m_btnOpen->isChecked());
-    m_btnConnect->setEnabled(isTcpClient && m_btnOpen->isChecked());
+    updateProtocolDependentUi();
+}
+
+void NetAssistWidget::updateProtocolDependentUi()
+{
+    const NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
+    const bool opened = m_btnOpen->isChecked();
+    const bool isTcpClient = (proto == NetProtocol::TcpClient);
+    const bool canBroadcast = (proto == NetProtocol::Udp || proto == NetProtocol::TcpServer);
+    m_btnConnect->setEnabled(isTcpClient && opened);
+    m_checkBroadcastSend->setEnabled(canBroadcast);
+    if (!canBroadcast)
+        m_checkBroadcastSend->setChecked(false);
 }
 
 void NetAssistWidget::onOpenToggled(bool checked)
 {
     if (checked) {
-        m_btnOpen->setText("关闭");
+        m_btnOpen->setText(QStringLiteral("关闭"));
         m_cmbProtocol->setEnabled(false);
         m_cmbLocalIp->setEnabled(false);
         m_spinLocalPort->setEnabled(false);
         m_btnSend->setEnabled(true);
-        m_labelStatus->setText("启动中...");
-//        m_recvBytes = 0;
-//        m_sendBytes = 0;
+        m_labelStatus->setText(QStringLiteral("启动中..."));
         updateCountLabel();
 
-        NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
-        QString localIp = m_cmbLocalIp->currentText().split(" ").first();
-        quint16 localPort = m_spinLocalPort->value();
+        const NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
+        const QString localIp = m_cmbLocalIp->currentText().split(QLatin1Char(' ')).first();
+        const quint16 localPort = static_cast<quint16>(m_spinLocalPort->value());
         emit sigOpenNetwork(proto, localIp, localPort);
 
-        if (proto == NetProtocol::TcpClient||proto == NetProtocol::Udp) {
-//            m_cmbRemoteIp->setEnabled(true);
-//            m_spinRemotePort->setEnabled(true);
-            m_btnConnect->setEnabled(true);
-            m_labelClientCount->setText("未连接");
+        if (proto == NetProtocol::TcpClient) {
+            m_labelClientCount->setText(QStringLiteral("未连接"));
         } else if (proto == NetProtocol::TcpServer) {
-            m_labelClientCount->setText("连接数: 0");
+            m_labelClientCount->setText(QStringLiteral("连接数: 0"));
         } else {
-            m_labelClientCount->setText("UDP模式");
+            m_labelClientCount->setText(QStringLiteral("UDP模式"));
         }
-    }
-    else {
-        m_btnOpen->setText("打开");
+        updateProtocolDependentUi();
+    } else {
+        m_btnOpen->setText(QStringLiteral("打开"));
         m_cmbProtocol->setEnabled(true);
         m_cmbLocalIp->setEnabled(true);
         m_spinLocalPort->setEnabled(true);
-//        m_cmbRemoteIp->setEnabled(false);
-//        m_spinRemotePort->setEnabled(false);
         m_btnConnect->setEnabled(false);
-        m_btnConnect->setText("连接");
+        m_btnConnect->setText(QStringLiteral("连接"));
         m_btnSend->setEnabled(false);
         m_checkAutoSend->setChecked(false);
-        m_labelStatus->setText("未打开");
-        m_labelClientCount->setText("连接数: 0");
+        m_labelStatus->setText(QStringLiteral("未打开"));
+        m_labelClientCount->setText(QStringLiteral("连接数: 0"));
+        m_manualTcpDisconnect = true;
         emit sigCloseNetwork();
+        updateProtocolDependentUi();
     }
 }
 
 void NetAssistWidget::onConnectClicked()
 {
-    if (m_btnConnect->text() == "连接") {
-//        QString remoteIp = m_cmbRemoteIp->currentText();
-//        quint16 remotePort = m_spinRemotePort->value();
-        RemoteHost h = m_cmbRemoteAddr->currentData().value<RemoteHost>();
-        QString remoteIp = h.address.toString();
-        quint16 remotePort = h.port;
-
+    if (m_btnConnect->text() == QStringLiteral("连接")) {
+        QString remoteIp;
+        quint16 remotePort = 0;
+        if (!currentRemote(&remoteIp, &remotePort)) {
+            m_labelStatus->setText(QStringLiteral("远程地址无效"));
+            return;
+        }
+        m_manualTcpDisconnect = false;
         emit sigTcpConnect(remoteIp, remotePort);
-        m_btnConnect->setText("断开");
-        m_labelStatus->setText("连接中...");
-    }
-    else {
+        m_btnConnect->setText(QStringLiteral("断开"));
+        m_labelStatus->setText(QStringLiteral("连接中..."));
+    } else {
+        m_manualTcpDisconnect = true;
         emit sigTcpDisconnect();
-        m_btnConnect->setText("连接");
-        m_labelStatus->setText("已断开");
-        m_labelClientCount->setText("未连接");
+        m_btnConnect->setText(QStringLiteral("连接"));
+        m_labelStatus->setText(QStringLiteral("已断开"));
+        m_labelClientCount->setText(QStringLiteral("未连接"));
     }
 }
 
@@ -366,6 +387,7 @@ void NetAssistWidget::onClearRecv()
 {
     m_editRecv->clear();
     m_recvBytes = 0;
+    updateCountLabel();
 }
 
 void NetAssistWidget::onSaveLog()
@@ -401,34 +423,40 @@ void NetAssistWidget::onAutoSendIntervalChanged(int ms)
 
 void NetAssistWidget::onSendClicked()
 {
-    QByteArray data = m_editSend->toPlainText().toUtf8();
-    if (data.isEmpty()) return;
+    QString payload = m_editSend->toPlainText();
+    if (payload.isEmpty())
+        return;
 
+    QByteArray data;
     if (m_checkHexSend->isChecked()) {
-        data = hexStringToBytes(m_editSend->toPlainText());
-        if (m_addModbusCrc16 && !data.isEmpty()) {
-            quint16 crc = crc16Modbus(data);
-            data.append(static_cast<char>(crc & 0xFF));
-            data.append(static_cast<char>((crc >> 8) & 0xFF));
-        }
-    }else{
-        if(m_appendCRLF){
-            data.append('\r');
-            data.append('\n');
+        data = ProtocolUtils::hexStringToBytes(payload);
+        if (m_addModbusCrc16 && !data.isEmpty())
+            data = ProtocolUtils::appendCrc16Modbus(data);
+    } else {
+        data = payload.toUtf8();
+        if (m_appendCRLF)
+            data.append("\r\n");
+    }
+    if (data.isEmpty())
+        return;
+
+    QString remoteIp;
+    quint16 remotePort = 0;
+    if (m_broadcastSend) {
+        RemoteHost h = m_cmbRemoteAddr->currentData().value<RemoteHost>();
+        remotePort = h.port ? h.port : static_cast<quint16>(m_spinLocalPort->value());
+    } else if (!currentRemote(&remoteIp, &remotePort)) {
+        const NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
+        if (proto != NetProtocol::TcpClient) {
+            m_labelStatus->setText(QStringLiteral("请选择有效的远程地址"));
+            return;
         }
     }
 
-//    QString remoteIp = m_cmbRemoteIp->currentText();
-//    quint16 remotePort = m_spinRemotePort->value();
-    RemoteHost h = m_cmbRemoteAddr->currentData().value<RemoteHost>();
-    QString remoteIp = h.address.toString();
-    quint16 remotePort = h.port;
-    qDebug()<<"remote addr"<<remoteIp<<remotePort;
     emit sigSendData(data, remoteIp, remotePort);
-
-    m_sendBytes += data.size();
+    m_sendBytes += static_cast<quint64>(data.size());
     updateCountLabel();
-    appendLog(QString("[TX] %1").arg(dataToText(data)), Qt::blue);
+    appendLog(QStringLiteral("[TX] %1").arg(dataToText(data)), Qt::blue);
 }
 
 void NetAssistWidget::onConnectAddrChange(QString ip, quint16 port)
@@ -485,9 +513,15 @@ void NetAssistWidget::slotTcpConnected()
 
 void NetAssistWidget::slotTcpDisconnected()
 {
-    appendLog("TCP连接断开", Qt::darkGray);
-    m_labelStatus->setText("重连中...");
-    m_labelClientCount->setText("未连接");
+    appendLog(QStringLiteral("TCP连接断开"), Qt::darkGray);
+    if (m_manualTcpDisconnect) {
+        m_labelStatus->setText(QStringLiteral("已断开"));
+        m_btnConnect->setText(QStringLiteral("连接"));
+    } else {
+        m_labelStatus->setText(QStringLiteral("重连中..."));
+        m_btnConnect->setText(QStringLiteral("断开"));
+    }
+    m_labelClientCount->setText(QStringLiteral("未连接"));
 }
 
 void NetAssistWidget::slotError(QString errStr)
@@ -507,11 +541,9 @@ void NetAssistWidget::slotClientCount(int count)
 
 QString NetAssistWidget::dataToText(const QByteArray &data)
 {
-    if (m_checkHexRecv->isChecked()) {
-        return data.toHex(' ').toUpper();
-    } else {
-        return QString::fromUtf8(data);
-    }
+    if (m_checkHexRecv->isChecked())
+        return ProtocolUtils::bytesToHexString(data);
+    return QString::fromUtf8(data);
 }
 
 void NetAssistWidget::updateCountLabel()
@@ -550,13 +582,9 @@ void NetAssistWidget::initNetWork()
     QObject::connect(m_netWorker, &NetworkWorker::sigError, this, &NetAssistWidget::slotError);
     QObject::connect(m_netWorker, &NetworkWorker::sigStateText, this, &NetAssistWidget::slotStateText);
     QObject::connect(m_netWorker, &NetworkWorker::sigClientCount, this, &NetAssistWidget::slotClientCount);
-    QObject::connect(&workerThread, &QThread::finished, m_netWorker, &QObject::deleteLater);
-    //    onConnectAddrChange
-    QObject::connect(m_netWorker,&NetworkWorker::sigClientConnected,this, &NetAssistWidget::onConnectAddrChange);
+    QObject::connect(m_netWorker, &NetworkWorker::sigClientConnected, this, &NetAssistWidget::onConnectAddrChange);
 
     workerThread.start();
-
-
 }
 
 bool NetAssistWidget::hasHostInCombo(const RemoteHost &host)
@@ -656,33 +684,60 @@ bool NetAssistWidget::commitCurrentHost()
     return true;
 }
 
-quint16 NetAssistWidget::crc16Modbus(const QByteArray &data) const
+bool NetAssistWidget::currentRemote(QString *ip, quint16 *port)
 {
-    quint16 crc = 0xFFFF;
-    for (int i = 0; i < data.size(); i++) {
-        crc ^= static_cast<quint8>(data[i]);
-        for (int j = 0; j < 8; j++) {
-            if (crc & 0x0001) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
+    if (!commitCurrentHost())
+        return false;
+    const RemoteHost h = m_cmbRemoteAddr->currentData().value<RemoteHost>();
+    if (h.address.isNull() || h.port == 0)
+        return false;
+    if (ip)
+        *ip = h.address.toString();
+    if (port)
+        *port = h.port;
+    return true;
 }
 
-QByteArray NetAssistWidget::hexStringToBytes(const QString &str) const
+void NetAssistWidget::loadSettings()
 {
-    QByteArray data;
-    QString cleanHex = str;
-    cleanHex.remove(QRegExp("[^0-9A-Fa-f]"));
-    for (int i = 0; i < cleanHex.length(); i += 2) {
-        bool ok;
-        quint8 byte = cleanHex.mid(i, 2).toUInt(&ok, 16);
-        if (ok) data.append(static_cast<char>(byte));
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("Network"));
+    const int proto = settings.value(QStringLiteral("protocol"), 0).toInt();
+    if (proto >= 0 && proto < m_cmbProtocol->count())
+        m_cmbProtocol->setCurrentIndex(proto);
+
+    const QString localIp = settings.value(QStringLiteral("localIp")).toString();
+    if (!localIp.isEmpty()) {
+        int idx = m_cmbLocalIp->findText(localIp, Qt::MatchStartsWith);
+        if (idx >= 0)
+            m_cmbLocalIp->setCurrentIndex(idx);
     }
-    return data;
+    m_spinLocalPort->setValue(settings.value(QStringLiteral("localPort"), 13601).toInt());
+    m_checkHexRecv->setChecked(settings.value(QStringLiteral("hexRecv"), false).toBool());
+    m_checkHexSend->setChecked(settings.value(QStringLiteral("hexSend"), false).toBool());
+    m_checkRecvTimestamp->setChecked(settings.value(QStringLiteral("timestamp"), false).toBool());
+    m_checkShowRecvAddr->setChecked(settings.value(QStringLiteral("showAddr"), false).toBool());
+    m_scrollToBottom->setChecked(settings.value(QStringLiteral("scrollBottom"), false).toBool());
+    m_checkAddModbusCrc16->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
+    m_checkAppendCRLF->setChecked(settings.value(QStringLiteral("crlf"), false).toBool());
+    settings.endGroup();
+    updateProtocolDependentUi();
+}
+
+void NetAssistWidget::saveSettings()
+{
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("Network"));
+    settings.setValue(QStringLiteral("protocol"), m_cmbProtocol->currentIndex());
+    settings.setValue(QStringLiteral("localIp"), m_cmbLocalIp->currentText());
+    settings.setValue(QStringLiteral("localPort"), m_spinLocalPort->value());
+    settings.setValue(QStringLiteral("hexRecv"), m_checkHexRecv->isChecked());
+    settings.setValue(QStringLiteral("hexSend"), m_checkHexSend->isChecked());
+    settings.setValue(QStringLiteral("timestamp"), m_checkRecvTimestamp->isChecked());
+    settings.setValue(QStringLiteral("showAddr"), m_checkShowRecvAddr->isChecked());
+    settings.setValue(QStringLiteral("scrollBottom"), m_scrollToBottom->isChecked());
+    settings.setValue(QStringLiteral("crc16"), m_checkAddModbusCrc16->isChecked());
+    settings.setValue(QStringLiteral("crlf"), m_checkAppendCRLF->isChecked());
+    settings.endGroup();
 }
 

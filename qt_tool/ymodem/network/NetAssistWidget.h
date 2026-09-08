@@ -56,6 +56,9 @@ private slots:
 private:
     void initUi();
     void initConnect();
+    void updateProtocolDependentUi();
+    void loadSettings();
+    void saveSettings();
     QString dataToText(const QByteArray &data);
     void updateCountLabel();
     void appendLog(const QString &text, const QColor &color = Qt::black);
@@ -67,9 +70,8 @@ private:
     bool hasHostInCombo( const RemoteHost &host);
     // 添加前自动去重，返回true=新增成功，false=已存在未添加
     bool addHostAddr(const RemoteHost &host);
-    bool commitCurrentHost(); // 提交当前编辑的远程地址
-    quint16 crc16Modbus(const QByteArray &data) const;
-    QByteArray hexStringToBytes(const QString &str) const;
+    bool commitCurrentHost();
+    bool currentRemote(QString *ip, quint16 *port);
 
     QGroupBox   *m_groupConnection;
     QComboBox   *m_cmbProtocol;
@@ -118,8 +120,9 @@ private:
     quint64 m_recvBytes = 0;
     quint64 m_sendBytes = 0;
 private:
-    NetworkWorker *m_netWorker;
+    NetworkWorker *m_netWorker = nullptr;
     QThread workerThread;
+    bool m_manualTcpDisconnect = false;
 };
 
 #endif // NETASSISTWIDGET_H
