@@ -2,12 +2,13 @@
 #define NETWORKWORKER_H
 
 #include <QObject>
+#include "common/IoData.h"
 #include "NetCommon.h"
 #include "QUdpSocketManager.h"
 #include "QTcpSocketManager.h"
 #include "QTcpServerManager.h"
 
-class NetworkWorker : public QObject
+class NetworkWorker : public IoSource
 {
     Q_OBJECT
 public:
@@ -57,6 +58,8 @@ private:
     // isDestructing: true=析构时直接delete，false=运行时用deleteLater投递到事件循环
     void cleanupCurrentNet(bool isDestructing = false);
     void sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort);
+    void forwardPayload(IoPacket::Channel channel, const QByteArray &data,
+                        const QString &peer, quint16 port);
 
     NetProtocol m_currentProto = static_cast<NetProtocol>(-1);
     QHostAddress m_bindAddress = QHostAddress::Any;

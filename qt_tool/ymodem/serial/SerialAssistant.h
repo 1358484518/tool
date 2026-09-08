@@ -18,6 +18,7 @@
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QPlainTextEdit>
+#include "common/IoData.h"
 
 
 class SerialAssistant : public QWidget
@@ -37,7 +38,6 @@ public:
     int reconnectInterval() const;
 
     void setConnectionState(bool connected);
-    void appendReceivedData(const QByteArray &data);
     void showStatusMessage(const QString &message, int timeout = 3000);
     void updatePortList(const QList<QSerialPortInfo> &ports);
     void resetCounters();
@@ -52,6 +52,10 @@ signals:
     void clearReceivedRequested();
     void refreshPortsRequested();
     void ymodemSendRequested(const QString &filePath);
+    void ioDataReceived(const IoPacket &packet);
+public slots:
+    void onIoData(const IoPacket &packet);
+    void appendReceivedData(const QByteArray &data);
 private slots:
     void onOpenCloseClicked();
     void onSendClicked();

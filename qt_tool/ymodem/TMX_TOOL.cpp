@@ -30,26 +30,30 @@ TMX_TOOL::~TMX_TOOL()
         m_serialThread->quit();
         m_serialThread->wait(3000);
     }
-    delete m_serial_operate;
-    m_serial_operate = nullptr;
+    if (m_serial_operate) {
+        m_serial_operate->moveToThread(QThread::currentThread());
+        delete m_serial_operate;
+        m_serial_operate = nullptr;
+    }
     delete ui;
 }
 
 void TMX_TOOL::initSerialBackend()
 {
-    m_serial_operate = new SerialManager;
     m_serialThread = new QThread(this);
+    m_serial_operate = new SerialManager;
     m_serial_operate->moveToThread(m_serialThread);
+    connect(m_serialThread, &QThread::started, m_serial_operate, &SerialManager::initWorker);
     m_serialThread->start();
 }
 
 void TMX_TOOL::initUi()
 {
     m_serial_ui = new SerialAssistant;
-    auto *netAssistUi = new NetAssistWidget;
+    m_net_ui = new NetAssistWidget;
 
     m_tool_tab = new QTabWidget;
-    m_tool_tab->addTab(netAssistUi, QStringLiteral("网络工具"));
+    m_tool_tab->addTab(m_net_ui, QStringLiteral("网络工具"));
     m_tool_tab->addTab(m_serial_ui, QStringLiteral("串口工具"));
 
     auto *layout = new QHBoxLayout;
@@ -100,8 +104,8 @@ void TMX_TOOL::initUi()
         }
     });
 
-    connect(m_serial_operate, &SerialManager::dataReceived,
-            m_serial_ui, &SerialAssistant::appendReceivedData, Qt::QueuedConnection);
+    connect(m_serial_operate, &IoSource::ioDataReceived,
+            m_serial_ui, &SerialAssistant::onIoData, Qt::QueuedConnection);
     connect(m_serial_operate, &SerialManager::portConnected, this, [this]() {
         m_serial_ui->setConnectionState(true);
         m_serial_ui->showStatusMessage(
@@ -123,6 +127,16 @@ void TMX_TOOL::initUi()
             [this](QSerialPort::SerialPortError, const QString &str) {
         m_serial_ui->showStatusMessage(QStringLiteral("Error: ") + str);
     });
+}
+
+IoSource *TMX_TOOL::serialIoSource() const
+{
+    return m_serial_operate;
+}
+
+IoSource *TMX_TOOL::networkIoSource() const
+{
+    return m_net_ui ? m_net_ui->ioSource() : nullptr;
 }
 
 void TMX_TOOL::stopYmodemTransfer()

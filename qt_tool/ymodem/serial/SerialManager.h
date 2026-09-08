@@ -1,6 +1,8 @@
 #ifndef SERIALMANAGER_H
 #define SERIALMANAGER_H
 
+#include "common/IoData.h"
+
 #include <QObject>
 #include <QSerialPort>
 #include <QSerialPortInfo>
@@ -11,15 +13,13 @@
 #include <QMetaType>
 
 /**
- * Serial port backend. Lives on a worker thread owned by TMX_TOOL.
+ * Serial port backend. Must live on a worker thread (see TMX_TOOL).
+ * QSerialPort and timers are created in initWorker()/open(), never on the UI thread.
  *
- * Features:
- * - Open/close with configurable parameters
- * - Auto-reconnect on unexpected disconnect
- * - Receive coalescing via a short buffer timeout
- * - Signal/slot notifications for UI
+ * Data outlet is IoSource::ioDataReceived. Other widgets:
+ *   connect(serial, &IoSource::ioDataReceived, widget, &Widget::onIoData);
  */
-class SerialManager : public QObject
+class SerialManager : public IoSource
 {
     Q_OBJECT
 public:
@@ -53,15 +53,9 @@ public:
     bool isOpen() const;
     ConnectionState connectionState() const;
     QString lastError() const;
-    qint64 bytesAvailable() const;
-    qint64 bytesToWrite() const;
-
-    qint64 write(const QByteArray &data);
-    qint64 write(const char *data, qint64 len);
-    void flush();
-    void clearReceiveBuffer();
 
 public slots:
+    void initWorker();
     void setConfig(const SerialManager::SerialConfig &config);
     void openWithConfig(const SerialManager::SerialConfig &config);
     bool open();
@@ -71,6 +65,8 @@ public slots:
     qint64 sendHex(const QString &hexStr);
     void setDtr(bool enabled);
     void setRts(bool enabled);
+    void flush();
+    void clearReceiveBuffer();
 
 signals:
     void connectionStateChanged(SerialManager::ConnectionState state);
@@ -92,6 +88,8 @@ private:
     void setState(ConnectionState state);
     bool applyConfig();
     void flushReceiveBuffer();
+    void emitReceived(const QByteArray &data);
+    qint64 write(const QByteArray &data);
 
     QSerialPort *m_serial = nullptr;
     SerialConfig m_config;

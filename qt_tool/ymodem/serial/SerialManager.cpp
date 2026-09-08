@@ -6,18 +6,11 @@
 static const int kMaxReceiveBufferBytes = 256 * 1024;
 
 SerialManager::SerialManager(QObject *parent)
-    : QObject(parent)
-    , m_reconnectTimer(new QTimer(this))
-    , m_readBufferTimer(new QTimer(this))
+    : IoSource(parent)
 {
     qRegisterMetaType<SerialManager::SerialConfig>("SerialManager::SerialConfig");
     qRegisterMetaType<SerialManager::SerialConfig>("SerialConfig");
     qRegisterMetaType<SerialManager::ConnectionState>("SerialManager::ConnectionState");
-
-    m_reconnectTimer->setSingleShot(true);
-    connect(m_reconnectTimer, &QTimer::timeout, this, &SerialManager::onReconnectTimer);
-    m_readBufferTimer->setSingleShot(true);
-    connect(m_readBufferTimer, &QTimer::timeout, this, &SerialManager::onReadBufferTimeout);
 }
 
 SerialManager::SerialManager(const SerialConfig &config, QObject *parent)
@@ -29,9 +22,25 @@ SerialManager::SerialManager(const SerialConfig &config, QObject *parent)
 SerialManager::~SerialManager()
 {
     m_manualClose = true;
-    m_reconnectTimer->stop();
-    m_readBufferTimer->stop();
+    if (m_reconnectTimer)
+        m_reconnectTimer->stop();
+    if (m_readBufferTimer)
+        m_readBufferTimer->stop();
     destroySerialPort();
+}
+
+void SerialManager::initWorker()
+{
+    if (m_reconnectTimer)
+        return;
+
+    m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setSingleShot(true);
+    connect(m_reconnectTimer, &QTimer::timeout, this, &SerialManager::onReconnectTimer);
+
+    m_readBufferTimer = new QTimer(this);
+    m_readBufferTimer->setSingleShot(true);
+    connect(m_readBufferTimer, &QTimer::timeout, this, &SerialManager::onReadBufferTimeout);
 }
 
 SerialManager::SerialConfig SerialManager::getConfig() const
@@ -75,14 +84,17 @@ void SerialManager::destroySerialPort()
 {
     if (!m_serial)
         return;
+    m_serial->disconnect();
     if (m_serial->isOpen())
         m_serial->close();
-    m_serial->deleteLater();
+    delete m_serial;
     m_serial = nullptr;
 }
 
 bool SerialManager::open()
 {
+    initWorker();
+
     if (m_state == Connected || m_state == Connecting) {
         qWarning() << "SerialManager: Port is already open or connecting";
         return true;
@@ -127,6 +139,7 @@ bool SerialManager::open()
 
 void SerialManager::close()
 {
+    initWorker();
     m_manualClose = true;
     m_reconnectTimer->stop();
     m_readBufferTimer->stop();
@@ -151,18 +164,13 @@ SerialManager::ConnectionState SerialManager::connectionState() const
 
 qint64 SerialManager::write(const QByteArray &data)
 {
-    return write(data.constData(), data.size());
-}
-
-qint64 SerialManager::write(const char *data, qint64 len)
-{
     if (m_state != Connected || !m_serial || !m_serial->isOpen()) {
         qWarning() << "SerialManager: Cannot write - port not connected";
         return -1;
     }
-    const qint64 written = m_serial->write(data, len);
-    if (written != len) {
-        qWarning() << "SerialManager: Write incomplete - wrote" << written << "of" << len << "bytes";
+    const qint64 written = m_serial->write(data);
+    if (written != data.size()) {
+        qWarning() << "SerialManager: Write incomplete - wrote" << written << "of" << data.size() << "bytes";
     }
     return written;
 }
@@ -176,7 +184,16 @@ void SerialManager::flush()
 void SerialManager::clearReceiveBuffer()
 {
     m_receiveBuffer.clear();
-    m_readBufferTimer->stop();
+    if (m_readBufferTimer)
+        m_readBufferTimer->stop();
+}
+
+void SerialManager::emitReceived(const QByteArray &data)
+{
+    if (data.isEmpty())
+        return;
+    emit dataReceived(data);
+    emitIoData(IoPacket::fromSerial(data, m_config.portName));
 }
 
 void SerialManager::flushReceiveBuffer()
@@ -185,22 +202,12 @@ void SerialManager::flushReceiveBuffer()
         return;
     const QByteArray receivedData = m_receiveBuffer;
     m_receiveBuffer.clear();
-    emit dataReceived(receivedData);
+    emitReceived(receivedData);
 }
 
 QString SerialManager::lastError() const
 {
     return m_lastError;
-}
-
-qint64 SerialManager::bytesAvailable() const
-{
-    return m_serial ? m_serial->bytesAvailable() : 0;
-}
-
-qint64 SerialManager::bytesToWrite() const
-{
-    return m_serial ? m_serial->bytesToWrite() : 0;
 }
 
 void SerialManager::onReadyRead()
@@ -212,7 +219,7 @@ void SerialManager::onReadyRead()
         return;
 
     if (m_config.readBufferTimeoutMs <= 0) {
-        emit dataReceived(newData);
+        emitReceived(newData);
         return;
     }
 

@@ -3,7 +3,7 @@
 #include <QHostInfo>
 
 NetworkWorker::NetworkWorker(QObject *parent)
-    : QObject(parent)
+    : IoSource(parent)
 {
 }
 
@@ -129,6 +129,13 @@ void NetworkWorker::slotSendData(QByteArray data, QString remoteIp, quint16 remo
     }
 }
 
+void NetworkWorker::forwardPayload(IoPacket::Channel channel, const QByteArray &data,
+                                  const QString &peer, quint16 port)
+{
+    emit sigRecvData(data, peer, port);
+    emitIoData(IoPacket::fromNetwork(channel, data, peer, port));
+}
+
 void NetworkWorker::sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort)
 {
     for (const TcpClientInfo &info : m_tcpServer->clients()) {
@@ -201,7 +208,7 @@ void NetworkWorker::onTcpServerData(ClientConnId id, const QByteArray &data)
     if (!m_tcpServer) return;
     for (const TcpClientInfo &info : m_tcpServer->clients()) {
         if (info.connId == id) {
-            emit sigRecvData(data, info.peerAddress.toString(), info.peerPort);
+            forwardPayload(IoPacket::TcpServer, data, info.peerAddress.toString(), info.peerPort);
             break;
         }
     }
@@ -235,7 +242,10 @@ void NetworkWorker::onTcpClientDisconnected()
 void NetworkWorker::onTcpClientData(const QByteArray &data)
 {
     if (!m_tcpClient) return;
-    emit sigRecvData(data, m_tcpClient->remoteAddress().toString(), m_tcpClient->remotePort());
+    QString peer = m_tcpClient->currentConfig().remoteHost;
+    if (peer.isEmpty())
+        peer = m_tcpClient->remoteAddress().toString();
+    forwardPayload(IoPacket::TcpClient, data, peer, m_tcpClient->remotePort());
 }
 
 void NetworkWorker::onTcpClientError(QTcpSocketManager::Error err, const QString &errStr)
@@ -255,7 +265,7 @@ void NetworkWorker::onTcpClientState(QTcpSocketManager::State state)
 void NetworkWorker::onUdpDatagram(const UdpDatagram &dg)
 {
     if (!m_udp) return;
-    emit sigRecvData(dg.data, dg.host.toString(), dg.port);
+    forwardPayload(IoPacket::Udp, dg.data, dg.host.toString(), dg.port);
 }
 
 void NetworkWorker::onUdpError(QUdpSocketManager::Error err, const QString &errStr)

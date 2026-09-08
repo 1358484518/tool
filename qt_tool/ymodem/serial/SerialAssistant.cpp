@@ -551,6 +551,12 @@ void SerialAssistant::setConnectionState(bool connected)
     }
 }
 
+void SerialAssistant::onIoData(const IoPacket &packet)
+{
+    appendReceivedData(packet.data);
+    emit ioDataReceived(packet);
+}
+
 void SerialAssistant::appendReceivedData(const QByteArray &data)
 {
     if (data.isEmpty())

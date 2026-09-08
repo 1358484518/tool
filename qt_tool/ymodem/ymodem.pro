@@ -25,6 +25,7 @@ SOURCES += \
 HEADERS += \
     TMX_TOOL.h \
     common/ProtocolUtils.h \
+    common/IoData.h \
     serial/SerialAssistant.h \
     serial/SerialManager.h \
     serial/qxymodem.h \

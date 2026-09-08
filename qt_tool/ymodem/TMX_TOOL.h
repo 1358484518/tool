@@ -13,6 +13,9 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class TMX_TOOL; }
 QT_END_NAMESPACE
 
+class NetAssistWidget;
+class IoSource;
+
 class TMX_TOOL : public QWidget
 {
     Q_OBJECT
@@ -20,6 +23,9 @@ class TMX_TOOL : public QWidget
 public:
     TMX_TOOL(QWidget *parent = nullptr);
     ~TMX_TOOL() override;
+
+    IoSource *serialIoSource() const;
+    IoSource *networkIoSource() const;
 
 private:
     void initUi();
@@ -35,6 +41,7 @@ private:
     QTabWidget *m_tool_tab = nullptr;
     SerialManager *m_serial_operate = nullptr;
     SerialAssistant *m_serial_ui = nullptr;
+    NetAssistWidget *m_net_ui = nullptr;
     QThread *m_serialThread = nullptr;
     QYmodemFile *m_ymodem = nullptr;
 };

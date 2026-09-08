@@ -35,6 +35,11 @@ NetAssistWidget::NetAssistWidget(QWidget *parent)
     loadSettings();
 }
 
+IoSource *NetAssistWidget::ioSource() const
+{
+    return m_netWorker;
+}
+
 NetAssistWidget::~NetAssistWidget()
 {
     saveSettings();
@@ -47,8 +52,11 @@ NetAssistWidget::~NetAssistWidget()
         workerThread.quit();
         workerThread.wait(3000);
     }
-    delete m_netWorker;
-    m_netWorker = nullptr;
+    if (m_netWorker) {
+        m_netWorker->moveToThread(QThread::currentThread());
+        delete m_netWorker;
+        m_netWorker = nullptr;
+    }
 }
 
 void NetAssistWidget::initUi()
@@ -475,6 +483,12 @@ void NetAssistWidget::onConnectAddrChange(QString ip, quint16 port)
     addHostAddr(host);
 }
 
+void NetAssistWidget::onIoData(const IoPacket &packet)
+{
+    slotRecvData(packet.data, packet.peer, packet.port);
+    emit ioDataReceived(packet);
+}
+
 void NetAssistWidget::slotRecvData(QByteArray data, QString fromIp, quint16 fromPort)
 {
     m_recvBytes += data.size();
@@ -577,8 +591,8 @@ void NetAssistWidget::initNetWork()
     QObject::connect(this, &NetAssistWidget::sigTcpDisconnect, m_netWorker, &NetworkWorker::slotTcpDisconnect);
     QObject::connect(this, &NetAssistWidget::sigSendData, m_netWorker, &NetworkWorker::slotSendData);
 
-    // 网络线程 -> UI
-    QObject::connect(m_netWorker, &NetworkWorker::sigRecvData, this, &NetAssistWidget::slotRecvData);
+    // 网络线程 -> UI（统一 IoPacket 出口，其它控件也可 connect ioSource()）
+    QObject::connect(m_netWorker, &IoSource::ioDataReceived, this, &NetAssistWidget::onIoData);
     QObject::connect(m_netWorker, &NetworkWorker::sigClientConnected, this, &NetAssistWidget::slotClientConnected);
     QObject::connect(m_netWorker, &NetworkWorker::sigClientDisconnected, this, &NetAssistWidget::slotClientDisconnected);
     QObject::connect(m_netWorker, &NetworkWorker::sigTcpConnected, this, &NetAssistWidget::slotTcpConnected);

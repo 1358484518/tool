@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QColor>
 #include "NetCommon.h"
+#include "common/IoData.h"
 #include "QThread"
 
 class QGroupBox;
@@ -25,14 +26,19 @@ class NetAssistWidget : public QWidget
 public:
     explicit NetAssistWidget(QWidget *parent = nullptr);
     ~NetAssistWidget();
+
+    IoSource *ioSource() const;
+
 signals:
     void sigOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort);
     void sigCloseNetwork();
     void sigTcpConnect(QString remoteIp, quint16 remotePort);
     void sigTcpDisconnect();
     void sigSendData(QByteArray data, QString remoteIp, quint16 remotePort);
+    void ioDataReceived(const IoPacket &packet);
 
 public slots:
+    void onIoData(const IoPacket &packet);
     void slotRecvData(QByteArray data, QString fromIp, quint16 fromPort);
     void slotClientConnected(QString ip, quint16 port);
     void slotClientDisconnected(QString ip, quint16 port);
