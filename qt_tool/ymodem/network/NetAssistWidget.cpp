@@ -77,15 +77,17 @@ NetAssistWidget::~NetAssistWidget()
 {
     saveSettings();
     if (m_netWorker) {
-        disconnect(m_netWorker, nullptr, this, nullptr);
+        m_netWorker->disconnect();
         disconnect(this, nullptr, m_netWorker, nullptr);
         if (workerThread.isRunning()) {
             QMetaObject::invokeMethod(m_netWorker, "slotCloseNetwork", Qt::BlockingQueuedConnection);
             workerThread.quit();
-            workerThread.wait(3000);
+            workerThread.wait(5000);
         }
-        m_netWorker->moveToThread(QThread::currentThread());
-        m_netWorker->setParent(this);
+        if (!workerThread.isRunning()) {
+            m_netWorker->moveToThread(QThread::currentThread());
+            m_netWorker->setParent(this);
+        }
         m_netWorker = nullptr;
     }
 }

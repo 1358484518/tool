@@ -9,8 +9,7 @@ NetworkWorker::NetworkWorker(QObject *parent)
 
 NetworkWorker::~NetworkWorker()
 {
-    // 析构时直接delete，线程即将退出事件循环停止，deleteLater不会执行
-    cleanupCurrentNet(true);
+    cleanupCurrentNet();
 }
 
 void NetworkWorker::slotOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort)
@@ -147,42 +146,27 @@ void NetworkWorker::sendToTcpClient(const QByteArray &data, const QString &remot
     emit sigError(QStringLiteral("未找到客户端 %1:%2").arg(remoteIp).arg(remotePort));
 }
 
-void NetworkWorker::cleanupCurrentNet(bool isDestructing)
+void NetworkWorker::cleanupCurrentNet()
 {
-    // 清理TCP服务端
     if (m_tcpServer) {
-        m_tcpServer->blockSignals(true); // 阻塞所有信号，防止清理过程中发信号
-        disconnect(m_tcpServer, nullptr, this, nullptr); // 断开所有和Worker的连接
-        m_tcpServer->stop(); // 同步停止服务，断开所有客户端
-        if (isDestructing) {
-            delete m_tcpServer;
-        } else {
-            m_tcpServer->deleteLater(); // 运行时投递到事件循环安全删除
-        }
+        m_tcpServer->blockSignals(true);
+        disconnect(m_tcpServer, nullptr, this, nullptr);
+        m_tcpServer->stop();
+        delete m_tcpServer;
         m_tcpServer = nullptr;
     }
-    // 清理TCP客户端
     if (m_tcpClient) {
         m_tcpClient->blockSignals(true);
         disconnect(m_tcpClient, nullptr, this, nullptr);
-        m_tcpClient->stop(); // 断开连接，释放socket
-        if (isDestructing) {
-            delete m_tcpClient;
-        } else {
-            m_tcpClient->deleteLater();
-        }
+        m_tcpClient->stop();
+        delete m_tcpClient;
         m_tcpClient = nullptr;
     }
-    // 清理UDP
     if (m_udp) {
         m_udp->blockSignals(true);
         disconnect(m_udp, nullptr, this, nullptr);
-        m_udp->stop(); // 关闭socket，清空主机列表
-        if (isDestructing) {
-            delete m_udp;
-        } else {
-            m_udp->deleteLater();
-        }
+        m_udp->stop();
+        delete m_udp;
         m_udp = nullptr;
     }
 }

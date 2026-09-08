@@ -24,17 +24,21 @@ TMX_TOOL::~TMX_TOOL()
 {
     stopYmodemTransfer();
     if (m_serial_operate) {
-        disconnect(m_serial_operate, nullptr, this, nullptr);
+        m_serial_operate->disconnect();
+        if (m_serial_ui)
+            disconnect(m_serial_ui, nullptr, m_serial_operate, nullptr);
         disconnect(this, nullptr, m_serial_operate, nullptr);
         if (m_serialThread && m_serialThread->isRunning()) {
             QMetaObject::invokeMethod(m_serial_operate, "close", Qt::BlockingQueuedConnection);
             m_serialThread->quit();
-            m_serialThread->wait(3000);
+            m_serialThread->wait(5000);
         }
         // 工作线程对象不能带 parent（否则无法 moveToThread）。
         // 停线程后拉回 UI 线程并 setParent，交给 Qt 对象树在 ~QObject 时释放。
-        m_serial_operate->moveToThread(QThread::currentThread());
-        m_serial_operate->setParent(this);
+        if (!m_serialThread || !m_serialThread->isRunning()) {
+            m_serial_operate->moveToThread(QThread::currentThread());
+            m_serial_operate->setParent(this);
+        }
         m_serial_operate = nullptr;
     }
     delete ui;
@@ -149,7 +153,9 @@ void TMX_TOOL::stopYmodemTransfer()
     m_ymodem->requestStop();
     disconnect(m_serial_operate, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
     disconnect(m_ymodem, &QYmodemFile::send, m_serial_operate, &SerialManager::sendBinary);
-    m_ymodem->deleteLater();
+    if (m_ymodem->isRunning())
+        m_ymodem->wait(5000);
+    delete m_ymodem;
     m_ymodem = nullptr;
 }
 

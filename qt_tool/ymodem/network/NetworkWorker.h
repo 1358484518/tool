@@ -55,8 +55,7 @@ private slots:
     void onUdpHostRemoved(const RemoteHost &host);
 
 private:
-    // isDestructing: true=析构时直接delete，false=运行时用deleteLater投递到事件循环
-    void cleanupCurrentNet(bool isDestructing = false);
+    void cleanupCurrentNet();
     void sendToTcpClient(const QByteArray &data, const QString &remoteIp, quint16 remotePort);
     void forwardPayload(IoPacket::Channel channel, const QByteArray &data,
                         const QString &peer, quint16 port);
