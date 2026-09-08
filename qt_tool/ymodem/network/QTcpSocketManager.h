@@ -11,21 +11,22 @@
 class QTcpSocket;
 class QTimer;
 
-// TCP连接配置
+/** TCP 客户端参数。bindPort 给客户端时请保持 0，让系统分配源端口。 */
 struct TcpConfig
 {
-    QHostAddress remoteAddress;       // 远程 IP，可为空（走域名）
-    QString      remoteHost;          // 域名或 IP 文本，优先用于 connectToHost
-    quint16      remotePort = 0;      // 远程端口
-    QHostAddress bindAddress = QHostAddress::Any; // 本地绑定地址
-    quint16      bindPort = 0;        // 本地绑定端口，0自动分配
-    int          connectTimeoutMs = 5000; // 连接超时，默认5秒
-    int          reconnectMs = 3000;  // 重连间隔，默认3秒
-    int          maxQueueSize = 128;  // 发送队列最大长度
-    bool         keepAlive = true;    // 开启TCP KeepAlive
+    QHostAddress remoteAddress;
+    QString      remoteHost;          // 有域名时优先用这个去 connectToHost
+    quint16      remotePort = 0;
+    QHostAddress bindAddress = QHostAddress::Any; // 指定网卡才 bind，Any 则不 bind
+    quint16      bindPort = 0;
+    int          connectTimeoutMs = 5000;
+    int          reconnectMs = 3000;
+    int          maxQueueSize = 128;
+    bool         keepAlive = true;
 };
 Q_DECLARE_METATYPE(TcpConfig)
 
+/** 工作线程里的 TCP 客户端：连接、自动重连、发送队列。重连时换新套接字。 */
 class QTcpSocketManager : public QObject
 {
     Q_OBJECT
@@ -56,14 +57,10 @@ public:
     explicit QTcpSocketManager(QObject *parent = nullptr);
     ~QTcpSocketManager() override;
 
-    // 便捷接口
     void start(const QHostAddress &host, quint16 port);
-
-    // 操作接口
     void send(const QByteArray &data);
     void disconnectFromHost();
 
-    // 状态查询
     State state() const;
     bool isConnected() const;
     QHostAddress remoteAddress() const;
@@ -95,8 +92,8 @@ private:
     void setState(State newState);
     Error mapQtSocketError(QAbstractSocket::SocketError err);
     void applyConfig(const TcpConfig &config);
-    void recreateSocket();
-    bool shouldBindLocal() const;
+    void recreateSocket();          // abort 后再 bind 不可靠，直接换新 QTcpSocket
+    bool shouldBindLocal() const;   // 只有选了具体网卡才 bind
 
     QTcpSocket *m_socket = nullptr;
     QTimer     *m_recvTimer;

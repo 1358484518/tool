@@ -18,8 +18,10 @@ class QTimer;
 class FastTextView;
 class NetworkWorker;
 
-
-
+/**
+ * 网络页 UI。套接字都在 m_netWorker 所在线程。
+ * 打开/连接/发送用信号丢过去；收包走 onIoData。
+ */
 class NetAssistWidget : public QWidget
 {
     Q_OBJECT
@@ -27,7 +29,7 @@ public:
     explicit NetAssistWidget(QWidget *parent = nullptr);
     ~NetAssistWidget();
 
-    IoSource *ioSource() const;
+    IoSource *ioSource() const;  // 即 NetworkWorker，给主窗口和其它控件用
 
 signals:
     void sigOpenNetwork(NetProtocol proto, QString localIp, quint16 localPort);
@@ -57,8 +59,7 @@ private slots:
     void onAutoSendToggled(bool checked);
     void onAutoSendIntervalChanged(int ms);
     void onSendClicked();
-    //udp
-    void onConnectAddrChange(QString ip, quint16 port);
+    void onConnectAddrChange(QString ip, quint16 port);  // UDP 发现对端时写入下拉框
 private:
     void initUi();
     void initConnect();
@@ -72,13 +73,10 @@ private:
     void applyOpenButtonStyle(bool opened);
     void applyConnectButtonStyle(bool connected);
 
-    void initNetWork();
+    void initNetWork();  // 创建 NetworkWorker 并移到 workerThread
 
-    // 把一个 RemoteHost 添加到 comboBox
-    // 判断下拉框中是否已存在该主机
-    bool hasHostInCombo( const RemoteHost &host);
-    // 添加前自动去重，返回true=新增成功，false=已存在未添加
-    bool addHostAddr(const RemoteHost &host);
+    bool hasHostInCombo(const RemoteHost &host);
+    bool addHostAddr(const RemoteHost &host);  // 已存在则 false
     bool commitCurrentHost();
     bool currentRemote(QString *ip, quint16 *port);
 
@@ -89,7 +87,7 @@ private:
     QPushButton *m_btnOpen;
 //    QComboBox   *m_cmbRemoteIp;
 //    QSpinBox    *m_spinRemotePort;
-    QComboBox   *m_cmbRemoteAddr;
+    QComboBox   *m_cmbRemoteAddr;  // 对端，可填 IP、域名、host:port
 
     QPushButton *m_btnConnect;
 
@@ -104,18 +102,17 @@ private:
     QCheckBox    *m_checkHexSend;
     QCheckBox    *m_checkAutoSend;
 
-    QCheckBox   *m_checkRecvTimestamp;  // 1. 接收数据加时间戳、按包分包显示
-    QCheckBox   *m_checkShowRecvAddr;   // 2. 显示接收/对端地址
-    QCheckBox   *m_checkAddModbusCrc16; // 3. 16进制发送时自动追加CRC16 Modbus校验
-    QCheckBox   *m_checkAppendCRLF;     // 4. 发送数据自动追加回车换行(\r\n)
-    QCheckBox   *m_checkBroadcastSend;  // 广播发送（可勾选开关）
-    QCheckBox   *m_scrollToBottom;      //显示到最后一行
-    // 复选框状态值，默认false=未勾选
-    bool m_recvTimestamp  = false; // 加时间戳分包显示
-    bool m_showRecvAddr   = false; // 显示接收地址
-    bool m_addModbusCrc16 = false; // 16进制发送自动加CRC16 Modbus
-    bool m_appendCRLF     = false; // 发送自动追加回车换行
-    bool m_broadcastSend  = false; // 广播发送开关，默认false=关闭广播走单播
+    QCheckBox   *m_checkRecvTimestamp;
+    QCheckBox   *m_checkShowRecvAddr;
+    QCheckBox   *m_checkAddModbusCrc16;
+    QCheckBox   *m_checkAppendCRLF;
+    QCheckBox   *m_checkBroadcastSend;
+    QCheckBox   *m_scrollToBottom;
+    bool m_recvTimestamp  = false;
+    bool m_showRecvAddr   = false;
+    bool m_addModbusCrc16 = false;
+    bool m_appendCRLF     = false;
+    bool m_broadcastSend  = false;
 
     QSpinBox     *m_spinAutoSendInterval;
     QPushButton  *m_btnSend;
@@ -131,9 +128,9 @@ private:
     quint64 m_recvBytes = 0;
     quint64 m_sendBytes = 0;
 private:
-    NetworkWorker *m_netWorker = nullptr;
+    NetworkWorker *m_netWorker = nullptr;  // 运行时无 parent
     QThread workerThread;
-    bool m_manualTcpDisconnect = false;
+    bool m_manualTcpDisconnect = false;    // 用户点断开，不要立刻自动当失败重连
 };
 
 #endif // NETASSISTWIDGET_H

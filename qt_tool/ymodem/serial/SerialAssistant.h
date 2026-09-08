@@ -20,7 +20,10 @@
 #include <QPlainTextEdit>
 #include "common/IoData.h"
 
-
+/**
+ * 串口页 UI。只读控件、发请求，不创建 QSerialPort。
+ * 打开/发送由 TMX_TOOL 转到 SerialManager；收包走 onIoData。
+ */
 class SerialAssistant : public QWidget
 {
     Q_OBJECT
@@ -42,6 +45,7 @@ public:
     void updatePortList(const QList<QSerialPortInfo> &ports);
     void resetCounters();
     QByteArray getReceiveText();
+
 signals:
     void openPortRequested();
     void closePortRequested();
@@ -52,10 +56,12 @@ signals:
     void clearReceivedRequested();
     void refreshPortsRequested();
     void ymodemSendRequested(const QString &filePath);
-    void ioDataReceived(const IoPacket &packet);
+    void ioDataReceived(const IoPacket &packet);  // 转发，方便再接控件
+
 public slots:
-    void onIoData(const IoPacket &packet);
+    void onIoData(const IoPacket &packet);        // 统一收包入口
     void appendReceivedData(const QByteArray &data);
+
 private slots:
     void onOpenCloseClicked();
     void onSendClicked();
@@ -71,9 +77,10 @@ private slots:
     void onMultiSendExportCsv(QString filename);
     void onMultiSendSelected();
     void onYmodemSendClicked();
-    void onDoubleSendSelected(int row, int column);//cellDoubleClicked(int row, int column)
+    void onDoubleSendSelected(int row, int column);  // 双击多条发送表一行
+
 protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;  // Ctrl+Enter 发送
 
 private:
     void setupUi();
@@ -85,10 +92,9 @@ private:
     void populateLineEndings();
 
     QStringList parseCsvLine(const QString &line);
-    // CSV字段标准转义
     QString csvEscape(const QString &field);
 
-    QByteArray processSendData(const QString &text);
+    QByteArray processSendData(const QString &text);  // 按 HEX / 换行 / CRC 选项组包
     QString getTimestamp() const;
 
     void importCsvFile(const QString &fileName, bool interactive);
@@ -100,7 +106,7 @@ private:
     QWidget *m_leftPanel;
     QWidget *m_rightPanel;
 
-    // Receive
+    // 接收区
     QPlainTextEdit *m_receiveText;
     QCheckBox *m_hexReceiveCheck;
     QCheckBox *m_timestampCheck;
@@ -110,14 +116,13 @@ private:
     QPushButton *m_clearReceiveBtn;
     QPushButton *m_saveLogBtn;
 
-    // Send Tabs
+    // 发送：单条 / 多条
     QTabWidget *m_sendTab;
     QWidget *m_singleSendPage;
     QPlainTextEdit *m_sendText;
     QPushButton *m_sendBtn;
     QPushButton *m_clearSendBtn;
 
-    // Multi send
     QWidget *m_multiSendPage;
     QTableWidget *m_multiSendTable;
     QPushButton *m_multiAddBtn;
@@ -127,7 +132,7 @@ private:
     QPushButton *m_multiSendBtn;
     QSpinBox *m_multiSendIntervalSpin;
 
-    // Port config
+    // 右侧串口参数
     QComboBox *m_portCombo;
     QPushButton *m_refreshBtn;
     QComboBox *m_baudCombo;
@@ -140,13 +145,11 @@ private:
     QCheckBox *m_autoReconnectCheck;
     QPushButton *m_openCloseBtn;
 
-    // Send settings
     QCheckBox *m_hexSendCheck;
     QComboBox *m_lineEndingCombo;
     QCheckBox *m_autoSendCheck;
     QSpinBox *m_autoSendIntervalSpin;
 
-    // Status
     QLabel *m_statusLabel;
     QLabel *m_portInfoLabel;
     QLabel *m_rxCountLabel;

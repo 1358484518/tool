@@ -16,6 +16,10 @@ QT_END_NAMESPACE
 class NetAssistWidget;
 class IoSource;
 
+/**
+ * 主窗口：上面两个页签（网络 / 串口），下面管串口工作线程和 YModem。
+ * 自己不读写串口或套接字，只把 UI 信号转到后端。
+ */
 class TMX_TOOL : public QWidget
 {
     Q_OBJECT
@@ -24,14 +28,14 @@ public:
     TMX_TOOL(QWidget *parent = nullptr);
     ~TMX_TOOL() override;
 
-    IoSource *serialIoSource() const;
-    IoSource *networkIoSource() const;
+    IoSource *serialIoSource() const;   // 串口收包出口，其它控件可订阅
+    IoSource *networkIoSource() const;  // 网络收包出口
 
 private:
     void initUi();
-    void initSerialBackend();
-    void initYmodemBridge();
-    void stopYmodemTransfer();
+    void initSerialBackend();   // 创建 SerialManager 并移到工作线程
+    void initYmodemBridge();    // 串口页「YModem 发送」接到传输线程
+    void stopYmodemTransfer();  // 停传输：wait 后 delete，不用 deleteLater
 
 signals:
     void serialOpenRequested(const SerialManager::SerialConfig &config);
@@ -39,11 +43,11 @@ signals:
 private:
     Ui::TMX_TOOL *ui;
     QTabWidget *m_tool_tab = nullptr;
-    SerialManager *m_serial_operate = nullptr;
+    SerialManager *m_serial_operate = nullptr;  // 串口后端，运行时无 parent
     SerialAssistant *m_serial_ui = nullptr;
     NetAssistWidget *m_net_ui = nullptr;
     QThread *m_serialThread = nullptr;
-    QYmodemFile *m_ymodem = nullptr;
+    QYmodemFile *m_ymodem = nullptr;            // 有传输任务时才创建
 };
 
 #endif // TMX_TOOL_H

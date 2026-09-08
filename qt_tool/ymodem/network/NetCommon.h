@@ -8,6 +8,7 @@
 #include <QString>
 #include <QUrl>
 
+/** 网络页三种工作模式。 */
 enum class NetProtocol : quint8
 {
     TcpServer = 0,
@@ -16,11 +17,11 @@ enum class NetProtocol : quint8
 };
 Q_DECLARE_METATYPE(NetProtocol)
 
-// 远程主机信息，host 可以是 IP 或域名
+/** 对端：IP 或域名 + 端口。UDP 还会记下 lastSeen 做超时清理。 */
 struct RemoteHost
 {
     QHostAddress address;
-    QString      host;
+    QString      host;       // 用户输入的原文，优先用它显示和连接
     quint16      port = 0;
     qint64       lastSeen = 0;
 
@@ -65,7 +66,10 @@ inline bool isPlausibleHostName(const QString &host)
     return true;
 }
 
-// 支持 127.0.0.1:80、[::1]:80、www.example.com:443、https://www.example.com/
+/**
+ * 解析对端。支持 127.0.0.1:80、[::1]:80、www.example.com:443、https://host/。
+ * 没写端口时：带 URL 方案用 80/443，否则默认 80。
+ */
 inline bool parseRemoteEndpoint(const QString &input, RemoteHost *out)
 {
     if (!out)

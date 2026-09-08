@@ -13,11 +13,9 @@
 #include <QMetaType>
 
 /**
- * Serial port backend. Must live on a worker thread (see TMX_TOOL).
- * QSerialPort and timers are created in initWorker()/open(), never on the UI thread.
- *
- * Data outlet is IoSource::ioDataReceived. Other widgets:
- *   connect(serial, &IoSource::ioDataReceived, widget, &Widget::onIoData);
+ * 串口后端，必须活在工作线程（见 TMX_TOOL::initSerialBackend）。
+ * QSerialPort 和定时器只在 initWorker()/open() 里创建，不要在 UI 线程 new。
+ * 收到的数据走 IoSource::ioDataReceived。
  */
 class SerialManager : public IoSource
 {
@@ -40,7 +38,7 @@ public:
         QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
         bool autoReconnect = true;
         int reconnectIntervalMs = 3000;
-        int readBufferTimeoutMs = 16;
+        int readBufferTimeoutMs = 16;  // 粘包等待，超时后整包发出
     };
 
     explicit SerialManager(QObject *parent = nullptr);
@@ -55,11 +53,11 @@ public:
     QString lastError() const;
 
 public slots:
-    void initWorker();
+    void initWorker();          // 线程 started 后调用，创建定时器
     void setConfig(const SerialManager::SerialConfig &config);
     void openWithConfig(const SerialManager::SerialConfig &config);
     bool open();
-    void close();
+    void close();               // 手动关闭，不会自动重连
     qint64 sendBinary(const QByteArray &data);
     qint64 sendString(const QString &text, bool appendCRLF = false);
     qint64 sendHex(const QString &hexStr);
@@ -70,7 +68,7 @@ public slots:
 
 signals:
     void connectionStateChanged(SerialManager::ConnectionState state);
-    void dataReceived(const QByteArray &data);
+    void dataReceived(const QByteArray &data);  // YModem 也订阅这个
     void errorOccurred(QSerialPort::SerialPortError error, const QString &errorString);
     void portConnected();
     void portDisconnected();
@@ -98,7 +96,7 @@ private:
     QTimer *m_readBufferTimer = nullptr;
     QByteArray m_receiveBuffer;
     QString m_lastError;
-    bool m_manualClose = false;
+    bool m_manualClose = false;  // true 时禁止自动重连
 };
 
 Q_DECLARE_METATYPE(SerialManager::SerialConfig)

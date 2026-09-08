@@ -11,19 +11,17 @@
 class QUdpSocket;
 class QTimer;
 
-// 启动配置：所有可配置参数打包，带默认值
 struct UdpConfig
 {
-    QHostAddress bindAddress = QHostAddress::Any; // 绑定地址，默认所有网卡
-    quint16      listenPort = 0;                  // 监听端口，必填
-    int          reconnectMs = 3000;              // 重连间隔，默认3秒
-    int          maxPacketSize = 65535;            // 最大包长，默认1472(以太网MTU)
-    int          maxQueueSize = 128;              // 发送队列最大长度
-    int          hostTimeoutSec = 300;            // 主机超时时间，默认5分钟
+    QHostAddress bindAddress = QHostAddress::Any;
+    quint16      listenPort = 0;
+    int          reconnectMs = 3000;
+    int          maxPacketSize = 65535;
+    int          maxQueueSize = 128;
+    int          hostTimeoutSec = 300;  // 对端多久没包就从列表拿掉
 };
 Q_DECLARE_METATYPE(UdpConfig)
 
-// 网络包
 struct UdpDatagram
 {
     QByteArray    data;
@@ -34,8 +32,7 @@ struct UdpDatagram
 };
 Q_DECLARE_METATYPE(UdpDatagram)
 
-
-
+/** UDP：bind 本地口、按对端发、记住最近见过的主机。 */
 class QUdpSocketManager : public QObject
 {
     Q_OBJECT
@@ -64,31 +61,26 @@ public:
     explicit QUdpSocketManager(QObject *parent = nullptr);
     ~QUdpSocketManager() override;
 
-    // 便捷接口：只传端口启动，其他参数用默认值
     void start(quint16 listenPort);
 
-    // 发送接口
     void sendTo(const QByteArray &data, const QHostAddress &host, quint16 port);
     void sendToAll(const QByteArray &data);
     void broadcast(const QByteArray &data, quint16 targetPort);
     void reply(const QByteArray &data, const UdpDatagram &recvDatagram);
 
-    // 主机管理
     void addRemoteHost(const QHostAddress &host, quint16 port);
     void removeRemoteHost(const QHostAddress &host, quint16 port);
     void clearRemoteHosts();
     QList<RemoteHost> remoteHosts() const;
 
-    // 状态查询
     State state() const;
     bool isRunning() const;
     quint16 listenPort() const;
     UdpConfig currentConfig() const;
 
 public slots:
-    // 标准槽函数：可直接连接UI按钮
-    void start(const UdpConfig &config); // 传配置启动/重启
-    void stop();                         // 停止
+    void start(const UdpConfig &config);
+    void stop();
 
 signals:
     void datagramReceived(const UdpDatagram &datagram);

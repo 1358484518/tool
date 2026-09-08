@@ -5,11 +5,10 @@
 #include <QDateTime>
 #include <QString>
 
-/**
- * Shared encode/decode helpers used by both the serial and network assistants.
- */
+/** HEX 编解码、CRC16 Modbus、时间戳。串口和网络发送前都会用到。 */
 namespace ProtocolUtils {
 
+/** 从文本里抽出 0-9A-Fa-f，奇数个半字节会丢掉最后一个。 */
 inline QByteArray hexStringToBytes(const QString &str)
 {
     const QByteArray latin = str.toLatin1();
@@ -29,6 +28,7 @@ inline QString bytesToHexString(const QByteArray &data)
     return QString::fromLatin1(data.toHex(' ')).toUpper();
 }
 
+/** Modbus CRC16，低字节在前。 */
 inline quint16 crc16Modbus(const QByteArray &data)
 {
     quint16 crc = 0xFFFF;

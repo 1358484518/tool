@@ -7,6 +7,9 @@
 class QPlainTextEdit;
 class QScrollBar;
 
+/**
+ * 接收窗口。数据存在 m_data 里，界面只画当前这一屏，避免大日志把 UI 卡死。
+ */
 class FastTextView : public QWidget
 {
     Q_OBJECT
@@ -42,12 +45,12 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
-    void onScroll(int byteOffset);
+    void onScroll(int byteOffset);  // 滚动条单位是字节偏移，不是行号
 
 private:
     int calcReadSize() const;
     void refresh();
-    void trimIfNeeded();
+    void trimIfNeeded();  // 超过上限丢掉最旧的数据
 
     QPlainTextEdit *m_edit = nullptr;
     QScrollBar *m_scroll = nullptr;

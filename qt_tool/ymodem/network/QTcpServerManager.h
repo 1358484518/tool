@@ -12,20 +12,18 @@ class QTcpServer;
 class QTcpSocket;
 class QTimer;
 
-typedef quintptr ClientConnId;
+typedef quintptr ClientConnId;  // 用套接字指针当连接 id
 
-// 服务器配置
 struct TcpServerConfig
 {
-    QHostAddress listenAddress = QHostAddress::Any; // 监听地址，默认所有网卡
-    quint16      listenPort = 0;                    // 监听端口，必填
-    int          maxConnections = 32;               // 最大客户端连接数
-    int          reconnectMs = 3000;                // 监听失败重连间隔
-    bool         keepAlive = true;                  // 客户端连接开启TCP KeepAlive
+    QHostAddress listenAddress = QHostAddress::Any;
+    quint16      listenPort = 0;
+    int          maxConnections = 32;
+    int          reconnectMs = 3000;  // listen 失败后重试间隔
+    bool         keepAlive = true;
 };
 Q_DECLARE_METATYPE(TcpServerConfig)
 
-// 客户端信息
 struct TcpClientInfo
 {
     ClientConnId connId = 0;
@@ -35,6 +33,7 @@ struct TcpClientInfo
 };
 Q_DECLARE_METATYPE(TcpClientInfo)
 
+/** TCP 服务端：listen、多客户端收发、广播。活在网络工作线程。 */
 class QTcpServerManager : public QObject
 {
     Q_OBJECT
@@ -64,16 +63,12 @@ public:
     explicit QTcpServerManager(QObject *parent = nullptr);
     ~QTcpServerManager() override;
 
-    // 便捷接口
     void start(quint16 listenPort);
-
-    // 操作接口
     void sendToClient(ClientConnId connId, const QByteArray &data);
     void broadcast(const QByteArray &data);
     void disconnectClient(ClientConnId connId);
     QList<TcpClientInfo> clients() const;
 
-    // 状态查询
     State state() const;
     bool isListening() const;
     quint16 listenPort() const;

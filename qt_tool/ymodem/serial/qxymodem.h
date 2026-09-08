@@ -1,7 +1,6 @@
 /*
- * Standard YModem implementation for Qt Serial Assistant
- * Fixed all protocol bugs, 100% compatible with Tera Term/MCU bootloaders
- * All comments/code in English
+ * XModem / YModem。协议跑在独立 QThread 里，和串口用信号交换字节。
+ * 对端 5 秒不回则 XMODEM_ERROR_IDLETIMEOUT。
  */
 #ifndef QXYMODEM_H
 #define QXYMODEM_H
@@ -17,6 +16,7 @@
 #include <QtGlobal>
 #include <atomic>
 
+/** 协议状态机基类。子类负责读文件、把字节发到串口。 */
 class QXYmodem: public QThread {
     Q_OBJECT
 public:
@@ -33,7 +33,7 @@ public:
         XMODEM,
         YMODEM
     };
-    enum {
+    enum {  // 控制字符
         SOH	  = 0x01,
         STX	  = 0x02,
         EOT	  = 0x04,
@@ -42,16 +42,16 @@ public:
         CAN	  = 0x18,
         CTRLZ = 0x1A,
     };
-    enum {
+    enum {  // 结束码，0 成功，负数为失败
         XMODEM_ABORT = 2,
         XMODEM_END = 1,
         XMODEM_OK = 0,
         XMODEM_ERROR_REMOTECANCEL = -1,
         XMODEM_ERROR_OUTOFSYNC	  = -2,
         XMODEM_ERROR_RETRYEXCEED  = -3,
-        XMODEM_ERROR_IDLETIMEOUT  = -4,
+        XMODEM_ERROR_IDLETIMEOUT  = -4,  // 对端一直没回
     };
-    void startSend(void) {
+    void startSend(void) {   // 启动发送线程
         dir=SEND;
         m_abort.store(false);
         m_result = XMODEM_OK;
@@ -63,7 +63,7 @@ public:
         m_result = XMODEM_OK;
         start();
     }
-    void requestStop(void) {
+    void requestStop(void) {  // 协作式停止，run() 里会看到
         m_abort.store(true);
     }
     bool getStopFlag(void) {
@@ -156,6 +156,7 @@ private:
     QElapsedTimer m_idleTimer;
 };
 
+/** 单文件 XModem，通过 send/receive 信号和串口交换数据。 */
 class QXmodemFile: public QXYmodem {
     Q_OBJECT
 public:
@@ -257,6 +258,7 @@ private:
     QByteArray cache;
 };
 
+/** 多文件 YModem。本程序用它从串口页发文件。 */
 class QYmodemFile: public QXYmodem {
     Q_OBJECT
 public:
