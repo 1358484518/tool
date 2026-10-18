@@ -57,8 +57,8 @@ private:
 
     void setupUi();        // 上 STM32H573，下 STM32H5F4
     void retranslateUi();  // 按当前语言重写本页控件文字
-    void loadSettings();   // 读自动保存勾选和四个脚本路径，路径缺省用找出来的脚本
-    void saveSettings() const;  // 写入自动保存勾选和四个脚本路径
+    void loadSettings();   // 读自动保存勾选和四个脚本路径，相对路径按工具目录还原
+    void saveSettings() const;  // 工具目录内的脚本存相对路径，其余存绝对路径
     QString scriptFile(const QString &chipDir, const QString &scriptRelative) const;  // 该芯片 windows-tfm-tools 下的脚本
     void buildChip(ChipPanel *panel, const QString &title, const QString &scriptPath,
                    const QString &erasePath, const QString &autoFileName);  // 下载、擦除、日志和保存选项

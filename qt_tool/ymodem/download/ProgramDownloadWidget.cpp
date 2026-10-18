@@ -42,6 +42,70 @@ QString keepNewestText(const QString &text)  // 超过 1MB 时丢掉前面的旧
     return text.mid(cut);
 }
 
+QString toolsRoot()  // windows-tfm-tools 目录。编译进的路径优先，否则从程序目录和当前目录往上找
+{
+#ifdef TFM_TOOLS_DIR
+    const QString baked = QDir(QString::fromUtf8(TFM_TOOLS_DIR)).absolutePath();
+    if (QDir(baked).exists())
+        return baked;
+#endif
+    const QStringList starts = {QCoreApplication::applicationDirPath(), QDir::currentPath()};
+    for (const QString &start : starts) {
+        QDir dir(start);
+        for (int i = 0; i < 8; ++i) {
+            const QString candidate = dir.absoluteFilePath(QStringLiteral("windows-tfm-tools"));
+            if (QDir(candidate).exists())
+                return QDir(candidate).absolutePath();
+            if (!dir.cdUp())
+                break;
+        }
+    }
+#ifdef TFM_TOOLS_DIR
+    return QDir(QString::fromUtf8(TFM_TOOLS_DIR)).absolutePath();
+#else
+    return QString();
+#endif
+}
+
+QString storedScriptPath(const QString &path)  // 落在工具目录里就存相对路径，目录外的文件仍存绝对路径
+{
+    const QString trimmed = path.trimmed();
+    if (trimmed.isEmpty())
+        return QString();
+    const QString absolute = QFileInfo(trimmed).absoluteFilePath();
+    const QString root = toolsRoot();
+    if (root.isEmpty())
+        return QDir::toNativeSeparators(absolute);
+    const QString relative = QDir(root).relativeFilePath(absolute);
+    if (QDir::isAbsolutePath(relative) || relative.startsWith(QLatin1String("..")))
+        return QDir::toNativeSeparators(absolute);
+    return QDir::fromNativeSeparators(relative);
+}
+
+QString resolvedScriptPath(const QString &stored)  // 相对路径按工具目录拼回全路径；旧绝对路径失效时按 windows-tfm-tools 后的一段再找
+{
+    const QString trimmed = stored.trimmed();
+    if (trimmed.isEmpty())
+        return QString();
+    if (!QDir::isAbsolutePath(trimmed)) {
+        const QString root = toolsRoot();
+        if (root.isEmpty())
+            return trimmed;
+        const QString full = QDir(root).filePath(trimmed);
+        return QFileInfo::exists(full)
+                   ? QFileInfo(full).absoluteFilePath()
+                   : QDir::toNativeSeparators(QDir::cleanPath(full));
+    }
+    if (QFileInfo::exists(trimmed))
+        return QFileInfo(trimmed).absoluteFilePath();
+    const QString norm = QDir::fromNativeSeparators(trimmed);
+    const QString marker = QStringLiteral("/windows-tfm-tools/");
+    const int at = norm.indexOf(marker);
+    if (at >= 0)
+        return resolvedScriptPath(norm.mid(at + marker.size()));
+    return QDir::toNativeSeparators(trimmed);
+}
+
 QString decodeConsole(const QByteArray &bytes)  // cmd 按系统 ANSI（中文环境是 GBK）吐字节
 {
     QTextCodec *codec = QTextCodec::codecForLocale();
@@ -105,28 +169,7 @@ QString ProgramDownloadWidget::scriptFile(const QString &chipDir, const QString 
     const QString relative = chipDir + QLatin1Char('/')
                              + QStringLiteral("windows-tfm-tools/")
                              + scriptRelative;
-#ifdef TFM_TOOLS_DIR
-    const QString baked = QDir(QString::fromUtf8(TFM_TOOLS_DIR)).filePath(relative);
-    if (QFileInfo::exists(baked))
-        return QFileInfo(baked).absoluteFilePath();
-#endif
-    // 没重新 qmake 时，从程序目录和当前目录往上找 windows-tfm-tools。
-    const QStringList starts = {QCoreApplication::applicationDirPath(), QDir::currentPath()};
-    for (const QString &start : starts) {
-        QDir dir(start);
-        for (int i = 0; i < 8; ++i) {
-            const QString candidate = dir.filePath(QStringLiteral("windows-tfm-tools/") + relative);
-            if (QFileInfo::exists(candidate))
-                return QFileInfo(candidate).absoluteFilePath();
-            if (!dir.cdUp())
-                break;
-        }
-    }
-#ifdef TFM_TOOLS_DIR
-    return QDir::toNativeSeparators(QDir::cleanPath(baked));
-#else
-    return QString();
-#endif
+    return resolvedScriptPath(relative);
 }
 
 void ProgramDownloadWidget::buildChip(ChipPanel *panel, const QString &title, const QString &scriptPath,
@@ -375,7 +418,7 @@ void ProgramDownloadWidget::loadSettings()
     const auto useSaved = [](QLineEdit *edit, const QString &saved) {
         if (saved.isEmpty())
             return;
-        edit->setText(QDir::toNativeSeparators(saved));
+        edit->setText(QDir::toNativeSeparators(resolvedScriptPath(saved)));
         edit->setCursorPosition(edit->text().size());
     };
     useSaved(m_h573.path, settings.value(QStringLiteral("h573DownloadPath")).toString());
@@ -391,10 +434,10 @@ void ProgramDownloadWidget::saveSettings() const
     settings.beginGroup(QStringLiteral("ProgramDownload"));
     settings.setValue(QStringLiteral("h573AutoSave"), m_h573.autoSave->isChecked());
     settings.setValue(QStringLiteral("h5f4AutoSave"), m_h5f4.autoSave->isChecked());
-    settings.setValue(QStringLiteral("h573DownloadPath"), m_h573.path->text());
-    settings.setValue(QStringLiteral("h573ErasePath"), m_h573.erasePath->text());
-    settings.setValue(QStringLiteral("h5f4DownloadPath"), m_h5f4.path->text());
-    settings.setValue(QStringLiteral("h5f4ErasePath"), m_h5f4.erasePath->text());
+    settings.setValue(QStringLiteral("h573DownloadPath"), storedScriptPath(m_h573.path->text()));
+    settings.setValue(QStringLiteral("h573ErasePath"), storedScriptPath(m_h573.erasePath->text()));
+    settings.setValue(QStringLiteral("h5f4DownloadPath"), storedScriptPath(m_h5f4.path->text()));
+    settings.setValue(QStringLiteral("h5f4ErasePath"), storedScriptPath(m_h5f4.erasePath->text()));
     settings.endGroup();
 }
 

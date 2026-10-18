@@ -228,7 +228,7 @@ UPLOADING OPTION BYTES DATA ...
 OPTION BYTE PROGRAMMING VERIFICATION:
 
 Option Bytes successfully programmed
-Time elapsed during option Bytes configuration: 00:00:02.601
+Time elapsed during option Bytes configuration: 00:00:02.602
 CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=UR -ob PRODUCT_STATE=0x17
       -------------------------------------------------------------------
                        STM32CubeProgrammer v2.22.0                  
@@ -237,7 +237,7 @@ CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=
 ST-LINK SN  : 39FF6D065042323421552343
 ST-LINK FW  : V2J47S7
 Board       : --
-Voltage     : 3.21V
+Voltage     : 3.22V
 SWD freq    : 4000 KHz
 Connect mode: Under Reset
 Reset mode  : Hardware reset
@@ -348,29 +348,24 @@ PROGRAMMING OPTION BYTES AREA ...
 北北北北北北北北北北北北北北北北北北北北北北北北北ST-LINK SN  : 39FF6D065042323421552343
 ST-LINK FW  : V2J47S7
 Board       : --
-Voltage     : 3.22V
-Error: Cannot connect to access port 1!  If you are trying to connect to a device with TrustZone enabled please try to connect with HotPlug mode.  If you are trying to connect to a device which supports Debug Authentication with certificate or password, please open your device using it.
- 50%CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -ob PRODUCT_STATE=0x17
-      -------------------------------------------------------------------
-                       STM32CubeProgrammer v2.22.0                  
-      -------------------------------------------------------------------
-
-ST-LINK SN  : 39FF6D065042323421552343
-ST-LINK FW  : V2J47S7
-Board       : --
-Voltage     : 3.22V
+Voltage     : 3.21V
 SWD freq    : 4000 KHz
 Connect mode: Hot Plug
-Reset mode  : Software reset
+Reset mode  : Hardware reset
 Device ID   : 0x47A
 Revision ID : Rev Z
-Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
-NVM size  : 4 MBytes
-Device type : MCU
-Device CPU  : Cortex-M33
-BL Version  : 0xF0
-SFSP Version: v1.1.0
-Debug in Low Power mode enabled
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+
+
+Reconnecting...
+Reconnected !
 
 
 UPLOADING OPTION BYTES DATA ...
@@ -379,7 +374,7 @@ UPLOADING OPTION BYTES DATA ...
   Address       : 0x40022050 
   Size          : 8 Bytes
 
-北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
 
   Bank          : 0x01
   Address       : 0x40022070 
@@ -459,12 +454,10 @@ UPLOADING OPTION BYTES DATA ...
 
 北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
 
+OPTION BYTE PROGRAMMING VERIFICATION:
 
-PROGRAMMING OPTION BYTES AREA ...
-Warning: Option Byte: product_state, value: 0x17, was not modified.
-
-Warning: Option Bytes are unchanged, Data won't be downloaded
-Time elapsed during option Bytes configuration: 00:00:00.483
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:04.983
 CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -hardRst
       -------------------------------------------------------------------
                        STM32CubeProgrammer v2.22.0                  
