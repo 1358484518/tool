@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
@@ -720,7 +721,6 @@ void FirmwareWidget::setupUi()
     m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
     m_table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
-    m_table->setColumnWidth(5, 72);
     m_table->setColumnWidth(6, 72);
     auto *actions = new FirmwareDownloadDelegate(this, m_table);
     m_table->setItemDelegateForColumn(5, actions);
@@ -774,7 +774,21 @@ void FirmwareWidget::retranslateUi()
     m_nextBtn->setText(tr("Next"));
     updatePager();
     m_model->refreshText();
+    fitDownloadColumn();
     m_table->viewport()->update();
+}
+
+void FirmwareWidget::fitDownloadColumn()
+{
+    QStyleOptionButton button;
+    button.fontMetrics = QFontMetrics(m_table->font());
+    button.text = tr("Download");
+    const QSize textSize = button.fontMetrics.size(Qt::TextSingleLine, button.text);
+    const int buttonWidth = QApplication::style()->sizeFromContents(
+        QStyle::CT_PushButton, &button, textSize, m_table).width();
+    // 绘制时单元格左右各让出 6 像素。列宽取按钮和表头里较宽的那个。
+    const int headerWidth = m_table->horizontalHeader()->sectionSizeHint(5);
+    m_table->setColumnWidth(5, qMax(buttonWidth + 12, headerWidth));
 }
 
 void FirmwareWidget::changeEvent(QEvent *event)

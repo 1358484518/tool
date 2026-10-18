@@ -1,0 +1,16 @@
+"D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1 mode=Hotplug -ob PRODUCT_STATE=0x17 
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Error: ICache disable failed
+Error: Database: There's no active configuration for this device. All the 14 configurations are disabled!

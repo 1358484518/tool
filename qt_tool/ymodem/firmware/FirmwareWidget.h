@@ -80,6 +80,7 @@ protected:
 private:
     void setupUi();             // 上面是下载上传分组，下面校验和组包并排
     void retranslateUi();       // 按当前语言重写本页控件文字
+    void fitDownloadColumn();   // 按“下载”按钮文字撑开下载列
     void loadSettings();        // 恢复地址、用户名、文件名搜索，并解密密码
     void saveSettings();        // 记下地址、用户名、文件名搜索和组包内容，密码只写密文
     void refresh();             // 从第一页重新登录并拉最新固件

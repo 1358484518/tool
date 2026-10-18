@@ -6,9 +6,13 @@ CONFIG += c++11
 VERSION = 2.06
 # 传给 C++ 的是带引号的字符串宏，main 里用 QLatin1String(APP_VERSION) 取
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
+# 程序下载页的脚本根目录，qmake 时按源码位置写死。斜杠避免进宏后被当成转义。
+TFM_TOOLS_ROOT = $$clean_path($$PWD/../windows-tfm-tools)
+TFM_TOOLS_ROOT ~= s,\\\\,/,g
+DEFINES += TFM_TOOLS_DIR=\\\"$$TFM_TOOLS_ROOT\\\"
 
 # 源码按模块分目录：app 在根目录，串口/网络/公共工具各放各的目录
-INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network $$PWD/firmware
+INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network $$PWD/firmware $$PWD/download
 
 DEFINES += QT_DEPRECATED_WARNINGS
 
@@ -29,7 +33,8 @@ SOURCES += \
     firmware/FirmwareWidget.cpp \
     firmware/FirmwarePassword.cpp \
     firmware/FileHashWidget.cpp \
-    firmware/FirmwarePackWidget.cpp
+    firmware/FirmwarePackWidget.cpp \
+    download/ProgramDownloadWidget.cpp
 
 HEADERS += \
     TMX_TOOL.h \
@@ -50,7 +55,8 @@ HEADERS += \
     firmware/FirmwareWidget.h \
     firmware/FirmwarePassword.h \
     firmware/FileHashWidget.h \
-    firmware/FirmwarePackWidget.h
+    firmware/FirmwarePackWidget.h \
+    download/ProgramDownloadWidget.h
 
 FORMS += \
     tmx_tool.ui

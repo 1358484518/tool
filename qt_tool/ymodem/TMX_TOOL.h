@@ -15,11 +15,12 @@ QT_END_NAMESPACE
 
 class FirmwareWidget;
 class NetAssistWidget;
+class ProgramDownloadWidget;
 class SettingsWidget;
 class IoSource;
 
 /**
- * 主窗口：页签是串口、网络、设置、固件，下面管串口工作线程和 YModem。
+ * 主窗口：页签是串口、网络、固件、程序下载、设置，下面管串口工作线程和 YModem。
  * 自己不读写串口或套接字，只把 UI 信号转到后端。
  */
 class TMX_TOOL : public QWidget
@@ -54,6 +55,7 @@ private:
     NetAssistWidget *m_net_ui = nullptr;
     SettingsWidget *m_settings_ui = nullptr;  // 设置页：启动页签和日志目录
     FirmwareWidget *m_firmware_ui = nullptr;  // 固件页：拉网站上的固件列表并下载
+    ProgramDownloadWidget *m_program_ui = nullptr;  // 程序下载页，独立于串口和固件页
     QThread *m_serialThread = nullptr;
     QYmodemFile *m_ymodem = nullptr;            // 有传输任务时才创建
 };

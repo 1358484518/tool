@@ -1,0 +1,272 @@
+"D:\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1 mode=Hotplug -ob PRODUCT_STATE=0x17 
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 1.70V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x484
+Revision ID : Rev X
+Device name : STM32H56x/573
+NVM size  : 2 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xE4
+SFSP Version: v2.5.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x500220e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x500221e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Reconnected !
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x400220e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x400221e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:03.232
+"D:\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1 mode=Hotplug -ob PRODUCT_STATE=0x72 
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 1.70V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x484
+Revision ID : Rev X
+Device name : STM32H56x/573
+NVM size  : 2 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xE4
+SFSP Version: v2.5.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x400220e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x400221e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Error: failed to reconnect after reset !
+Error: Unable to reconnect after setting the Option Bytes
+ 50%

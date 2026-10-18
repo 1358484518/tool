@@ -1,0 +1,659 @@
+
+CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=UR -ob PRODUCT_STATE=0xED TZEN=0xB4
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x40022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x400220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x40022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x400221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x400221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: product_state, value: 0xED, was not modified.
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:02.601
+CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=UR -ob PRODUCT_STATE=0x17
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.21V
+SWD freq    : 4000 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+Error: Cannot connect to access port 1!  If you are trying to connect to a device with TrustZone enabled please try to connect with HotPlug mode.  If you are trying to connect to a device which supports Debug Authentication with certificate or password, please open your device using it.
+ 50%CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -ob PRODUCT_STATE=0x17
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x40022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x400220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x40022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x400221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x400221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: product_state, value: 0x17, was not modified.
+
+Warning: Option Bytes are unchanged, Data won't be downloaded
+Time elapsed during option Bytes configuration: 00:00:00.483
+CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -hardRst
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+Hard reset is performed
+CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -sdp C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\windows-tfm-tools\windows-tfm-toolsh5f4\windows-tfm-tools\ROT_Provisioning\DA\Binary\DA_Config.obk
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+
+Reconnecting...
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.21V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Secure Data Provisioning Start. OBK Input file : C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\windows-tfm-tools\windows-tfm-toolsh5f4\windows-tfm-tools\ROT_Provisioning\DA\Binary\DA_Config.obk
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%OBKey Provisioned successfully
+CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -ob SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x40022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x400220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x40022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x400221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x400221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: boot_ube, value: 0xB4, was not modified.
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Error: failed to reconnect after reset !
+Error: Database: There's no active configuration for this device. All the 14 configurations are disabled!
+Error: Unable to reconnect after setting the Option Bytes
+ 0%

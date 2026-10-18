@@ -21,7 +21,7 @@ public:
     explicit SettingsWidget(QWidget *parent = nullptr);  // 建界面并恢复上次选项
     ~SettingsWidget() override;                          // 把当前选项写回 QSettings
 
-    int startupTab() const;  // 下次启动要选中的页签，0 串口、1 网络、2 设置、3 固件
+    int startupTab() const;  // 下次启动要选中的页签，0 串口、1 网络、2 固件、3 程序下载、4 设置
 
     static QString logFilePath(const QString &fileName);       // 保存日志对话框的起始路径
     static QString firmwareFilePath(const QString &fileName);  // 保存固件对话框的起始路径

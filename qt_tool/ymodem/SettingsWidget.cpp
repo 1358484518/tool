@@ -83,6 +83,7 @@ void SettingsWidget::setupUi()
     m_startupCombo->addItem(QString(), 1);
     m_startupCombo->addItem(QString(), 2);
     m_startupCombo->addItem(QString(), 3);
+    m_startupCombo->addItem(QString(), 4);
     grid->addWidget(m_startupCombo, 0, 1);
 
     m_languageLabel = new QLabel(group);
@@ -123,7 +124,16 @@ void SettingsWidget::loadSettings()
 {
     QSettings settings;
     settings.beginGroup(QStringLiteral("App"));
-    const int tab = settings.value(QStringLiteral("startupTab"), 0).toInt();
+    int tab = settings.value(QStringLiteral("startupTab"), 0).toInt();
+    // 程序下载从序号 4 挪到 3，设置从 3 挪到 4。已保存的选择按页面含义改一次，避免下次再对调。
+    if (!settings.value(QStringLiteral("startupTabMoved"), false).toBool()) {
+        if (tab == 3)
+            tab = 4;
+        else if (tab == 4)
+            tab = 3;
+        settings.setValue(QStringLiteral("startupTab"), tab);
+        settings.setValue(QStringLiteral("startupTabMoved"), true);
+    }
     const int idx = m_startupCombo->findData(tab);
     if (idx >= 0)
         m_startupCombo->setCurrentIndex(idx);
@@ -189,8 +199,9 @@ void SettingsWidget::retranslateUi()
     m_startupLabel->setText(tr("Startup Page:"));
     m_startupCombo->setItemText(0, tr("Serial"));
     m_startupCombo->setItemText(1, tr("Network"));
-    m_startupCombo->setItemText(2, tr("Settings"));
-    m_startupCombo->setItemText(3, tr("Firmware"));
+    m_startupCombo->setItemText(2, tr("Firmware"));
+    m_startupCombo->setItemText(3, tr("Program Download"));
+    m_startupCombo->setItemText(4, tr("Settings"));
     m_languageLabel->setText(tr("Language:"));
     m_languageCombo->setItemText(0, tr("English"));
     m_languageCombo->setItemText(1, tr("Chinese"));

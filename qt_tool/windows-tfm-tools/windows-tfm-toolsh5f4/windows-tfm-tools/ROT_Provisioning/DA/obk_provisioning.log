@@ -1,0 +1,86 @@
+
+C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H5F5J-DK\ROT_Provisioning\DA>call ../env.bat 
+Provisioning the obk file
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+Hard reset is performed
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+
+Reconnecting...
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Secure Data Provisioning Start. OBK Input file : .\Binary\DA_Config.obk
+лллллллллллллллллллллллллллллллллллллллллллллллллл 100%OBKey Provisioned successfully
+Reset the board after provisioning
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.22V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+Hard reset is performed
+Provisioning success

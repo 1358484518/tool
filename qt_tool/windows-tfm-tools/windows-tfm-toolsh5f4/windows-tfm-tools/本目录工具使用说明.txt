@@ -1,0 +1,218 @@
+预置镜像：./buildtfm.sh prod（正式版，ERROR 日志）。
+双击 tfm_update.bat。量产支线 stm32h5f4p256。
+
+STM32H5F4 Windows 烧录说明（ST-Link）
+本文件是 windows-tfm-tools 的用法。
+
+================================================================
+一、这个目录里有什么
+================================================================
+
+双击用的：
+  tfm_update.bat     一键：擦除 → 烧 option bytes → 找镜像 → 下载
+  erase_flash.bat    只整片擦除，不烧 TF-M
+  regression.bat     只烧 option bytes（一般不用单独点，tfm_update 会调）
+
+内部脚本（不要单独双击）：
+  h5f4_env.bat           地址、option bytes 名字、CubeProgrammer PATH
+  h5f4_setup.bat         找 STM32_Programmer_CLI / Python
+  h5f4_find_images.bat   按优先级找 bin/hex
+  h5f4_run_cli.bat       调用 CubeProgrammer（保留 option 里的 = 号）
+  h5f4_win_images.py     只有 hex、没有 bin 时，把 hex 转成 bin
+
+J-Link 脚本已经删掉。本目录只支持板载 ST-Link。
+
+================================================================
+二、准备
+================================================================
+
+1. 代码
+     git checkout stm32h5f4
+     git pull origin stm32h5f4
+   双击 tfm_update.bat 后，窗口第一行附近必须看到：
+     rev:  h5f4-20260901h
+   如果还是更旧的 rev，说明没拉到新脚本。
+
+2. 编译（在 Ubuntu / WSL 仓库根目录）
+     ./buildtfm.sh prod
+     或  ./buildtfm.sh test
+   产物：
+     trusted-firmware-m/build_s/api_ns/bin/bl2.bin
+     trusted-firmware-m/build_s/api_ns/bin/tfm_s_signed.bin
+     trusted-firmware-m/build_ns/bin/tfm_ns_signed.bin
+   bl2.bin 里必须能搜到字符串 H5F4BL2 和 H5F4SWP2。
+
+3. Windows
+     安装 STM32CubeProgrammer，保证能运行 STM32_Programmer_CLI。
+     只有 hex、没有 bin 时才需要 Python 3（用来 hex→bin）。
+     已经是 .bin 可以不装 Python。
+
+4. 板子
+     ST-Link 插上。串口 USART6 PC6/PC7，115200。
+
+================================================================
+三、怎么放镜像（二选一，推荐 A 或 B）
+================================================================
+
+A. 三个文件直接放在本目录（和 tfm_update.bat 同一层）
+
+     bl2.bin                 或  bl2.hex
+     tfm_s_signed.bin        或  tfm_s_signed.hex
+     tfm_ns_signed.bin       或  tfm_ns_signed.hex
+
+   也可以用一个拼接镜像代替单独的 NS：
+     tfm_s_ns_signed.bin     或  tfm_s_ns_signed.hex
+
+   必须用签过名的 *_signed，不要放未签名的 tfm_s.bin / tfm_ns.bin。
+
+B. 把编译好的 build_s、build_ns 整个拷进本目录
+
+   从 Ubuntu 拷到 Windows，目录名不要改：
+
+     源：  trusted-firmware-m\build_s
+           trusted-firmware-m\build_ns
+     目标：windows-tfm-tools\build_s
+           windows-tfm-tools\build_ns
+
+   脚本会在这些位置找文件：
+     build_s\
+     build_s\bin\
+     build_s\api_ns\bin\          ← 通常 bl2.bin、tfm_s_signed.bin 在这
+     build_ns\
+     build_ns\bin\                ← 通常 tfm_ns_signed.bin 在这
+
+A 和 B 可以同时存在。见下一节优先级。
+
+================================================================
+四、找镜像的优先级
+================================================================
+
+对每一个镜像（BL2 / S / NS）单独找，规则相同：
+
+  1. 优先：当前工作目录、以及本目录（双击时这两个是同一个文件夹）
+       先找 .bin，没有再找同名 .hex
+  2. 其次：本目录下的 build_s、build_ns（以及上面的 bin / api_ns\bin）
+       同样先 .bin，再 .hex
+
+因此：你随手丢在 windows-tfm-tools 里的 bl2.bin，一定压过 build_s 里那份。
+想换一份新镜像，直接覆盖本目录的三个文件即可，不必删 build_s。
+
+找不到 bl2.bin / bl2.hex 时窗口会列出搜过的路径，按第三节把文件放进去再跑。
+
+================================================================
+五、烧录步骤
+================================================================
+
+第一次 / 片上还有旧 BL2 或旧 HDP：
+
+  双击  tfm_update.bat
+
+  它会按顺序做：
+    [1] erase_flash.bat     解开 WRP/SECWM，整片 -e all
+    [2] regression.bat      烧 option bytes
+                            PRODUCT_STATE=0xED  TZEN=0xB4
+                            SECBOOTADD=0xC0100  BOOT_UBE=0xB4（OEM-iRoT）
+                            SECWM 两 bank 都是 0–255
+                            WRP 名字是 WRPSG11/12/21/22（不是 H573 的 WRPSGn1）
+    [3] 按第四节找镜像
+    [4] 下载到安全别名地址
+          S    0x0C078000
+          NS   0x0C0F8000     （H573 是 0x0C088000，禁止再用）
+          BL2  0x0C00E000     （先解开 HDP/WRP 再烧 BL2）
+    [5] 复位
+
+已经是新 BL2、只想重烧镜像（不擦、不改 option bytes）：
+
+  tfm_update.bat images-only
+
+只擦 Flash、不烧程序：
+
+  双击  erase_flash.bat
+
+多个 ST-Link 时，可把序列号写在后面：
+  tfm_update.bat <SN>
+  tfm_update.bat images-only <SN>
+
+================================================================
+六、Flash 槽位和升级下载地址
+================================================================
+
+STM32H5F4 内部 Flash 4 MB，双 bank，TrustZone 下同一片 Flash 有两个窗口：
+  安全别名  0x0C000000   ← ST-Link / CubeProgrammer 烧 TF-M 用这个
+  非安全窗口 0x08000000   ← 和 0x0C 差 0x04000000，数据是同一块硅片
+
+tfm_update.bat 只烧「当前运行槽」（primary）。MCUBoot 升级要把新镜像写到
+「升级槽」（secondary），复位后 BL2 校验再换槽。不要把升级包写到 primary。
+
+  槽            槽名             安全别名 0x0C          非安全 0x08        大小
+  ------------- ---------------  ---------------------  ----------------  --------
+  BL2           boot=0xc00e000   0x0C00E000             0x0800E000        96 KB
+  S 当前运行    slot0=0xc078000  0x0C078000             0x08078000        512 KB
+  NS 当前运行   slot1=0xc0f8000  0x0C0F8000             0x080F8000        1024 KB
+  S 升级下载    slot2=0xc200000  0x0C200000             0x08200000        512 KB
+  NS 升级下载   slot3=0xc280000  0x0C280000             0x08280000        1024 KB
+
+S 升级槽从 bank 2 开头（0x0C200000），不能紧挨 NS primary 后面，否则会跨 bank，
+BL2 读升级槽会卡死。H573 的升级地址是 0x0C118000 / 0x0C168000，禁止再用。
+
+用 CubeProgrammer 手动下升级包（签过名的 *_signed.bin）：
+
+  STM32_Programmer_CLI -c port=SWD ap=1 mode=UR -d tfm_s_signed.bin  0x0C200000 -v
+  STM32_Programmer_CLI -c port=SWD ap=1 mode=UR -d tfm_ns_signed.bin 0x0C280000 -v
+
+下完复位，串口应仍先看到 H5F4BL2，然后 MCUBoot 交换槽。
+NS 应用里走 PSA Firmware Update / MCUBoot 写 secondary 时，也必须用上面这组地址。
+
+================================================================
+七、烧完怎么确认
+================================================================
+
+串口 USART6 PC6/PC7 115200，复位后必须出现：
+
+  H5F4BL2
+
+测试版常见 [INF] H5F4BL2。
+如果只有 Starting bootloader、没有 H5F4BL2：BL2 没写进去或写的是旧 H573 镜像。
+重新双击 tfm_update.bat（不要 images-only），让它先擦再烧。
+
+开发密钥在 `stm32h5f4` 为 dummy RSA-3072，在 `stm32h5f4-p256` 为 EC-P256；日志里的 NOT SECURE 是预期现象。换算法分支后必须整片重烧 BL2/S/NS。
+
+================================================================
+八、只有未签名 bin 时怎么签
+================================================================
+
+本目录只负责烧录，不签名。未签名的 tfm_s.bin / tfm_ns.bin 不能直接烧。
+仓库根目录的 sign_kit.zip 已删除（那是 STM32H573 包，NS 0x0C088000 / 576 KB）。
+H5F4 签名工具：
+
+  makefile 工程：  仓库\tfmmakeproject\sign_kit\
+    sign.bat tfm_ns.bin          NS，输出写在输入文件旁边
+    sign.bat sapp.bin            S
+    也可：sign.bat ns app.bin     文件名看不出类型时显式指定
+
+  CubeIDE 工程：   仓库\tfmcubeideproject\STM32CubeIDE\sign_kit\
+    CubeIDE 编译后 post-build 会自动签，产物在 sign_kit\tfm_ns_signed.bin
+    手动：sign.bat Debug\tfm_ns.bin   （输出仍在 sign_kit\ 目录）
+
+签完大小必须对：
+  NS  1024 KB  烧 0x0C0F8000（升级槽 0x0C280000）
+  S    512 KB  烧 0x0C078000（升级槽 0x0C200000）
+
+签名需要 Python 3（第一次会自动建 sign_kit\.venv）。
+不要用仓库根目录 TF-M 的 .venv（cryptography 版本经常对不上）。
+不要用电脑上残留的旧 sign_kit.zip，也不要用仍按 H573（NS 0x0C088000 / 576 KB）布局的签名包。
+
+签完的 *_signed.bin 放到本目录后再双击 tfm_update.bat。
+详细：tfmmakeproject\sign_kit\README.md
+      tfmcubeideproject\STM32CubeIDE\sign_kit\README.md
+
+================================================================
+九、不要做的事
+================================================================
+
+- 不要用本目录以前附带的 H573 hex（已从仓库删掉）
+- 不要把 NS 烧到 0x0C088000
+- 不要用 WRPSGn1、SECWM 只配到 127（那是 H573）
+- 不要把升级包烧到 primary（0x0C078000 / 0x0C0F8000）；升级请用 0x0C200000 / 0x0C280000
+- 不要用 H573 升级地址 0x0C118000 / 0x0C168000
+- Linux 请用仓库根目录 ./flash_stm32h5f4.sh，不要用这套 bat

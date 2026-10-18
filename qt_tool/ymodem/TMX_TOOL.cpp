@@ -2,6 +2,7 @@
 #include "ui_tmx_tool.h"
 #include "network/NetAssistWidget.h"
 #include "firmware/FirmwareWidget.h"
+#include "download/ProgramDownloadWidget.h"
 #include "SettingsWidget.h"
 
 #include <QCoreApplication>
@@ -11,6 +12,41 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QMetaObject>
+#include <QProxyStyle>
+#include <QStyleOption>
+
+namespace {
+
+/**
+ * 主窗口页签铺满上面这一整行。
+ * 系统样式只按文字给页签条宽度，右边会空着。页签本身仍用系统的方形。
+ */
+class FullWidthTabStyle : public QProxyStyle
+{
+public:
+    explicit FullWidthTabStyle(QWidget *parent)  // 跟着主页签一起销毁
+        : QProxyStyle()
+    {
+        setParent(parent);
+    }
+
+    QRect subElementRect(QStyle::SubElement element, const QStyleOption *option,
+                         const QWidget *widget) const override  // 页签条改成和页签控件一样宽
+    {
+        QRect rect = QProxyStyle::subElementRect(element, option, widget);
+        if (element != QStyle::SE_TabWidgetTabBar || !option)
+            return rect;
+        const int top = rect.top();
+        const int height = rect.height();
+        rect.setLeft(option->rect.left());
+        rect.setWidth(option->rect.width());
+        rect.setTop(top);
+        rect.setHeight(height);
+        return rect;
+    }
+};
+
+} // namespace
 
 TMX_TOOL::TMX_TOOL(QWidget *parent)
     : QWidget(parent)
@@ -70,13 +106,19 @@ void TMX_TOOL::initUi()
     m_net_ui = new NetAssistWidget(this);
     m_settings_ui = new SettingsWidget(this);
     m_firmware_ui = new FirmwareWidget(this);
+    m_program_ui = new ProgramDownloadWidget(this);
 
     m_tool_tab = new QTabWidget(this);
+    // 页签条拉到整行宽，再按个数把空位均分。形状用系统默认的方形。
+    m_tool_tab->setStyle(new FullWidthTabStyle(m_tool_tab));
+    m_tool_tab->tabBar()->setExpanding(true);
     m_tool_tab->addTab(m_serial_ui, tr("Serial"));
     m_tool_tab->addTab(m_net_ui, tr("Network"));
-    m_tool_tab->addTab(m_settings_ui, tr("Settings"));
     m_tool_tab->addTab(m_firmware_ui, tr("Firmware"));
-    // 下拉里的 data 与上面 addTab 的顺序一致：0 串口、1 网络、2 设置、3 固件。
+
+    m_tool_tab->addTab(m_program_ui, tr("Program Download"));
+    m_tool_tab->addTab(m_settings_ui, tr("Settings"));
+    // 下拉 data 与页签序号一致：0 串口、1 网络、2 固件、3 程序下载、4 设置。
     const int startup = m_settings_ui->startupTab();
     if (startup >= 0 && startup < m_tool_tab->count())
         m_tool_tab->setCurrentIndex(startup);
@@ -176,8 +218,9 @@ void TMX_TOOL::retranslateUi()
         return;
     m_tool_tab->setTabText(0, tr("Serial"));
     m_tool_tab->setTabText(1, tr("Network"));
-    m_tool_tab->setTabText(2, tr("Settings"));
-    m_tool_tab->setTabText(3, tr("Firmware"));
+    m_tool_tab->setTabText(2, tr("Firmware"));
+    m_tool_tab->setTabText(3, tr("Program Download"));
+    m_tool_tab->setTabText(4, tr("Settings"));
 }
 
 IoSource *TMX_TOOL::serialIoSource() const

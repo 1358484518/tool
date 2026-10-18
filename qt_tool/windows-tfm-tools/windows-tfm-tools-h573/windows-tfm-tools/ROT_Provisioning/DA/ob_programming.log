@@ -1,0 +1,13 @@
+
+C:\Users\x5bra\Desktop\windows-tfm-tools\windows-tfm-tools-h573\windows-tfm-tools-G0\ROT_Provisioning\DA>call ../env.bat 
+Set TZEN configuration
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 1.70V
+Error: Unable to get core ID
+Error: Cannot connect to access port 1!  If you are trying to connect to a device with TrustZone enabled please try to connect with HotPlug mode.  If you are trying to connect to a device which supports Debug Authentication with certificate or password, please open your device using it.

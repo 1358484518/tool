@@ -1,0 +1,322 @@
+STM32H5F4 / H5F5  TF-M 烧录与 DA 保护调试记录
+日期：2026-10-17
+板子：STM32H5F4xJ / H5F5xJ / H5E4xJ / H5E5xJ（Device ID 0x47A，Rev Z，4 MB）
+探针：ST-LINK SN 39FF6D065042323421552343，固件 V2J47S7
+工具：STM32CubeProgrammer v2.22.0
+      D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe
+
+本文件只记录这次调试。没有改本目录里原有的 tfm_update.bat、regression.bat、
+erase_flash.bat、h5f4_*.bat。新增的只有 da_tfm_close.bat 和本记录。
+
+
+================================================================
+一、要做的事
+================================================================
+
+先让 TF-M 在 Open 状态下跑起来，再做 DA 保护。
+
+DA 保护关的是调试口，不替换 TF-M。顺序是：
+
+  1. 烧 TF-M（BL2 / S / NS），产品状态保持 Open（0xED）
+  2. 进入 Provisioning（0x17）
+  3. 烧 DA 的 obk
+  4. 把 SECBOOTADD 留在 TF-M 的 BL2 入口
+  5. 最终产品状态写成 CLOSED（0x72）
+
+这版 BL2 是 TFM_DEV_MODE。它允许的最低产品状态是 Open。
+Provisioning、CLOSED 都比 Open 高，BL2 会继续启动。
+编译开关在：
+
+  stm32h5xx_tfm\trusted-firmware-m\platform\ext\target\stm\
+  stm32h573i_dk\include\boot_hal_cfg.h
+
+  TFM_DEV_MODE
+  TFM_OB_PRODUCT_STATE_VALUE = OB_PROD_STATE_OPEN
+  TFM_ENABLE_SET_OB
+
+TFM_ENABLE_SET_OB 打开时，BL2 的 LL_SECU_CheckStaticProtections()
+会核对安全水印、写保护、HDP。对不上就自己再写选项字节并 OB_Launch 复位。
+它不改 PRODUCT_STATE，也不改 SECBOOTADD。启动地址不对时它进 Error_Handler。
+
+
+================================================================
+二、两条脚本为什么会打架
+================================================================
+
+当时的操作是：
+
+  1. 跑 Cube 包的
+     STM32CubeH5-1.7.0\Projects\STM32H5F5J-DK\ROT_Provisioning\DA\provisioning.bat
+  2. 停在 Step 3 “Images flashing / Press any key”
+  3. 去跑本目录 tfm_update.bat
+  4. 回到 provisioning.bat，写 PRODUCT_STATE=0x17 失败
+
+provisioning.bat 停在 Step 3 时，它以为芯片还是 Open、调试还能改选项字节，
+下一步用 Hotplug 写：
+
+  STM32_Programmer_CLI -c port=SWD speed=fast ap=1 mode=Hotplug -ob PRODUCT_STATE=0x17
+
+tfm_update.bat 在这一步做的不是“只把镜像放进 Flash”。它会：
+
+  1. erase_flash.bat：解开 WRP / SECWM，整片擦除
+  2. regression.bat：把产品状态写成 Open（0xED），TZEN=0xB4，
+     SECBOOTADD=0xC0100，BOOT_UBE=0xB4（OEM-iRoT），SECWM 两 bank 都是 0–255
+  3. 下载 S / NS / BL2
+  4. -hardRst，BL2 启动
+
+两边写的选项字节也不一样：
+
+  项目            provisioning 的 Step 2（ob_programming.bat）    tfm_update / regression
+  --------------  -----------------------------------------------  ---------------------------
+  启动地址        SECBOOTADD=0xC0000（0x0C000000）                 SECBOOTADD=0xC0100（0x0C010000）
+  安全水印        SECWM 到 0x7F                                    SECWM 0–255
+  写保护名字      WRPSGn1 / WRPSGn2                                WRPSG11 / WRPSG12 / WRPSG21 / WRPSG22
+
+这颗 4 MB 的 H5F5 上没有 WRPSGn1、WRPSGn2。
+ob_programming.log 里的原文是：
+
+  Warning: Option Byte: wrpsgn1, does not exist
+  Warning: Option Byte: wrpsgn2, does not exist
+
+所以不要用 Cube 那份 provisioning.bat / ob_programming.bat 来给这套 TF-M 做 DA。
+da_tfm_close.bat 不调用它们。
+
+
+================================================================
+三、调试口没有被 BL2 关掉
+================================================================
+
+烧完 TF-M 之后，STM32CubeProgrammer 仍然能连上。这和日志一致。
+
+HDP 藏的是 BL2 占用的那一段 Flash，不是 SWD。
+GUI 能连接，只说明探针还能看到芯片，不能说明 PRODUCT_STATE=0x17 已经写进去。
+
+ob_programming.log 里真正记下的失败是：连接成功，选项字节写完，OB_LAUNCH 复位之后
+读回来的值变了。
+
+  secbootadd：要写成 0xC0000，复位后仍是 0xC0100
+  secwm1_end：要写成 0x0，复位后仍是 0x7B
+  secwm2_end：要写成 0x0，复位后仍是 0x3F
+  Option Byte Programming failed Or modified by application after OB_LAUNCH
+
+ob_programming.bat 在 if 括号里用 %errorlevel% 判断。括号里的百分号会提前展开，
+编程失败也会被当成成功，窗口仍显示 “Successful option bytes programming”。
+这是 Cube 原脚本的问题，本次没有改那份脚本。
+
+
+================================================================
+四、PRODUCT_STATE=0x17 失败的实测原因
+================================================================
+
+provisioning.log 里那次失败停在认芯片之后，选项字节还没开始写：
+
+  Device ID   : 0x47A
+  Revision ID : Rev Z
+  Error: ICache disable failed
+  Error: Database: There's no active configuration for this device.
+         All the 14 configurations are disabled!
+
+Hotplug 不按住复位。BL2 已经从用户 Flash 启动时（BL Version 0x0，SFSP v0.0.0），
+CubeProgrammer 要先关 ICache 才能加载 Flash 算法。这一下失败，14 套配置全部被关掉，
+命令退出。0x17 还没写。
+
+同一条命令在核心能被停住时可以成功。当时重跑的结果是：
+
+  写入前  PRODUCT_STATE = 0xED（Open）
+          SECWM 关着（STRT=0xFF，END=0x0）
+          HDP 关着
+          SECBOOTADD = 0xC0100
+          BL2 地址上当时是空的（0x0800E000 / 0x08010000 为 FFFFFFFF）
+  写入后  PRODUCT_STATE = 0x17
+          CubeProgrammer 的描述：
+          Provisioning, Debug partially opened (only non-secure)
+          SECBOOTADD 变成 0x0
+
+进入 Provisioning 之后，Under Reset 连 AP1 会报：
+
+  Error: Unable to get core ID
+  Error: Cannot connect to access port 1
+
+这时要继续操作，用 Hotplug，不要用 Under Reset。
+
+
+================================================================
+五、SECBOOTADD=0xC0100 和 TF-M 烧录地址
+================================================================
+
+0xC0100 是对的。它不是烧录地址。
+
+选项字节里的 SECBOOTADD 左移 8 位才是 CPU 启动地址：
+
+  0xC0100 << 8 = 0x0C010000
+
+本目录 bl2.hex 里的两段：
+
+  0x0C00E000   镜像开头。前 8 KB（0x2000）是头。tfm_update.bat 把 BL2 烧到这里。
+  0x0C010000   向量表。栈顶 0x30045D68，复位入口在 0x0C010EDC。CPU 从这里启动。
+
+regression.bat 写的就是 SECBOOTADD=0xC0100，BOOT_UBE=0xB4。
+0xC0000 会启动到 0x0C000000，那里不是这份 BL2。
+
+S、NS 的烧录地址（安全别名）：
+
+  S    0x0C078000
+  NS   0x0C0F8000
+  BL2  0x0C00E000
+
+不要用 H573 的 NS 地址 0x0C088000。
+
+
+================================================================
+六、停在 Provisioning 时不能单独写回 SECBOOTADD
+================================================================
+
+2026-10-17 晚上把 da_tfm_close.bat 整段跑过一次。前四步是成功的：
+
+  1/6  PRODUCT_STATE=0xED 写成
+  2/6  tfm_update.bat 烧入
+       bl2.bin
+       tfm_s_signed.bin
+       tfm_ns_signed.bin
+  3/6  Under Reset 写 0x17 失败（BL2 已在跑，AP1 连不上）
+       Hotplug 重试后 PRODUCT_STATE=0x17 写成
+  4/6  ROT_Provisioning\DA\Binary\DA_Config.obk 写入成功
+
+第 5 步单独执行
+
+  -ob SECBOOTADD=0xC0100 BOOT_UBE=0xB4
+
+失败。CubeProgrammer 原文：
+
+  Warning: Option Byte: boot_ube, value: 0xB4, was not modified.
+  Error: Expected value for Option Byte "secbootadd": 0xC0100, found: 0x0
+  Error: Option Byte Programming failed Or modified by application after OB_LAUNCH
+
+芯片还停在 Provisioning 时，OB_LAUNCH 之后启动地址会被清回 0x0。
+这个状态下单独写 SECBOOTADD 留不住。
+
+改成同一条命令离开 Provisioning：
+
+  -ob SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72
+
+实测写了 bank 0x02（启动地址）和 bank 0x00（产品状态），然后：
+
+  Error: failed to reconnect after reset
+  Error: Unable to reconnect after setting the Option Bytes
+
+这是进入 CLOSED 之后调试口断开，和 Cube 的 provisioning.bat 对最终状态的说明一致：
+返回码不能单独当成失败。之后普通 Hotplug 读选项字节会报 ICache disable failed，
+或者 “All the 14 configurations are disabled”。
+
+da_tfm_close.bat 现在的最后一步就是这条合并命令。
+日志里如果出现 secbootadd found: 0x0，才算失败。
+出现 “successfully programmed”，或写完后无法重连，算完成。
+
+
+================================================================
+七、用的 obk 和相对路径
+================================================================
+
+da_tfm_close.bat 开头 TZEN_STATE=y 时，烧：
+
+  ROT_Provisioning\DA\Binary\DA_Config.obk
+
+这个目录是拷到本工具目录下的，相对脚本自身：
+
+  %~dp0ROT_Provisioning\DA
+
+TrustZone 改成 n 时，改烧同目录的 DA_ConfigWithPassword.obk。
+
+对应的 xml 在：
+
+  ROT_Provisioning\DA\Config\DA_Config.xml
+  ROT_Provisioning\DA\Config\DA_ConfigWithPassword.xml
+
+证书和密钥也在这个 DA 目录里，不使用 Cube 安装树里的另一份。
+
+  Keys\key_3_leaf.pem
+  Certificates\cert_leaf_chain.b64
+  Binary\password.bin
+
+
+================================================================
+八、da_tfm_close.bat 现在的步骤
+================================================================
+
+双击本目录 da_tfm_close.bat。每步开始前等 STEP_WAIT_SEC 秒（默认 10），
+按任意键可以立刻继续。任一步失败就停，不再写后面的状态。
+
+  1. 产品状态回到 Open（0xED），TZEN=0xB4
+     先 Under Reset。Provisioning 状态下 Under Reset 会报
+     Cannot connect to access port 1，再改 Hotplug 重试。
+  2. 调用现有的 tfm_update.bat（设置 H5F4_INNER=1，避免它再套一层窗口并 pause）
+     擦除，写 TF-M 选项字节，下载 BL2 / S / NS，复位。
+  3. PRODUCT_STATE=0x17
+     先 Under Reset。BL2 正在跑时 Hotplug 可能报 ICache disable failed，
+     再 Hotplug 重试，最多 OB_RETRY 次（默认 5）。
+  4. Hotplug 复位后执行 -sdp，烧 DA_Config.obk
+  5. 同一条 Hotplug 命令写
+     SECBOOTADD=0xC0100、BOOT_UBE=0xB4、PRODUCT_STATE=0x72
+
+脚本开头可以改的配置：
+
+  STEP_WAIT_SEC          每步等待秒数
+  OB_RETRY               ICache / 连接失败时的重试次数
+  TZEN_STATE             y 或 n
+  FINAL_PS_NAME/VALUE    默认 CLOSED / 0x72
+                         TZ-CLOSED 是 0xC6，不要和 CLOSED 混
+                         LOCKED=0x5C 不可逆，脚本不写
+
+2026-10-17 第一次双击不执行，是因为文件当时是 Unix 换行（只有 LF）。
+cmd 把整份文件当成一行，窗口一闪就退出。已改为 CRLF。
+文件编码是 GBK，和本目录其他中文 bat 一致。
+
+
+================================================================
+九、怎么回归
+================================================================
+
+芯片还是 Open 或 Provisioning 时，直接双击本目录：
+
+  regression.bat
+  或 tfm_update.bat
+
+它们用 SWD 把 PRODUCT_STATE 写回 0xED，并恢复 SECBOOTADD=0xC0100。
+
+已经是 CLOSED（0x72）时，普通 SWD 写不了选项字节。先双击：
+
+  ROT_Provisioning\DA\regression.bat
+
+它在 DA 目录下用相对路径：
+
+  Keys\key_3_leaf.pem
+  Certificates\cert_leaf_chain.b64
+  Binary\password.bin
+
+命令是 debugauth=1，权限 per=a（Full Regression），把产品状态退回 Open。
+成功后再双击本目录 tfm_update.bat，把 TF-M 选项字节和镜像烧回去。
+
+只想临时打开调试、不退回 Open 时，用同目录 dbg_auth.bat。
+那不是回归。
+
+
+================================================================
+十、这次结束时板子的状态
+================================================================
+
+2026-10-17 22:20 左右，合并命令已经执行。
+调试口随后不能再按普通 Hotplug 读选项字节。
+
+按这条命令的行为，板子应已是：
+
+  产品状态 CLOSED（0x72）
+  obk 为 ROT_Provisioning\DA\Binary\DA_Config.obk
+  同一条命令里写过 SECBOOTADD=0xC0100、BOOT_UBE=0xB4
+  Flash 里是当次 tfm_update 烧入的 bl2.bin、tfm_s_signed.bin、tfm_ns_signed.bin
+
+CLOSED 之后没有办法在不打开 DA 的情况下把 SECBOOTADD 再读出来核对。
+若串口 USART6 PC6/PC7、115200 复位后能看到 H5F4BL2，说明启动地址留住了。
+若起不来，先走第九节的 regression.bat 退回 Open，再重烧，不要在 CLOSED 上硬改选项字节。
+
+下次要整段重跑 da_tfm_close.bat，必须先 regression 退回 Open。
+CLOSED 上直接双击 da_tfm_close.bat，第 1 步写 Open 会失败并停下。
