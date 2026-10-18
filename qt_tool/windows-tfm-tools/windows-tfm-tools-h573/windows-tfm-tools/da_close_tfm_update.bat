@@ -137,6 +137,19 @@ call :flash_hex "!FILE!" S-NS-signed-fallback
 if errorlevel 1 goto :finish
 
 :after_s
+rem TFM_NS_IMAGE 由界面传入，用来替换默认的 tfm_ns_signed.bin。地址仍是 ADDR_NS。
+if not defined TFM_NS_IMAGE goto :ns_default
+if not exist "%TFM_NS_IMAGE%" (
+    echo [FAIL] TFM_NS_IMAGE not found: %TFM_NS_IMAGE%
+    set "FAILED_STEP=TFM_NS_IMAGE"
+    set "EXIT_CODE=1"
+    goto :finish
+)
+set "FILE=%TFM_NS_IMAGE%"
+call :flash_bin "%FILE%" %ADDR_NS% NS-signed
+if errorlevel 1 goto :finish
+goto :after_ns
+:ns_default
 call :find_file tfm_ns_signed.bin
 if errorlevel 1 goto :after_ns
 call :flash_bin "!FILE!" %ADDR_NS% NS-signed

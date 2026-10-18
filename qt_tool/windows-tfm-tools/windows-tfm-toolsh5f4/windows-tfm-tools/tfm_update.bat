@@ -139,17 +139,23 @@ if defined TFM_S_SIGNED (
 )
 
 if "%SKIP_NS%"=="1" (
-    echo [info] skip NS, already in concatenated S+NS
-) else (
-    if not defined TFM_NS_SIGNED (
-        echo [FAIL] tfm_ns_signed.bin not found
-        set "FAILED_STEP=no NS image"
-        set "EXIT_CODE=1"
-        goto :finish
+    if not defined TFM_NS_IMAGE (
+        echo [info] skip NS, already in concatenated S+NS
+    ) else (
+        call :flash_image "%TFM_NS_SIGNED%" %H5F4_ADDR_NS_S% "NS signed"
+        if errorlevel 1 goto :finish
     )
-    call :flash_image "%TFM_NS_SIGNED%" %H5F4_ADDR_NS_S% "NS signed"
-    if errorlevel 1 goto :finish
+    goto :after_ns
 )
+if not defined TFM_NS_SIGNED (
+    echo [FAIL] tfm_ns_signed.bin not found
+    set "FAILED_STEP=no NS image"
+    set "EXIT_CODE=1"
+    goto :finish
+)
+call :flash_image "%TFM_NS_SIGNED%" %H5F4_ADDR_NS_S% "NS signed"
+if errorlevel 1 goto :finish
+:after_ns
 
 echo [5] Unlock HDP and WRP before BL2
 echo ------------------------------------------------------------

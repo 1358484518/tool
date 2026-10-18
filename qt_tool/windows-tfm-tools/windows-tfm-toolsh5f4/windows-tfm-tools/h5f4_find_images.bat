@@ -17,6 +17,18 @@ set "TFM_S_HEX="
 set "TFM_NS_HEX="
 set "TFM_SNS_HEX="
 
+rem TFM_NS_IMAGE 由界面传入。后面的查找都是还没找到才填，所以不会盖掉它。
+if defined TFM_NS_IMAGE (
+    if exist "%TFM_NS_IMAGE%" (
+        set "TFM_NS_SIGNED=%TFM_NS_IMAGE%"
+        echo [info] NS image from TFM_NS_IMAGE
+        echo        %TFM_NS_IMAGE%
+    ) else (
+        echo [FAIL] TFM_NS_IMAGE not found: %TFM_NS_IMAGE%
+        exit /b 1
+    )
+)
+
 echo [info] prefer cwd / this folder, then build_s and build_ns here
 echo        %CD%
 echo        %~dp0

@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QPushButton>
 #include <QSettings>
 #include <QTextCodec>
@@ -128,6 +129,8 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
     for (ChipPanel *chip : panels) {
         connect(chip->changePath, &QPushButton::clicked, this, [this, chip]() { chooseScriptPath(chip->path); });
         connect(chip->changeErasePath, &QPushButton::clicked, this, [this, chip]() { chooseScriptPath(chip->erasePath); });
+        connect(chip->changeApp, &QPushButton::clicked, this, [this, chip]() { chooseAppPath(chip->appPath); });
+        connect(chip->defaultApp, &QPushButton::clicked, this, [this, chip]() { useDefaultApp(chip->appPath); });
         connect(chip->download, &QPushButton::clicked, this, [this, chip]() { runScript(chip, chip->path->text()); });
         connect(chip->erase, &QPushButton::clicked, this, [this, chip]() { runScript(chip, chip->erasePath->text()); });
         connect(chip->saveLog, &QPushButton::clicked, this, [this, chip]() { saveLog(chip); });
@@ -211,6 +214,19 @@ void ProgramDownloadWidget::buildChip(ChipPanel *panel, const QString &title, co
     eraseRow->addWidget(panel->erase);
     layout->addLayout(eraseRow);
 
+    auto *appRow = new QHBoxLayout();
+    appRow->setSpacing(8);
+    panel->appLabel = new QLabel(panel->group);
+    panel->appPath = new QLineEdit(panel->group);
+    panel->appPath->setReadOnly(true);
+    panel->changeApp = new QPushButton(panel->group);
+    panel->defaultApp = new QPushButton(panel->group);
+    appRow->addWidget(panel->appLabel);
+    appRow->addWidget(panel->appPath, 1);
+    appRow->addWidget(panel->changeApp);
+    appRow->addWidget(panel->defaultApp);
+    layout->addLayout(appRow);
+
     panel->logLabel = new QLabel(panel->group);
     layout->addWidget(panel->logLabel);
 
@@ -244,6 +260,24 @@ void ProgramDownloadWidget::chooseScriptPath(QLineEdit *edit)
     saveSettings();
 }
 
+void ProgramDownloadWidget::chooseAppPath(QLineEdit *edit)
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("Change Path"), edit->text(),
+        tr("Binary Files (*.bin);;All Files (*)"));
+    if (path.isEmpty())
+        return;
+    edit->setText(QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath()));
+    edit->setCursorPosition(edit->text().size());
+    saveSettings();
+}
+
+void ProgramDownloadWidget::useDefaultApp(QLineEdit *edit)
+{
+    edit->clear();
+    saveSettings();
+}
+
 void ProgramDownloadWidget::setScriptRunning(ChipPanel *panel, bool running)
 {
     const bool idle = !running;
@@ -251,6 +285,8 @@ void ProgramDownloadWidget::setScriptRunning(ChipPanel *panel, bool running)
     panel->erase->setEnabled(idle);
     panel->changePath->setEnabled(idle);
     panel->changeErasePath->setEnabled(idle);
+    panel->changeApp->setEnabled(idle);
+    panel->defaultApp->setEnabled(idle);
 }
 
 void ProgramDownloadWidget::runScript(ChipPanel *panel, const QString &path)
@@ -263,11 +299,22 @@ void ProgramDownloadWidget::runScript(ChipPanel *panel, const QString &path)
                              tr("Cannot find script: %1").arg(path));
         return;
     }
+    const QString app = panel->appPath->text().trimmed();
+    if (!erasing && !app.isEmpty() && !QFileInfo::exists(app)) {
+        QMessageBox::warning(this, tr("Download"), tr("Cannot find app: %1").arg(app));
+        return;
+    }
     panel->pending.clear();
     panel->endSeen = false;
     panel->process = new QProcess(this);
     panel->process->setWorkingDirectory(QFileInfo(path).absolutePath());
     panel->process->setProcessChannelMode(QProcess::MergedChannels);
+    if (!erasing && !app.isEmpty()) {
+        // 第 1 个参数已经是 ST-LINK 序列号，应用程序只能走环境变量，脚本只替换 NS 镜像。
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("TFM_NS_IMAGE"), QFileInfo(app).absoluteFilePath());
+        panel->process->setProcessEnvironment(env);
+    }
     connect(panel->process, &QProcess::readyReadStandardOutput, this, [this, panel]() {
         takeScriptOutput(panel);
     });
@@ -425,6 +472,8 @@ void ProgramDownloadWidget::loadSettings()
     useSaved(m_h573.erasePath, settings.value(QStringLiteral("h573ErasePath")).toString());
     useSaved(m_h5f4.path, settings.value(QStringLiteral("h5f4DownloadPath")).toString());
     useSaved(m_h5f4.erasePath, settings.value(QStringLiteral("h5f4ErasePath")).toString());
+    useSaved(m_h573.appPath, settings.value(QStringLiteral("h573AppPath")).toString());
+    useSaved(m_h5f4.appPath, settings.value(QStringLiteral("h5f4AppPath")).toString());
     settings.endGroup();
 }
 
@@ -438,6 +487,8 @@ void ProgramDownloadWidget::saveSettings() const
     settings.setValue(QStringLiteral("h573ErasePath"), storedScriptPath(m_h573.erasePath->text()));
     settings.setValue(QStringLiteral("h5f4DownloadPath"), storedScriptPath(m_h5f4.path->text()));
     settings.setValue(QStringLiteral("h5f4ErasePath"), storedScriptPath(m_h5f4.erasePath->text()));
+    settings.setValue(QStringLiteral("h573AppPath"), storedScriptPath(m_h573.appPath->text()));
+    settings.setValue(QStringLiteral("h5f4AppPath"), storedScriptPath(m_h5f4.appPath->text()));
     settings.endGroup();
 }
 
@@ -453,6 +504,10 @@ void ProgramDownloadWidget::retranslateUi()
         panel->erasePathLabel->setText(tr("Erase Script Path:"));
         panel->changeErasePath->setText(tr("Change Path"));
         panel->erase->setText(tr("Run Erase"));
+        panel->appLabel->setText(tr("App Program:"));
+        panel->appPath->setPlaceholderText(tr("Default: tfm_ns_signed.bin"));
+        panel->changeApp->setText(tr("Change Path"));
+        panel->defaultApp->setText(tr("Use Default"));
         panel->logLabel->setText(tr("Log:"));
         panel->saveLog->setText(tr("Save Log"));
         panel->autoSave->setText(tr("Auto Save"));
