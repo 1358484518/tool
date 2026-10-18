@@ -20,6 +20,9 @@
 #include <QPlainTextEdit>
 #include "common/IoData.h"
 
+class QFile;
+class QGroupBox;
+
 /**
  * 串口页 UI。只读控件、发请求，不创建 QSerialPort。
  * 打开/发送由 TMX_TOOL 转到 SerialManager；收包走 onIoData。
@@ -82,9 +85,11 @@ private slots:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;  // 发送框 Ctrl+Enter 触发发送
+    void changeEvent(QEvent *event) override;                    // 语言切换时刷新本页文字
 
 private:
     void setupUi();                                       // 拼左右面板、接收区、发送页签
+    void retranslateUi();                                 // 按当前语言重写本页控件文字
     void populateBaudRates();                             // 填波特率下拉
     void populateDataBits();                              // 填数据位
     void populateParity();                                // 填校验位
@@ -102,6 +107,9 @@ private:
     void exportCsvFile(const QString &fileName, bool interactive);  // 把表写成 CSV
     void loadSettings();                                  // 从 QSettings 恢复上次串口参数
     void saveSettings();                                  // 把当前参数写入 QSettings
+    void setAutoSaveEnabled(bool enabled);                // 打开或关掉接收内容自动追加
+    bool openAutoSave();                                  // 按当前日志目录打开追加文件，失败则取消勾选
+    void appendAutoSave(const QString &text);             // 把刚显示的接收文字追加进文件
 
     QHBoxLayout *m_mainLayout;
     QWidget *m_leftPanel;
@@ -114,6 +122,7 @@ private:
     QCheckBox *m_autoScrollCheck;
     QCheckBox *m_autoWrapCheck;
     QCheckBox *m_pauseCheck;
+    QCheckBox *m_autoSaveCheck = nullptr;  // 勾选后把接收窗口的新内容追加进文件
     QPushButton *m_clearReceiveBtn;
     QPushButton *m_saveLogBtn;
 
@@ -166,6 +175,20 @@ private:
     QCheckBox *m_addCrc16Check;
     QPushButton *m_ymodemSendBtn;
     bool m_hasRecvData = false;
+
+    QGroupBox *m_portGroup = nullptr;     // 端口参数分组
+    QGroupBox *m_sendGroup = nullptr;     // 发送设置分组
+    QGroupBox *m_recvGroup = nullptr;     // 接收设置分组
+    QLabel *m_intLabel = nullptr;         // 多条发送的间隔标签
+    QLabel *m_portLabel = nullptr;        // 端口
+    QLabel *m_baudLabel = nullptr;        // 波特率
+    QLabel *m_stopLabel = nullptr;        // 停止位
+    QLabel *m_dataLabel = nullptr;        // 数据位
+    QLabel *m_parityLabel = nullptr;      // 校验
+    QLabel *m_flowLabel = nullptr;        // 流控
+    QLabel *m_intervalLabel = nullptr;    // 定时发送间隔
+    QLabel *m_lineEndLabel = nullptr;     // 行结束符
+    QFile *m_autoSaveFile = nullptr;      // 自动保存打开时追加写入，关掉就释放
 };
 
 #endif // SERIALASSISTANT_H

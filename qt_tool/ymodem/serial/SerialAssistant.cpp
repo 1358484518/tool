@@ -1,4 +1,5 @@
 #include "SerialAssistant.h"
+#include "SettingsWidget.h"
 #include "common/ProtocolUtils.h"
 
 #include <QAbstractItemView>
@@ -6,6 +7,7 @@
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
@@ -39,7 +41,7 @@ SerialAssistant::SerialAssistant(QWidget *parent)
     connect(m_autoSendTimer, &QTimer::timeout, this, &SerialAssistant::onAutoSendTimer);
     connect(m_multiSendTable,&QTableWidget::cellDoubleClicked,this,&SerialAssistant::onDoubleSendSelected);
     updatePortList(QSerialPortInfo::availablePorts());
-    setWindowTitle(QStringLiteral("Serial Debug Assistant"));
+    setWindowTitle(tr("Serial Debug Assistant"));
     loadSettings();
 }
 
@@ -87,25 +89,25 @@ void SerialAssistant::setupUi()
 
     m_sendText = new QPlainTextEdit(m_singleSendPage);
     m_sendText->setFont(QFont("Consolas", 10));
-    m_sendText->setPlaceholderText("Enter command to send... (Ctrl+Enter to send)");
+    m_sendText->setPlaceholderText(tr("Enter command to send... (Ctrl+Enter to send)"));
     m_sendText->installEventFilter(this);
     singleLayout->addWidget(m_sendText, 1);
 
     auto *singleBtnCol = new QVBoxLayout();
     singleBtnCol->setSpacing(4);
-    m_sendBtn = new QPushButton("Send", m_singleSendPage);
+    m_sendBtn = new QPushButton(tr("Send"), m_singleSendPage);
     m_sendBtn->setMinimumWidth(70);
     m_sendBtn->setEnabled(false);
     m_sendBtn->setStyleSheet("QPushButton { background-color: #2196F3; color: white; font-weight: bold; padding: 4px; border-radius: 2px; } QPushButton:hover { background-color: #1E88E5; } QPushButton:disabled { background-color: #90CAF9; }");
     singleBtnCol->addWidget(m_sendBtn);
 
-    m_clearSendBtn = new QPushButton("Clear", m_singleSendPage);
+    m_clearSendBtn = new QPushButton(tr("Clear"), m_singleSendPage);
     m_clearSendBtn->setMinimumWidth(70);
     connect(m_clearSendBtn, &QPushButton::clicked, m_sendText, &QPlainTextEdit::clear);
     singleBtnCol->addWidget(m_clearSendBtn);
     singleBtnCol->addStretch();
     singleLayout->addLayout(singleBtnCol);
-    m_sendTab->addTab(m_singleSendPage, "Single Send");
+    m_sendTab->addTab(m_singleSendPage, tr("Single Send"));
 
     // Tab 2: Multi Send
     m_multiSendPage = new QWidget(m_sendTab);
@@ -115,28 +117,28 @@ void SerialAssistant::setupUi()
 
     auto *multiToolbar = new QHBoxLayout();
     multiToolbar->setSpacing(4);
-    m_multiAddBtn = new QPushButton("Add", m_multiSendPage);
+    m_multiAddBtn = new QPushButton(tr("Add"), m_multiSendPage);
     m_multiAddBtn->setMaximumWidth(55);
     multiToolbar->addWidget(m_multiAddBtn);
-    m_multiDelBtn = new QPushButton("Del", m_multiSendPage);
+    m_multiDelBtn = new QPushButton(tr("Del"), m_multiSendPage);
     m_multiDelBtn->setMaximumWidth(55);
     multiToolbar->addWidget(m_multiDelBtn);
-    m_multiImportBtn = new QPushButton("Import", m_multiSendPage);
+    m_multiImportBtn = new QPushButton(tr("Import"), m_multiSendPage);
     m_multiImportBtn->setMaximumWidth(60);
     multiToolbar->addWidget(m_multiImportBtn);
-    m_multiExportBtn = new QPushButton("Export", m_multiSendPage);
+    m_multiExportBtn = new QPushButton(tr("Export"), m_multiSendPage);
     m_multiExportBtn->setMaximumWidth(60);
     multiToolbar->addWidget(m_multiExportBtn);
     multiToolbar->addStretch();
-    QLabel *intLabel = new QLabel("Int:", m_multiSendPage);
-    multiToolbar->addWidget(intLabel);
+    m_intLabel = new QLabel(tr("Int:"), m_multiSendPage);
+    multiToolbar->addWidget(m_intLabel);
     m_multiSendIntervalSpin = new QSpinBox(m_multiSendPage);
     m_multiSendIntervalSpin->setRange(0, 5000);
     m_multiSendIntervalSpin->setValue(1000);
-    m_multiSendIntervalSpin->setSuffix("ms");
+    m_multiSendIntervalSpin->setSuffix(tr("ms"));
     m_multiSendIntervalSpin->setMaximumWidth(70);
     multiToolbar->addWidget(m_multiSendIntervalSpin);
-    m_multiSendBtn = new QPushButton("Send", m_multiSendPage);
+    m_multiSendBtn = new QPushButton(tr("Send"), m_multiSendPage);
     m_multiSendBtn->setEnabled(false);
     m_multiSendBtn->setMinimumWidth(60);
     m_multiSendBtn->setStyleSheet("QPushButton { background-color: #2196F3; color: white; font-weight: bold; padding: 4px; border-radius: 2px; } QPushButton:hover { background-color: #1E88E5; } QPushButton:disabled { background-color: #90CAF9; }");
@@ -147,7 +149,7 @@ void SerialAssistant::setupUi()
     m_multiSendTable = new QTableWidget(m_multiSendPage);
     m_multiSendTable->setColumnCount(4);
     m_multiSendTable->setRowCount(0);
-    m_multiSendTable->setHorizontalHeaderLabels({"", "No.", "Command", "Note"});
+    m_multiSendTable->setHorizontalHeaderLabels({QString(), tr("No."), tr("Command"), tr("Note")});
     m_multiSendTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_multiSendTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_multiSendTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
@@ -158,7 +160,7 @@ void SerialAssistant::setupUi()
     m_multiSendTable->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
     multiLayout->addWidget(m_multiSendTable, 1);
 
-    m_sendTab->addTab(m_multiSendPage, "Multi Send");
+    m_sendTab->addTab(m_multiSendPage, tr("Multi Send"));
     leftLayout->addWidget(m_sendTab, 1);
     m_mainLayout->addWidget(m_leftPanel, 5);
 
@@ -170,76 +172,82 @@ void SerialAssistant::setupUi()
     rightLayout->setContentsMargins(4, 0, 0, 0);
 
     // --- Group 1: Port parameters ---
-    auto *portGroup = new QGroupBox("Port Config", m_rightPanel);
-    auto *portGrid = new QGridLayout(portGroup);
+    m_portGroup = new QGroupBox(tr("Port Config"), m_rightPanel);
+    auto *portGrid = new QGridLayout(m_portGroup);
     portGrid->setSpacing(4);
     portGrid->setContentsMargins(6, 14, 6, 6);
 
     int r = 0;
-    portGrid->addWidget(new QLabel("Port:", portGroup), r, 0, Qt::AlignLeft);
+    m_portLabel = new QLabel(tr("Port:"), m_portGroup);
+    portGrid->addWidget(m_portLabel, r, 0, Qt::AlignLeft);
     auto *portLayout = new QHBoxLayout();
     portLayout->setSpacing(2);
-    m_portCombo = new QComboBox(portGroup);
+    m_portCombo = new QComboBox(m_portGroup);
     m_portCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     m_portCombo->view()->setMinimumWidth(280);
     portLayout->addWidget(m_portCombo, 1);
-    m_refreshBtn = new QPushButton("⟳", portGroup);
-    m_refreshBtn->setToolTip("Refresh port list");
+    m_refreshBtn = new QPushButton(QStringLiteral("⟳"), m_portGroup);
+    m_refreshBtn->setToolTip(tr("Refresh port list"));
     m_refreshBtn->setMaximumWidth(26);
     portLayout->addWidget(m_refreshBtn);
     portGrid->addLayout(portLayout, r, 1);
     r++;
 
-    portGrid->addWidget(new QLabel("Baud:", portGroup), r, 0, Qt::AlignLeft);
-    m_baudCombo = new QComboBox(portGroup);
+    m_baudLabel = new QLabel(tr("Baud:"), m_portGroup);
+    portGrid->addWidget(m_baudLabel, r, 0, Qt::AlignLeft);
+    m_baudCombo = new QComboBox(m_portGroup);
     portGrid->addWidget(m_baudCombo, r, 1);
     r++;
 
-    portGrid->addWidget(new QLabel("Stop:", portGroup), r, 0, Qt::AlignLeft);
-    m_stopBitsCombo = new QComboBox(portGroup);
+    m_stopLabel = new QLabel(tr("Stop:"), m_portGroup);
+    portGrid->addWidget(m_stopLabel, r, 0, Qt::AlignLeft);
+    m_stopBitsCombo = new QComboBox(m_portGroup);
     portGrid->addWidget(m_stopBitsCombo, r, 1);
     r++;
 
-    portGrid->addWidget(new QLabel("Data:", portGroup), r, 0, Qt::AlignLeft);
-    m_dataBitsCombo = new QComboBox(portGroup);
+    m_dataLabel = new QLabel(tr("Data:"), m_portGroup);
+    portGrid->addWidget(m_dataLabel, r, 0, Qt::AlignLeft);
+    m_dataBitsCombo = new QComboBox(m_portGroup);
     portGrid->addWidget(m_dataBitsCombo, r, 1);
     r++;
 
-    portGrid->addWidget(new QLabel("Parity:", portGroup), r, 0, Qt::AlignLeft);
-    m_parityCombo = new QComboBox(portGroup);
+    m_parityLabel = new QLabel(tr("Parity:"), m_portGroup);
+    portGrid->addWidget(m_parityLabel, r, 0, Qt::AlignLeft);
+    m_parityCombo = new QComboBox(m_portGroup);
     portGrid->addWidget(m_parityCombo, r, 1);
     r++;
 
-    portGrid->addWidget(new QLabel("Flow:", portGroup), r, 0, Qt::AlignLeft);
-    m_flowCombo = new QComboBox(portGroup);
+    m_flowLabel = new QLabel(tr("Flow:"), m_portGroup);
+    portGrid->addWidget(m_flowLabel, r, 0, Qt::AlignLeft);
+    m_flowCombo = new QComboBox(m_portGroup);
     portGrid->addWidget(m_flowCombo, r, 1);
     r++;
 
     auto *pinRow = new QHBoxLayout();
     pinRow->setSpacing(10);
-    m_dtrCheck = new QCheckBox("DTR", portGroup);
+    m_dtrCheck = new QCheckBox(tr("DTR"), m_portGroup);
     m_dtrCheck->setEnabled(false);
     pinRow->addWidget(m_dtrCheck);
-    m_rtsCheck = new QCheckBox("RTS", portGroup);
+    m_rtsCheck = new QCheckBox(tr("RTS"), m_portGroup);
     m_rtsCheck->setEnabled(false);
     pinRow->addWidget(m_rtsCheck);
     pinRow->addStretch();
     portGrid->addLayout(pinRow, r, 0, 1, 2);
     r++;
 
-    m_autoReconnectCheck = new QCheckBox("Auto Reconnect", portGroup);
+    m_autoReconnectCheck = new QCheckBox(tr("Auto Reconnect"), m_portGroup);
     m_autoReconnectCheck->setChecked(true);
     portGrid->addWidget(m_autoReconnectCheck, r, 0, 1, 2);
-    rightLayout->addWidget(portGroup);
+    rightLayout->addWidget(m_portGroup);
 
     // Open/Close button
-    m_openCloseBtn = new QPushButton("Open Port", m_rightPanel);
+    m_openCloseBtn = new QPushButton(tr("Open Port"), m_rightPanel);
     m_openCloseBtn->setMinimumHeight(28);
     m_openCloseBtn->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 3px; border-radius: 2px; } QPushButton:hover { background-color: #43A047; }");
     rightLayout->addWidget(m_openCloseBtn);
 
     // YMODEM Send button
-    m_ymodemSendBtn = new QPushButton("YMODEM Send", m_rightPanel);
+    m_ymodemSendBtn = new QPushButton(tr("YMODEM Send"), m_rightPanel);
     m_ymodemSendBtn->setMinimumHeight(28);
     m_ymodemSendBtn->setEnabled(false); // 默认未连接时禁用
     m_ymodemSendBtn->setStyleSheet("QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 3px; border-radius: 2px; } QPushButton:hover { background-color: #FB8C00; } QPushButton:disabled { background-color: #FFCC80; }");
@@ -253,43 +261,45 @@ void SerialAssistant::setupUi()
     rightLayout->addWidget(line1);
 
     // --- Group 2: Send settings ---
-    auto *sendGroup = new QGroupBox("Send Settings", m_rightPanel);
-    auto *sendGrid = new QGridLayout(sendGroup);
+    m_sendGroup = new QGroupBox(tr("Send Settings"), m_rightPanel);
+    auto *sendGrid = new QGridLayout(m_sendGroup);
     sendGrid->setSpacing(4);
     sendGrid->setContentsMargins(6, 14, 6, 6);
     r = 0;
 
-    m_autoSendCheck = new QCheckBox("Timed Send", sendGroup);
+    m_autoSendCheck = new QCheckBox(tr("Timed Send"), m_sendGroup);
     sendGrid->addWidget(m_autoSendCheck, r, 0, 1, 2);
     r++;
 
     auto *intervalRow = new QHBoxLayout();
     intervalRow->setSpacing(4);
-    intervalRow->addWidget(new QLabel("Interval:", sendGroup));
-    m_autoSendIntervalSpin = new QSpinBox(sendGroup);
+    m_intervalLabel = new QLabel(tr("Interval:"), m_sendGroup);
+    intervalRow->addWidget(m_intervalLabel);
+    m_autoSendIntervalSpin = new QSpinBox(m_sendGroup);
     m_autoSendIntervalSpin->setRange(10, 60000);
     m_autoSendIntervalSpin->setValue(1000);
-    m_autoSendIntervalSpin->setSuffix("ms");
+    m_autoSendIntervalSpin->setSuffix(tr("ms"));
     intervalRow->addWidget(m_autoSendIntervalSpin, 1);
     sendGrid->addLayout(intervalRow, r, 0, 1, 2);
     r++;
 
-    m_hexSendCheck = new QCheckBox("Hex Send", sendGroup);
+    m_hexSendCheck = new QCheckBox(tr("Hex Send"), m_sendGroup);
     sendGrid->addWidget(m_hexSendCheck, r, 0, 1, 2);
     r++;
 
     // 新增Modbus CRC16选项
-    m_addCrc16Check = new QCheckBox("Add CRC16 (Modbus)", sendGroup);
+    m_addCrc16Check = new QCheckBox(tr("Add CRC16 (Modbus)"), m_sendGroup);
     sendGrid->addWidget(m_addCrc16Check, r, 0, 1, 2);
     r++;
 
     auto *endRow = new QHBoxLayout();
     endRow->setSpacing(4);
-    endRow->addWidget(new QLabel("Line End:", sendGroup));
-    m_lineEndingCombo = new QComboBox(sendGroup);
+    m_lineEndLabel = new QLabel(tr("Line End:"), m_sendGroup);
+    endRow->addWidget(m_lineEndLabel);
+    m_lineEndingCombo = new QComboBox(m_sendGroup);
     endRow->addWidget(m_lineEndingCombo, 1);
     sendGrid->addLayout(endRow, r, 0, 1, 2);
-    rightLayout->addWidget(sendGroup);
+    rightLayout->addWidget(m_sendGroup);
 
     // Separator
     auto *line2 = new QFrame(m_rightPanel);
@@ -298,40 +308,43 @@ void SerialAssistant::setupUi()
     rightLayout->addWidget(line2);
 
     // --- Group 3: Receive settings ---
-    auto *recvGroup = new QGroupBox("Receive Settings", m_rightPanel);
-    auto *recvGrid = new QGridLayout(recvGroup);
+    m_recvGroup = new QGroupBox(tr("Receive Settings"), m_rightPanel);
+    auto *recvGrid = new QGridLayout(m_recvGroup);
     recvGrid->setSpacing(4);
     recvGrid->setContentsMargins(6, 14, 6, 6);
     r = 0;
 
     auto *recvBtnRow = new QHBoxLayout();
     recvBtnRow->setSpacing(4);
-    m_saveLogBtn = new QPushButton("Save Log", recvGroup);
+    m_saveLogBtn = new QPushButton(tr("Save Log"), m_recvGroup);
     recvBtnRow->addWidget(m_saveLogBtn);
-    m_clearReceiveBtn = new QPushButton("Clear Recv", recvGroup);
+    m_clearReceiveBtn = new QPushButton(tr("Clear Recv"), m_recvGroup);
     recvBtnRow->addWidget(m_clearReceiveBtn);
     recvGrid->addLayout(recvBtnRow, r, 0, 1, 2);
     r++;
 
-    m_hexReceiveCheck = new QCheckBox("Hex Disp", recvGroup);
+    m_hexReceiveCheck = new QCheckBox(tr("Hex Disp"), m_recvGroup);
     recvGrid->addWidget(m_hexReceiveCheck, r, 0);
-    m_timestampCheck = new QCheckBox("Timestamp", recvGroup);
+    m_timestampCheck = new QCheckBox(tr("Timestamp"), m_recvGroup);
     recvGrid->addWidget(m_timestampCheck, r, 1);
     r++;
 
-    m_autoScrollCheck = new QCheckBox("Auto Scroll", recvGroup);
+    m_autoScrollCheck = new QCheckBox(tr("Auto Scroll"), m_recvGroup);
     m_autoScrollCheck->setChecked(true);
     recvGrid->addWidget(m_autoScrollCheck, r, 0);
-    m_autoWrapCheck = new QCheckBox("Wrap", recvGroup);
+    m_autoWrapCheck = new QCheckBox(tr("Wrap"), m_recvGroup);
     recvGrid->addWidget(m_autoWrapCheck, r, 1);
     r++;
 
-    m_pauseCheck = new QCheckBox("Pause Display", recvGroup);
-    recvGrid->addWidget(m_pauseCheck, r, 0, 1, 2);
-    rightLayout->addWidget(recvGroup);
+    m_pauseCheck = new QCheckBox(tr("Pause Display"), m_recvGroup);
+    recvGrid->addWidget(m_pauseCheck, r, 0);
+    m_autoSaveCheck = new QCheckBox(tr("Auto Save"), m_recvGroup);
+    m_autoSaveCheck->setToolTip(tr("Append new receive text to serial_auto.txt in the log directory"));
+    recvGrid->addWidget(m_autoSaveCheck, r, 1);
+    rightLayout->addWidget(m_recvGroup);
 
     // Reset Counter button
-    m_resetCounterBtn = new QPushButton("Reset Counter", m_rightPanel);
+    m_resetCounterBtn = new QPushButton(tr("Reset Counter"), m_rightPanel);
     rightLayout->addWidget(m_resetCounterBtn);
 
     // Separator
@@ -343,14 +356,14 @@ void SerialAssistant::setupUi()
     // Status area
     auto *countRow = new QHBoxLayout();
     countRow->setSpacing(10);
-    m_rxCountLabel = new QLabel("R: 0 B", m_rightPanel);
+    m_rxCountLabel = new QLabel(tr("R: %1 B").arg(0), m_rightPanel);
     countRow->addWidget(m_rxCountLabel);
-    m_txCountLabel = new QLabel("S: 0 B", m_rightPanel);
+    m_txCountLabel = new QLabel(tr("S: %1 B").arg(0), m_rightPanel);
     countRow->addWidget(m_txCountLabel);
     countRow->addStretch();
     rightLayout->addLayout(countRow);
 
-    m_statusLabel = new QLabel("● Disconnected", m_rightPanel);
+    m_statusLabel = new QLabel(tr("● Disconnected"), m_rightPanel);
     m_statusLabel->setStyleSheet("QLabel { color: #f44336; font-weight: bold; }");
     rightLayout->addWidget(m_statusLabel);
 
@@ -372,12 +385,13 @@ void SerialAssistant::setupUi()
     connect(m_saveLogBtn, &QPushButton::clicked, this, &SerialAssistant::saveLogRequested);
     connect(m_refreshBtn, &QPushButton::clicked, this, [this]() {
         updatePortList(QSerialPortInfo::availablePorts());
-        showStatusMessage("Port list refreshed");
+        showStatusMessage(tr("Port list refreshed"));
         emit refreshPortsRequested();
     });
     connect(m_autoSendCheck, &QCheckBox::toggled, this, &SerialAssistant::onAutoSendToggled);
     connect(m_resetCounterBtn, &QPushButton::clicked, this, &SerialAssistant::onResetCounterClicked);
     connect(m_pauseCheck, &QCheckBox::toggled, this, &SerialAssistant::onPauseToggled);
+    connect(m_autoSaveCheck, &QCheckBox::toggled, this, &SerialAssistant::setAutoSaveEnabled);
     connect(m_dtrCheck, &QCheckBox::toggled, this, &SerialAssistant::dtrToggled);
     connect(m_rtsCheck, &QCheckBox::toggled, this, &SerialAssistant::rtsToggled);
     connect(m_autoWrapCheck, &QCheckBox::toggled, this, [this](bool enabled) {
@@ -402,6 +416,78 @@ void SerialAssistant::setupUi()
     m_receiveText->setLineWrapMode(QPlainTextEdit::WidgetWidth);
 }
 
+void SerialAssistant::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        retranslateUi();
+    QWidget::changeEvent(event);
+}
+
+void SerialAssistant::retranslateUi()
+{
+    setWindowTitle(tr("Serial Debug Assistant"));
+    m_sendText->setPlaceholderText(tr("Enter command to send... (Ctrl+Enter to send)"));
+    m_sendBtn->setText(tr("Send"));
+    m_clearSendBtn->setText(tr("Clear"));
+    m_sendTab->setTabText(0, tr("Single Send"));
+    m_multiAddBtn->setText(tr("Add"));
+    m_multiDelBtn->setText(tr("Del"));
+    m_multiImportBtn->setText(tr("Import"));
+    m_multiExportBtn->setText(tr("Export"));
+    m_intLabel->setText(tr("Int:"));
+    m_multiSendIntervalSpin->setSuffix(tr("ms"));
+    m_multiSendBtn->setText(tr("Send"));
+    m_multiSendTable->setHorizontalHeaderLabels({QString(), tr("No."), tr("Command"), tr("Note")});
+    m_sendTab->setTabText(1, tr("Multi Send"));
+
+    m_portGroup->setTitle(tr("Port Config"));
+    m_portLabel->setText(tr("Port:"));
+    m_refreshBtn->setToolTip(tr("Refresh port list"));
+    m_baudLabel->setText(tr("Baud:"));
+    m_stopLabel->setText(tr("Stop:"));
+    m_dataLabel->setText(tr("Data:"));
+    m_parityLabel->setText(tr("Parity:"));
+    m_flowLabel->setText(tr("Flow:"));
+    m_dtrCheck->setText(tr("DTR"));
+    m_rtsCheck->setText(tr("RTS"));
+    m_autoReconnectCheck->setText(tr("Auto Reconnect"));
+    m_openCloseBtn->setText(m_isConnected ? tr("Close Port") : tr("Open Port"));
+    m_ymodemSendBtn->setText(tr("YMODEM Send"));
+
+    m_sendGroup->setTitle(tr("Send Settings"));
+    m_autoSendCheck->setText(tr("Timed Send"));
+    m_intervalLabel->setText(tr("Interval:"));
+    m_autoSendIntervalSpin->setSuffix(tr("ms"));
+    m_hexSendCheck->setText(tr("Hex Send"));
+    m_addCrc16Check->setText(tr("Add CRC16 (Modbus)"));
+    m_lineEndLabel->setText(tr("Line End:"));
+
+    m_recvGroup->setTitle(tr("Receive Settings"));
+    m_saveLogBtn->setText(tr("Save Log"));
+    m_clearReceiveBtn->setText(tr("Clear Recv"));
+    m_hexReceiveCheck->setText(tr("Hex Disp"));
+    m_timestampCheck->setText(tr("Timestamp"));
+    m_autoScrollCheck->setText(tr("Auto Scroll"));
+    m_autoWrapCheck->setText(tr("Wrap"));
+    m_pauseCheck->setText(tr("Pause Display"));
+    m_autoSaveCheck->setText(tr("Auto Save"));
+    m_autoSaveCheck->setToolTip(tr("Append new receive text to serial_auto.txt in the log directory"));
+    m_resetCounterBtn->setText(tr("Reset Counter"));
+    m_rxCountLabel->setText(tr("R: %1 B").arg(m_rxBytes));
+    m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
+    m_statusLabel->setText(m_isConnected ? tr("● Connected") : tr("● Disconnected"));
+
+    const QString parity[] = {tr("None"), tr("Odd"), tr("Even"), tr("Mark"), tr("Space")};
+    for (int i = 0; i < m_parityCombo->count() && i < 5; ++i)
+        m_parityCombo->setItemText(i, parity[i]);
+    const QString flow[] = {tr("None"), tr("RTS/CTS"), tr("XON/XOFF")};
+    for (int i = 0; i < m_flowCombo->count() && i < 3; ++i)
+        m_flowCombo->setItemText(i, flow[i]);
+    const QString endings[] = {tr("None"), tr("CR"), tr("LF"), tr("CRLF")};
+    for (int i = 0; i < m_lineEndingCombo->count() && i < 4; ++i)
+        m_lineEndingCombo->setItemText(i, endings[i]);
+}
+
 void SerialAssistant::populateBaudRates()
 {
     QList<qint32> baudRates = {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
@@ -420,11 +506,11 @@ void SerialAssistant::populateDataBits()
 
 void SerialAssistant::populateParity()
 {
-    m_parityCombo->addItem("None", QSerialPort::NoParity);
-    m_parityCombo->addItem("Odd", QSerialPort::OddParity);
-    m_parityCombo->addItem("Even", QSerialPort::EvenParity);
-    m_parityCombo->addItem("Mark", QSerialPort::MarkParity);
-    m_parityCombo->addItem("Space", QSerialPort::SpaceParity);
+    m_parityCombo->addItem(tr("None"), QSerialPort::NoParity);
+    m_parityCombo->addItem(tr("Odd"), QSerialPort::OddParity);
+    m_parityCombo->addItem(tr("Even"), QSerialPort::EvenParity);
+    m_parityCombo->addItem(tr("Mark"), QSerialPort::MarkParity);
+    m_parityCombo->addItem(tr("Space"), QSerialPort::SpaceParity);
 }
 
 void SerialAssistant::populateStopBits()
@@ -437,17 +523,17 @@ void SerialAssistant::populateStopBits()
 
 void SerialAssistant::populateFlowControl()
 {
-    m_flowCombo->addItem("None", QSerialPort::NoFlowControl);
-    m_flowCombo->addItem("RTS/CTS", QSerialPort::HardwareControl);
-    m_flowCombo->addItem("XON/XOFF", QSerialPort::SoftwareControl);
+    m_flowCombo->addItem(tr("None"), QSerialPort::NoFlowControl);
+    m_flowCombo->addItem(tr("RTS/CTS"), QSerialPort::HardwareControl);
+    m_flowCombo->addItem(tr("XON/XOFF"), QSerialPort::SoftwareControl);
 }
 
 void SerialAssistant::populateLineEndings()
 {
-    m_lineEndingCombo->addItem("None", 0);
-    m_lineEndingCombo->addItem("CR", 1);
-    m_lineEndingCombo->addItem("LF", 2);
-    m_lineEndingCombo->addItem("CRLF", 3);
+    m_lineEndingCombo->addItem(tr("None"), 0);
+    m_lineEndingCombo->addItem(tr("CR"), 1);
+    m_lineEndingCombo->addItem(tr("LF"), 2);
+    m_lineEndingCombo->addItem(tr("CRLF"), 3);
     m_lineEndingCombo->setCurrentIndex(0);
 }
 
@@ -534,15 +620,15 @@ void SerialAssistant::setConnectionState(bool connected)
     m_ymodemSendBtn->setEnabled(connected);
 
     if (connected) {
-        m_openCloseBtn->setText("Close Port");
+        m_openCloseBtn->setText(tr("Close Port"));
         m_openCloseBtn->setStyleSheet("QPushButton { background-color: #f44336; color: white; font-weight: bold; padding: 3px; border-radius: 2px; } QPushButton:hover { background-color: #E53935; }");
-        m_statusLabel->setText("● Connected");
+        m_statusLabel->setText(tr("● Connected"));
         m_statusLabel->setStyleSheet("QLabel { color: #4CAF50; font-weight: bold; }");
         m_portInfoLabel->setText(QString("%1 @ %2").arg(m_portCombo->currentData().toString(), m_baudCombo->currentText()));
     } else {
-        m_openCloseBtn->setText("Open Port");
+        m_openCloseBtn->setText(tr("Open Port"));
         m_openCloseBtn->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 3px; border-radius: 2px; } QPushButton:hover { background-color: #43A047; }");
-        m_statusLabel->setText("● Disconnected");
+        m_statusLabel->setText(tr("● Disconnected"));
         m_statusLabel->setStyleSheet("QLabel { color: #f44336; font-weight: bold; }");
         m_portInfoLabel->setText("");
         m_dtrCheck->setChecked(false);
@@ -563,9 +649,7 @@ void SerialAssistant::appendReceivedData(const QByteArray &data)
         return;
 
     m_rxBytes += static_cast<quint64>(data.size());
-    m_rxCountLabel->setText(QStringLiteral("R: %1 B").arg(m_rxBytes));
-    if (m_paused)
-        return;
+    m_rxCountLabel->setText(tr("R: %1 B").arg(m_rxBytes));
 
     QString text;
     if (m_timestampCheck->isChecked()) {
@@ -579,6 +663,10 @@ void SerialAssistant::appendReceivedData(const QByteArray &data)
         text += QString::fromLocal8Bit(data);
 
     m_hasRecvData = true;
+    // 暂停只停画面。自动保存仍写这段，避免勾了保存却在暂停时丢数据。
+    appendAutoSave(text);
+    if (m_paused)
+        return;
     QTextCursor cursor = m_receiveText->textCursor();
     cursor.movePosition(QTextCursor::End);
     cursor.insertText(text);
@@ -607,8 +695,8 @@ void SerialAssistant::resetCounters()
 {
     m_rxBytes = 0;
     m_txBytes = 0;
-    m_rxCountLabel->setText("R: 0 B");
-    m_txCountLabel->setText("S: 0 B");
+    m_rxCountLabel->setText(tr("R: %1 B").arg(0));
+    m_txCountLabel->setText(tr("S: %1 B").arg(0));
 }
 
 QByteArray SerialAssistant::getReceiveText()
@@ -620,7 +708,7 @@ void SerialAssistant::onOpenCloseClicked()
 {
     if (!m_isConnected) {
         if (m_portCombo->currentData().toString().isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Please select a serial port first!");
+            QMessageBox::warning(this, tr("Warning"), tr("Please select a serial port first!"));
             return;
         }
         emit openPortRequested();
@@ -636,7 +724,7 @@ void SerialAssistant::onSendClicked()
     QByteArray data = processSendData(sendStr);
     if (!data.isEmpty()) {
         m_txBytes += data.size();
-        m_txCountLabel->setText(QString("S: %1 B").arg(m_txBytes));
+        m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
         emit sendDataRequested(data);
     }
 }
@@ -646,7 +734,7 @@ void SerialAssistant::onAutoSendToggled(bool enabled)
     if (enabled) {
         if (!m_isConnected) {
             m_autoSendCheck->setChecked(false);
-            QMessageBox::warning(this, "Warning", "Please open serial port first!");
+            QMessageBox::warning(this, tr("Warning"), tr("Please open serial port first!"));
             return;
         }
         m_autoSendTimer->start(m_autoSendIntervalSpin->value());
@@ -724,8 +812,8 @@ void SerialAssistant::onMultiSendDeleteRow()
 void SerialAssistant::onMultiSendImportCsv()
 {
     const QString fileName = QFileDialog::getOpenFileName(
-        this, QStringLiteral("Import Commands CSV"), QString(),
-        QStringLiteral("CSV Files (*.csv);;Text Files (*.txt);;All Files (*)"));
+        this, tr("Import Commands CSV"), QString(),
+        tr("CSV Files (*.csv);;Text Files (*.txt);;All Files (*)"));
     if (!fileName.isEmpty())
         importCsvFile(fileName, true);
 }
@@ -748,7 +836,7 @@ void SerialAssistant::importCsvFile(const QString &fileName, bool interactive)
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         if (interactive)
-            QMessageBox::warning(this, QStringLiteral("Error"), QStringLiteral("Failed to open file"));
+            QMessageBox::warning(this, tr("Error"), tr("Failed to open file"));
         return;
     }
 
@@ -784,14 +872,14 @@ void SerialAssistant::importCsvFile(const QString &fileName, bool interactive)
     }
 
     file.close();
-    showStatusMessage(QStringLiteral("Imported %1 commands").arg(m_multiSendTable->rowCount()));
+    showStatusMessage(tr("Imported %1 commands").arg(m_multiSendTable->rowCount()));
 }
 
 void SerialAssistant::onMultiSendExportCsv()
 {
     const QString fileName = QFileDialog::getSaveFileName(
-        this, QStringLiteral("Export Commands CSV"), QString(),
-        QStringLiteral("CSV Files (*.csv);;All Files (*)"));
+        this, tr("Export Commands CSV"), QString(),
+        tr("CSV Files (*.csv);;All Files (*)"));
     if (!fileName.isEmpty())
         exportCsvFile(fileName, true);
 }
@@ -806,7 +894,7 @@ void SerialAssistant::exportCsvFile(const QString &fileName, bool interactive)
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         if (interactive)
-            QMessageBox::warning(this, QStringLiteral("Error"), QStringLiteral("Failed to save file"));
+            QMessageBox::warning(this, tr("Error"), tr("Failed to save file"));
         return;
     }
 
@@ -825,7 +913,7 @@ void SerialAssistant::exportCsvFile(const QString &fileName, bool interactive)
     }
     file.close();
     if (interactive)
-        showStatusMessage(QStringLiteral("Exported %1 commands").arg(m_multiSendTable->rowCount()));
+        showStatusMessage(tr("Exported %1 commands").arg(m_multiSendTable->rowCount()));
 }
 
 void SerialAssistant::onMultiSendSelected()
@@ -841,7 +929,7 @@ void SerialAssistant::onMultiSendSelected()
         }
     }
     if (commandsToSend.isEmpty()) {
-        showStatusMessage("No checked commands to send");
+        showStatusMessage(tr("No checked commands to send"));
         return;
     }
 
@@ -851,13 +939,13 @@ void SerialAssistant::onMultiSendSelected()
         QTimer::singleShot(delay, this, [this, data]() {
             if (m_isConnected) {
                 m_txBytes += data.size();
-                m_txCountLabel->setText(QString("S: %1 B").arg(m_txBytes));
+                m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
                 emit sendDataRequested(data);
             }
         });
         delay += interval;
     }
-    showStatusMessage(QString("Sending %1 commands...").arg(commandsToSend.size()));
+    showStatusMessage(tr("Sending %1 commands...").arg(commandsToSend.size()));
 }
 
 QByteArray SerialAssistant::processSendData(const QString &text)
@@ -889,18 +977,18 @@ QString SerialAssistant::getTimestamp() const
 void SerialAssistant::onYmodemSendClicked()
 {
     if (!m_isConnected) {
-        QMessageBox::warning(this, "Warning", "Please open serial port first!");
+        QMessageBox::warning(this, tr("Warning"), tr("Please open serial port first!"));
         return;
     }
 
     QString fileName = QFileDialog::getOpenFileName(this,
-        "Select file for YModem send",
-        "",
-        "Firmware Files (*.bin *.hex *.elf);;All Files (*.*)");
+        tr("Select file for YModem send"),
+        QString(),
+        tr("Firmware Files (*.bin *.hex *.elf);;All Files (*.*)"));
 
     if (fileName.isEmpty()) return;
 
-    showStatusMessage("YModem send selected: " + fileName);
+    showStatusMessage(tr("YModem send selected: %1").arg(fileName));
     // 发出信号，你后续自己实现YModem发送逻辑，接收filePath即可
     emit ymodemSendRequested(fileName);
 }
@@ -915,19 +1003,19 @@ void SerialAssistant::onDoubleSendSelected(int row, int column)
         if (!cmd.trimmed().isEmpty()) commandsToSend = processSendData(cmd);
 
         if (commandsToSend.isEmpty()) {
-            showStatusMessage("No checked commands to send");
+            showStatusMessage(tr("No checked commands to send"));
             return;
         }
 
         QTimer::singleShot(0, this, [this, commandsToSend]() {
             if (m_isConnected) {
                 m_txBytes += commandsToSend.size();
-                m_txCountLabel->setText(QString("S: %1 B").arg(m_txBytes));
+                m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
                 emit sendDataRequested(commandsToSend);
             }
         });
 
-        showStatusMessage(QStringLiteral("Sending command..."));
+        showStatusMessage(tr("Sending command..."));
     }
 }
 
@@ -962,6 +1050,7 @@ void SerialAssistant::loadSettings()
     m_autoScrollCheck->setChecked(settings.value(QStringLiteral("autoScroll"), true).toBool());
     m_autoReconnectCheck->setChecked(settings.value(QStringLiteral("autoReconnect"), true).toBool());
     m_addCrc16Check->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
+    m_autoSaveCheck->setChecked(settings.value(QStringLiteral("autoSave"), false).toBool());
     settings.endGroup();
 }
 
@@ -983,5 +1072,45 @@ void SerialAssistant::saveSettings()
     settings.setValue(QStringLiteral("autoScroll"), m_autoScrollCheck->isChecked());
     settings.setValue(QStringLiteral("autoReconnect"), m_autoReconnectCheck->isChecked());
     settings.setValue(QStringLiteral("crc16"), m_addCrc16Check->isChecked());
+    settings.setValue(QStringLiteral("autoSave"), m_autoSaveCheck->isChecked());
     settings.endGroup();
+}
+
+void SerialAssistant::setAutoSaveEnabled(bool enabled)
+{
+    if (!enabled) {
+        delete m_autoSaveFile;
+        m_autoSaveFile = nullptr;
+        return;
+    }
+    openAutoSave();
+}
+
+bool SerialAssistant::openAutoSave()
+{
+    const QString path = QFileInfo(SettingsWidget::logFilePath(QStringLiteral("serial_auto.txt"))).absoluteFilePath();
+    if (m_autoSaveFile && m_autoSaveFile->isOpen() && m_autoSaveFile->fileName() == path)
+        return true;
+    delete m_autoSaveFile;
+    m_autoSaveFile = new QFile(path, this);
+    if (m_autoSaveFile->open(QIODevice::WriteOnly | QIODevice::Append))
+        return true;
+    delete m_autoSaveFile;
+    m_autoSaveFile = nullptr;
+    // 失败时取消勾选，避免每个字节都再试一次并刷状态栏。
+    m_autoSaveCheck->blockSignals(true);
+    m_autoSaveCheck->setChecked(false);
+    m_autoSaveCheck->blockSignals(false);
+    showStatusMessage(tr("Cannot open auto-save file: %1").arg(path));
+    return false;
+}
+
+void SerialAssistant::appendAutoSave(const QString &text)
+{
+    if (!m_autoSaveCheck->isChecked() || text.isEmpty())
+        return;
+    if (!openAutoSave())
+        return;
+    m_autoSaveFile->write(text.toUtf8());
+    m_autoSaveFile->flush();  // 立刻落盘，方便一边收一边用别的程序打开看
 }

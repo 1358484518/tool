@@ -13,6 +13,7 @@ class QSpinBox;
 class QPushButton;
 class QCheckBox;
 class QPlainTextEdit;
+class QFile;
 class QLabel;
 class QTimer;
 class FastTextView;
@@ -52,7 +53,7 @@ public slots:
 
 private slots:
     void onProtocolChanged(int idx);                // 切换 TCP 服务/客户端/UDP，刷新控件
-    void onOpenToggled(bool checked);               // 打开/关闭本地口或监听
+    void onOpenToggled(bool checked);               // 打开/关闭；TCP 客户端打开后按远程地址去连
     void onConnectClicked();                        // TCP 客户端连接或断开
     void onClearRecv();                             // 清空接收窗口
     void onSaveLog();                               // 把接收内容存成文件
@@ -60,8 +61,13 @@ private slots:
     void onAutoSendIntervalChanged(int ms);         // 改定时发送间隔
     void onSendClicked();                           // 按 HEX/CRC/换行选项组包后发出
     void onConnectAddrChange(QString ip, quint16 port);  // UDP 发现对端时写入下拉框
+
+protected:
+    void changeEvent(QEvent *event) override;       // 语言切换时刷新本页文字
+
 private:
     void initUi();                                  // 拼连接区、接收区、发送区
+    void retranslateUi();                           // 按当前语言重写本页控件文字
     void initConnect();                             // 把按钮/信号接到槽和 NetworkWorker
     void updateProtocolDependentUi();               // 按协议显示或隐藏连接按钮、广播等
     void loadSettings();                            // 恢复上次协议、端口、选项
@@ -72,7 +78,25 @@ private:
     void appendLog(const QString &text, const QColor &color = Qt::black);  // 状态行：时间戳规则与收发相同
     void appendTrafficLog(bool isSend, const QByteArray &data,
                           const QString &peer, quint16 port);  // 收发包：按时间戳/方向/地址/显示发送写入窗口
-    void setStatus(const QString &text, const QString &color);             // 底部状态文字
+    void setStatus(const QString &english, const QString &color);  // 记下英文源文，再用 tr 显示
+    void showClientText(const QString &english, int number = -1);  // 连接数或连接状态
+    void setConnectLatched(bool latched);           // true 时连接按钮显示断开
+    QString phrase(const QString &english) const;   // 把状态英文源文译成当前语言
+    void setAutoSaveEnabled(bool enabled);          // 打开或关掉接收内容自动追加
+    bool openAutoSave();                            // 按当前日志目录打开追加文件，失败则取消勾选
+    void appendAutoSave(const QByteArray &bytes);   // 把刚写入接收窗口的字节追加进文件
+
+    QLabel *m_protocolLabel = nullptr;   // 协议
+    QLabel *m_addressLabel = nullptr;    // 本机地址
+    QLabel *m_localPortLabel = nullptr;  // 本地端口
+    QLabel *m_remoteLabel = nullptr;     // 远程地址
+    QLabel *m_intervalLabel = nullptr;   // 定时发送间隔
+    QString m_statusEnglish;             // 状态行的英文源文，切换语言时重译
+    QString m_statusColor = QStringLiteral("#f44336");
+    QString m_clientEnglish;             // 连接数标签的英文源文
+    int m_clientNumber = -1;             // >=0 时按 Clients: %1 填数字
+    bool m_showDisconnect = false;       // 连接按钮当前表示断开
+
     void applyOpenButtonStyle(bool opened);         // 打开按钮的按下/松开样式
     void applyConnectButtonStyle(bool connected);   // 连接按钮的按下/松开样式
 
@@ -113,6 +137,7 @@ private:
     QCheckBox   *m_checkAppendCRLF;
     QCheckBox   *m_checkBroadcastSend;
     QCheckBox   *m_scrollToBottom;
+    QCheckBox   *m_autoSaveCheck = nullptr;  // 勾选后把接收窗口的新内容追加进文件
     bool m_showTimestamp  = false;
     bool m_showRecvAddr   = false;
     bool m_showSend       = true;
@@ -138,6 +163,7 @@ private:
     NetworkWorker *m_netWorker = nullptr;  // 无 parent，一直活在 workerThread
     QThread workerThread;
     bool m_manualTcpDisconnect = false;    // 用户点断开，不要立刻自动当失败重连
+    QFile *m_autoSaveFile = nullptr;       // 自动保存打开时追加写入，关掉就释放
 };
 
 #endif // NETASSISTWIDGET_H

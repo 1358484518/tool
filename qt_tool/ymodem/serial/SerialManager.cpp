@@ -103,7 +103,7 @@ bool SerialManager::open()
         return true;
     }
     if (m_config.portName.isEmpty()) {
-        m_lastError = QStringLiteral("Port name is empty");
+        m_lastError = tr("Port name is empty");
         emit errorOccurred(static_cast<int>(QSerialPort::NotOpenError), m_lastError);
         setState(Error);
         return false;
@@ -326,15 +326,15 @@ bool SerialManager::applyConfig()
     };
 
     if (!m_serial->setBaudRate(m_config.baudRate))
-        return fail(QStringLiteral("Failed to set baud rate"));
+        return fail(tr("Failed to set baud rate"));
     if (!m_serial->setDataBits(m_config.dataBits))
-        return fail(QStringLiteral("Failed to set data bits"));
+        return fail(tr("Failed to set data bits"));
     if (!m_serial->setParity(m_config.parity))
-        return fail(QStringLiteral("Failed to set parity"));
+        return fail(tr("Failed to set parity"));
     if (!m_serial->setStopBits(m_config.stopBits))
-        return fail(QStringLiteral("Failed to set stop bits"));
+        return fail(tr("Failed to set stop bits"));
     if (!m_serial->setFlowControl(m_config.flowControl))
-        return fail(QStringLiteral("Failed to set flow control"));
+        return fail(tr("Failed to set flow control"));
     return true;
 }
 

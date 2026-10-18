@@ -63,7 +63,7 @@ void NetworkWorker::slotOpenNetwork(NetProtocol proto, QString localIp, quint16 
         connect(m_udp, &QUdpSocketManager::remoteHostRemoved, this, &NetworkWorker::onUdpHostRemoved);
 
         m_udp->start(cfg);
-        emit sigStateText("UDP监听中");
+        emit sigStateText("UDP Listening");
     }
 }
 
@@ -71,7 +71,7 @@ void NetworkWorker::slotCloseNetwork()
 {
     cleanupCurrentNet();
     m_currentProto = static_cast<NetProtocol>(-1);
-    emit sigStateText("已关闭");
+    emit sigStateText("Closed");
     emit sigClientCount(0);
 }
 
@@ -136,7 +136,7 @@ bool NetworkWorker::writeIoData(const IoPacket &packet)
         if (addr.isNull()) {
             const QHostInfo info = QHostInfo::fromName(remoteIp);
             if (info.addresses().isEmpty()) {
-                emit sigError(QStringLiteral("无法解析主机 %1").arg(remoteIp));
+                emit sigError(QStringLiteral("Cannot resolve host %1").arg(remoteIp));
                 return false;
             }
             addr = info.addresses().first();
@@ -168,7 +168,7 @@ void NetworkWorker::sendToTcpClient(const QByteArray &data, const QString &remot
             return;
         }
     }
-    emit sigError(QStringLiteral("未找到客户端 %1:%2").arg(remoteIp).arg(remotePort));
+    emit sigError(QStringLiteral("Client not found %1:%2").arg(remoteIp).arg(remotePort));
 }
 
 void NetworkWorker::cleanupCurrentNet()
@@ -231,8 +231,8 @@ void NetworkWorker::onTcpServerError(QTcpServerManager::Error err, const QString
 
 void NetworkWorker::onTcpServerState(QTcpServerManager::State state)
 {
-    if (state == QTcpServerManager::Listening) emit sigStateText("TCP服务端监听中");
-    else if (state == QTcpServerManager::Reconnecting) emit sigStateText("监听失败，重连中...");
+    if (state == QTcpServerManager::Listening) emit sigStateText("TCP Server Listening");
+    else if (state == QTcpServerManager::Reconnecting) emit sigStateText("Listen failed, reconnecting...");
 }
 
 // TCP客户端
@@ -265,9 +265,9 @@ void NetworkWorker::onTcpClientError(QTcpSocketManager::Error err, const QString
 
 void NetworkWorker::onTcpClientState(QTcpSocketManager::State state)
 {
-    if (state == QTcpSocketManager::Connecting) emit sigStateText("连接中...");
-    else if (state == QTcpSocketManager::Connected) emit sigStateText("已连接");
-    else if (state == QTcpSocketManager::Reconnecting) emit sigStateText("重连中...");
+    if (state == QTcpSocketManager::Connecting) emit sigStateText("Connecting...");
+    else if (state == QTcpSocketManager::Connected) emit sigStateText("Connected");
+    else if (state == QTcpSocketManager::Reconnecting) emit sigStateText("Reconnecting...");
 }
 
 // UDP
@@ -285,8 +285,8 @@ void NetworkWorker::onUdpError(QUdpSocketManager::Error err, const QString &errS
 
 void NetworkWorker::onUdpState(QUdpSocketManager::State state)
 {
-    if (state == QUdpSocketManager::Running) emit sigStateText("UDP监听中");
-    else if (state == QUdpSocketManager::Reconnecting) emit sigStateText("绑定失败，重连中...");
+    if (state == QUdpSocketManager::Running) emit sigStateText("UDP Listening");
+    else if (state == QUdpSocketManager::Reconnecting) emit sigStateText("Bind failed, reconnecting...");
 }
 
 void NetworkWorker::onUdpHostAdded(const RemoteHost &host)

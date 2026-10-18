@@ -223,13 +223,10 @@ void QTcpSocketManager::doReconnect()
     // abort() 之后同一 QTcpSocket 经常还不是 UnconnectedState，再 bind 会刷警告。
     recreateSocket();
 
-    if (shouldBindLocal()) {
-        if (!m_socket->bind(m_config.bindAddress, 0)) {
-            emit errorOccurred(BindError, m_socket->errorString());
-            setState(Reconnecting);
-            m_reconnectTimer->start(m_config.reconnectMs);
-            return;
-        }
+    if (shouldBindLocal() && !m_socket->bind(m_config.bindAddress, 0)) {
+        // 选中的本机地址 bind 不上（网卡没就绪）时不能停在这里，否则 connectToHost 不会发出。
+        // 换一只未 bind 的套接字，让系统选能出去的网卡。
+        recreateSocket();
     }
 
     m_socket->connectToHost(

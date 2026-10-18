@@ -86,7 +86,7 @@ private slots:
     void processRecv();                                     // 兼容旧定时读路径，现在 readyRead 已读完
     void processSendQueue();                                // 把排队的包尽量写出去
     void onConnectTimeout();                                // 连接超时，abort 后走重连
-    void doReconnect();                                     // 换新套接字再 connectToHost
+    void doReconnect();                                     // 换新套接字再 connectToHost；本机地址 bind 失败则改走默认路由
 
 private:
     void setState(State newState);                          // 状态变了才发 stateChanged

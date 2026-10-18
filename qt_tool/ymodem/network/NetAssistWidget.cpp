@@ -1,13 +1,16 @@
 #include "NetAssistWidget.h"
 #include "FastTextView.h"
 #include "NetworkWorker.h"
+#include "SettingsWidget.h"
 #include "common/ProtocolUtils.h"
 
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
+#include <QEvent>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFont>
 #include <QFrame>
 #include <QGridLayout>
@@ -61,7 +64,7 @@ QFrame *makeHLine(QWidget *parent)
 NetAssistWidget::NetAssistWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setWindowTitle(QStringLiteral("网络调试助手"));
+    setWindowTitle(tr("Network Debug Assistant"));
     initUi();
     initConnect();
     initNetWork();
@@ -122,18 +125,18 @@ void NetAssistWidget::initUi()
 
     m_editSend = new QPlainTextEdit(sendPanel);
     m_editSend->setFont(QFont(QStringLiteral("Consolas"), 10));
-    m_editSend->setPlaceholderText(QStringLiteral("输入要发送的数据... (Ctrl+Enter 发送)"));
+    m_editSend->setPlaceholderText(tr("Enter data to send... (Ctrl+Enter to send)"));
     m_editSend->setStyleSheet(QString::fromLatin1(kEditBorder));
     sendLayout->addWidget(m_editSend, 1);
 
     auto *sendBtnCol = new QVBoxLayout();
     sendBtnCol->setSpacing(4);
-    m_btnSend = new QPushButton(QStringLiteral("发送"), sendPanel);
+    m_btnSend = new QPushButton(tr("Send"), sendPanel);
     m_btnSend->setMinimumWidth(70);
     m_btnSend->setEnabled(false);
     m_btnSend->setStyleSheet(QString::fromLatin1(kBtnBlue));
     sendBtnCol->addWidget(m_btnSend);
-    m_btnClearSend = new QPushButton(QStringLiteral("清空"), sendPanel);
+    m_btnClearSend = new QPushButton(tr("Clear"), sendPanel);
     m_btnClearSend->setMinimumWidth(70);
     sendBtnCol->addWidget(m_btnClearSend);
     sendBtnCol->addStretch();
@@ -143,47 +146,53 @@ void NetAssistWidget::initUi()
 
     // ========== 右侧设置栏 ==========
     auto *rightPanel = new QWidget(this);
-    rightPanel->setMaximumWidth(220);
+    // 只留完整 IPv4 和端口的宽度，例如 255.255.255.255:65535。
+    rightPanel->setMinimumWidth(240);
+    rightPanel->setMaximumWidth(260);
     auto *rightLayout = new QVBoxLayout(rightPanel);
     rightLayout->setSpacing(6);
     rightLayout->setContentsMargins(4, 0, 0, 0);
 
-    m_groupConnection = new QGroupBox(QStringLiteral("连接设置"), rightPanel);
+    m_groupConnection = new QGroupBox(tr("Connection"), rightPanel);
     auto *connGrid = new QGridLayout(m_groupConnection);
     connGrid->setSpacing(4);
     connGrid->setContentsMargins(6, 14, 6, 6);
     int r = 0;
 
-    connGrid->addWidget(new QLabel(QStringLiteral("协议:"), m_groupConnection), r, 0);
+    m_protocolLabel = new QLabel(tr("Protocol:"), m_groupConnection);
+    connGrid->addWidget(m_protocolLabel, r, 0);
     m_cmbProtocol = new QComboBox(m_groupConnection);
-    m_cmbProtocol->addItem(QStringLiteral("TCP 服务端"), QVariant::fromValue(NetProtocol::TcpServer));
-    m_cmbProtocol->addItem(QStringLiteral("TCP 客户端"), QVariant::fromValue(NetProtocol::TcpClient));
-    m_cmbProtocol->addItem(QStringLiteral("UDP"), QVariant::fromValue(NetProtocol::Udp));
+    m_cmbProtocol->addItem(tr("TCP Server"), QVariant::fromValue(NetProtocol::TcpServer));
+    m_cmbProtocol->addItem(tr("TCP Client"), QVariant::fromValue(NetProtocol::TcpClient));
+    m_cmbProtocol->addItem(tr("UDP"), QVariant::fromValue(NetProtocol::Udp));
     connGrid->addWidget(m_cmbProtocol, r, 1);
     r++;
 
-    connGrid->addWidget(new QLabel(QStringLiteral("地址:"), m_groupConnection), r, 0);
+    m_addressLabel = new QLabel(tr("Address:"), m_groupConnection);
+    connGrid->addWidget(m_addressLabel, r, 0);
     m_cmbLocalIp = new QComboBox(m_groupConnection);
-    m_cmbLocalIp->addItem(QStringLiteral("0.0.0.0 (所有网卡)"));
+    m_cmbLocalIp->addItem(tr("0.0.0.0 (All)"));
     for (const QHostAddress &addr : QNetworkInterface::allAddresses()) {
         if (addr.protocol() == QAbstractSocket::IPv4Protocol && addr != QHostAddress::LocalHost)
             m_cmbLocalIp->addItem(addr.toString());
     }
-    m_cmbLocalIp->addItem(QStringLiteral("127.0.0.1 (本机回环)"));
+    m_cmbLocalIp->addItem(tr("127.0.0.1 (Local)"));
     connGrid->addWidget(m_cmbLocalIp, r, 1);
     r++;
 
-    connGrid->addWidget(new QLabel(QStringLiteral("端口:"), m_groupConnection), r, 0);
+    m_localPortLabel = new QLabel(tr("LocalPort:"), m_groupConnection);
+    connGrid->addWidget(m_localPortLabel, r, 0);
     m_spinLocalPort = new QSpinBox(m_groupConnection);
     m_spinLocalPort->setRange(1, 65535);
     m_spinLocalPort->setValue(13601);
     connGrid->addWidget(m_spinLocalPort, r, 1);
     r++;
 
-    connGrid->addWidget(new QLabel(QStringLiteral("远程:"), m_groupConnection), r, 0);
+    m_remoteLabel = new QLabel(tr("Remote:"), m_groupConnection);
+    connGrid->addWidget(m_remoteLabel, r, 0);
     m_cmbRemoteAddr = new QComboBox(m_groupConnection);
     m_cmbRemoteAddr->setEditable(true);
-    m_cmbRemoteAddr->setToolTip(QStringLiteral("支持 127.0.0.1:80、www.example.com:443、https://www.example.com"));
+    m_cmbRemoteAddr->setToolTip(tr("127.0.0.1:80, www.example.com:443, https://www.example.com"));
     RemoteHost addr;
     addr.port = 13601;
     addr.address = QHostAddress(QStringLiteral("127.0.0.1"));
@@ -191,18 +200,19 @@ void NetAssistWidget::initUi()
     addHostAddr(addr);
     if (m_cmbRemoteAddr->lineEdit()) {
         m_cmbRemoteAddr->lineEdit()->setPlaceholderText(
-            QStringLiteral("IP/网址:端口"));
+            tr("host:port"));
+        m_cmbRemoteAddr->lineEdit()->home(false);  // 窄下拉框停在开头，避免只看见域名尾巴
     }
     connGrid->addWidget(m_cmbRemoteAddr, r, 1);
     rightLayout->addWidget(m_groupConnection);
 
-    m_btnOpen = new QPushButton(QStringLiteral("打开"), rightPanel);
+    m_btnOpen = new QPushButton(tr("Open"), rightPanel);
     m_btnOpen->setCheckable(true);
     m_btnOpen->setMinimumHeight(28);
     applyOpenButtonStyle(false);
     rightLayout->addWidget(m_btnOpen);
 
-    m_btnConnect = new QPushButton(QStringLiteral("连接"), rightPanel);
+    m_btnConnect = new QPushButton(tr("Connect"), rightPanel);
     m_btnConnect->setEnabled(false);
     m_btnConnect->setMinimumHeight(28);
     applyConnectButtonStyle(false);
@@ -210,42 +220,43 @@ void NetAssistWidget::initUi()
 
     rightLayout->addWidget(makeHLine(rightPanel));
 
-    m_groupSendSetting = new QGroupBox(QStringLiteral("发送设置"), rightPanel);
+    m_groupSendSetting = new QGroupBox(tr("Send Settings"), rightPanel);
     auto *sendGrid = new QGridLayout(m_groupSendSetting);
     sendGrid->setSpacing(4);
     sendGrid->setContentsMargins(6, 14, 6, 6);
     r = 0;
-    m_checkAutoSend = new QCheckBox(QStringLiteral("定时发送"), m_groupSendSetting);
+    m_checkAutoSend = new QCheckBox(tr("Timed Send"), m_groupSendSetting);
     sendGrid->addWidget(m_checkAutoSend, r, 0, 1, 2);
     r++;
 
     auto *intervalRow = new QHBoxLayout();
     intervalRow->setSpacing(4);
-    intervalRow->addWidget(new QLabel(QStringLiteral("间隔:"), m_groupSendSetting));
+    m_intervalLabel = new QLabel(tr("Interval:"), m_groupSendSetting);
+    intervalRow->addWidget(m_intervalLabel);
     m_spinAutoSendInterval = new QSpinBox(m_groupSendSetting);
     m_spinAutoSendInterval->setRange(100, 60000);
     m_spinAutoSendInterval->setValue(1000);
-    m_spinAutoSendInterval->setSuffix(QStringLiteral("ms"));
+    m_spinAutoSendInterval->setSuffix(tr("ms"));
     m_spinAutoSendInterval->setEnabled(false);
     intervalRow->addWidget(m_spinAutoSendInterval, 1);
     sendGrid->addLayout(intervalRow, r, 0, 1, 2);
     r++;
 
-    m_checkHexSend = new QCheckBox(QStringLiteral("十六进制"), m_groupSendSetting);
+    m_checkHexSend = new QCheckBox(tr("Hex Send"), m_groupSendSetting);
     sendGrid->addWidget(m_checkHexSend, r, 0);
-    m_checkAddModbusCrc16 = new QCheckBox(QStringLiteral("CRC16"), m_groupSendSetting);
+    m_checkAddModbusCrc16 = new QCheckBox(tr("CRC16"), m_groupSendSetting);
     sendGrid->addWidget(m_checkAddModbusCrc16, r, 1);
     r++;
 
-    m_checkAppendCRLF = new QCheckBox(QStringLiteral("加回车换行"), m_groupSendSetting);
+    m_checkAppendCRLF = new QCheckBox(tr("Add CRLF"), m_groupSendSetting);
     sendGrid->addWidget(m_checkAppendCRLF, r, 0);
-    m_checkBroadcastSend = new QCheckBox(QStringLiteral("广播"), m_groupSendSetting);
+    m_checkBroadcastSend = new QCheckBox(tr("Broadcast"), m_groupSendSetting);
     sendGrid->addWidget(m_checkBroadcastSend, r, 1);
     rightLayout->addWidget(m_groupSendSetting);
 
     rightLayout->addWidget(makeHLine(rightPanel));
 
-    m_groupRecvSetting = new QGroupBox(QStringLiteral("接收设置"), rightPanel);
+    m_groupRecvSetting = new QGroupBox(tr("Receive Settings"), rightPanel);
     auto *recvGrid = new QGridLayout(m_groupRecvSetting);
     recvGrid->setSpacing(4);
     recvGrid->setContentsMargins(6, 14, 6, 6);
@@ -253,52 +264,58 @@ void NetAssistWidget::initUi()
 
     auto *recvBtnRow = new QHBoxLayout();
     recvBtnRow->setSpacing(4);
-    m_btnSaveLog = new QPushButton(QStringLiteral("保存日志"), m_groupRecvSetting);
+    m_btnSaveLog = new QPushButton(tr("Save Log"), m_groupRecvSetting);
     recvBtnRow->addWidget(m_btnSaveLog);
-    m_btnClearRecv = new QPushButton(QStringLiteral("清空接收"), m_groupRecvSetting);
+    m_btnClearRecv = new QPushButton(tr("Clear Recv"), m_groupRecvSetting);
     recvBtnRow->addWidget(m_btnClearRecv);
     recvGrid->addLayout(recvBtnRow, r, 0, 1, 2);
     r++;
 
-    m_checkHexRecv = new QCheckBox(QStringLiteral("十六进制"), m_groupRecvSetting);
+    m_checkHexRecv = new QCheckBox(tr("Hex Disp"), m_groupRecvSetting);
     recvGrid->addWidget(m_checkHexRecv, r, 0);
-    m_checkTimestamp = new QCheckBox(QStringLiteral("时间戳"), m_groupRecvSetting);
+    m_checkTimestamp = new QCheckBox(tr("Timestamp"), m_groupRecvSetting);
     recvGrid->addWidget(m_checkTimestamp, r, 1);
     r++;
 
-    m_scrollToBottom = new QCheckBox(QStringLiteral("自动滚屏"), m_groupRecvSetting);
+    m_scrollToBottom = new QCheckBox(tr("Auto Scroll"), m_groupRecvSetting);
     m_scrollToBottom->setChecked(true);
     recvGrid->addWidget(m_scrollToBottom, r, 0);
-    m_checkShowRecvAddr = new QCheckBox(QStringLiteral("显示地址"), m_groupRecvSetting);
+    m_checkShowRecvAddr = new QCheckBox(tr("Show Addr"), m_groupRecvSetting);
     recvGrid->addWidget(m_checkShowRecvAddr, r, 1);
     r++;
 
-    m_checkShowSend = new QCheckBox(QStringLiteral("显示发送"), m_groupRecvSetting);
+    m_checkShowSend = new QCheckBox(tr("Show Send"), m_groupRecvSetting);
     m_checkShowSend->setChecked(true);
     recvGrid->addWidget(m_checkShowSend, r, 0);
-    m_checkShowDirection = new QCheckBox(QStringLiteral("显示方向"), m_groupRecvSetting);
+    m_checkShowDirection = new QCheckBox(tr("Show Dir"), m_groupRecvSetting);
     recvGrid->addWidget(m_checkShowDirection, r, 1);
+    r++;
+
+    m_autoSaveCheck = new QCheckBox(tr("Auto Save"), m_groupRecvSetting);
+    m_autoSaveCheck->setToolTip(tr("Append new receive text to net_auto.txt in the log directory"));
+    recvGrid->addWidget(m_autoSaveCheck, r, 0, 1, 2);
     rightLayout->addWidget(m_groupRecvSetting);
 
-    m_btnResetCount = new QPushButton(QStringLiteral("计数清零"), rightPanel);
+    m_btnResetCount = new QPushButton(tr("Reset Counter"), rightPanel);
     rightLayout->addWidget(m_btnResetCount);
 
     rightLayout->addWidget(makeHLine(rightPanel));
 
     auto *countRow = new QHBoxLayout();
     countRow->setSpacing(10);
-    m_labelRecvCount = new QLabel(QStringLiteral("R: 0 B"), rightPanel);
+    m_labelRecvCount = new QLabel(tr("R: %1 B").arg(0), rightPanel);
     countRow->addWidget(m_labelRecvCount);
-    m_labelSendCount = new QLabel(QStringLiteral("S: 0 B"), rightPanel);
+    m_labelSendCount = new QLabel(tr("S: %1 B").arg(0), rightPanel);
     countRow->addWidget(m_labelSendCount);
     countRow->addStretch();
     rightLayout->addLayout(countRow);
 
     m_labelStatus = new QLabel(rightPanel);
-    setStatus(QStringLiteral("未打开"), QStringLiteral("#f44336"));
+    setStatus(QStringLiteral("Closed"), QStringLiteral("#f44336"));
     rightLayout->addWidget(m_labelStatus);
 
-    m_labelClientCount = new QLabel(QStringLiteral("连接数: 0"), rightPanel);
+    m_labelClientCount = new QLabel(rightPanel);
+    showClientText(QStringLiteral("Clients: %1"), 0);
     m_labelClientCount->setWordWrap(true);
     rightLayout->addWidget(m_labelClientCount);
 
@@ -308,7 +325,64 @@ void NetAssistWidget::initUi()
     m_timerAutoSend = new QTimer(this);
 }
 
+void NetAssistWidget::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        retranslateUi();
+    QWidget::changeEvent(event);
+}
 
+void NetAssistWidget::retranslateUi()
+{
+    setWindowTitle(tr("Network Debug Assistant"));
+    m_editSend->setPlaceholderText(tr("Enter data to send... (Ctrl+Enter to send)"));
+    m_btnSend->setText(tr("Send"));
+    m_btnClearSend->setText(tr("Clear"));
+    m_groupConnection->setTitle(tr("Connection"));
+    m_protocolLabel->setText(tr("Protocol:"));
+    m_cmbProtocol->setItemText(0, tr("TCP Server"));
+    m_cmbProtocol->setItemText(1, tr("TCP Client"));
+    m_cmbProtocol->setItemText(2, tr("UDP"));
+    m_addressLabel->setText(tr("Address:"));
+    const int allIp = m_cmbLocalIp->findText(QStringLiteral("0.0.0.0"), Qt::MatchStartsWith);
+    if (allIp >= 0)
+        m_cmbLocalIp->setItemText(allIp, tr("0.0.0.0 (All)"));
+    const int localIp = m_cmbLocalIp->findText(QStringLiteral("127.0.0.1"), Qt::MatchStartsWith);
+    if (localIp >= 0)
+        m_cmbLocalIp->setItemText(localIp, tr("127.0.0.1 (Local)"));
+    m_localPortLabel->setText(tr("LocalPort:"));
+    m_remoteLabel->setText(tr("Remote:"));
+    m_cmbRemoteAddr->setToolTip(tr("127.0.0.1:80, www.example.com:443, https://www.example.com"));
+    if (m_cmbRemoteAddr->lineEdit())
+        m_cmbRemoteAddr->lineEdit()->setPlaceholderText(tr("host:port"));
+    m_groupSendSetting->setTitle(tr("Send Settings"));
+    m_checkAutoSend->setText(tr("Timed Send"));
+    m_intervalLabel->setText(tr("Interval:"));
+    m_spinAutoSendInterval->setSuffix(tr("ms"));
+    m_checkHexSend->setText(tr("Hex Send"));
+    m_checkAddModbusCrc16->setText(tr("CRC16"));
+    m_checkAppendCRLF->setText(tr("Add CRLF"));
+    m_checkBroadcastSend->setText(tr("Broadcast"));
+    m_groupRecvSetting->setTitle(tr("Receive Settings"));
+    m_btnSaveLog->setText(tr("Save Log"));
+    m_btnClearRecv->setText(tr("Clear Recv"));
+    m_checkHexRecv->setText(tr("Hex Disp"));
+    m_checkTimestamp->setText(tr("Timestamp"));
+    m_scrollToBottom->setText(tr("Auto Scroll"));
+    m_checkShowRecvAddr->setText(tr("Show Addr"));
+    m_checkShowSend->setText(tr("Show Send"));
+    m_checkShowDirection->setText(tr("Show Dir"));
+    m_autoSaveCheck->setText(tr("Auto Save"));
+    m_autoSaveCheck->setToolTip(tr("Append new receive text to net_auto.txt in the log directory"));
+    m_btnResetCount->setText(tr("Reset Counter"));
+    applyOpenButtonStyle(m_btnOpen->isChecked());
+    setConnectLatched(m_showDisconnect);
+    updateCountLabel();
+    if (!m_statusEnglish.isEmpty())
+        setStatus(m_statusEnglish, m_statusColor);
+    if (!m_clientEnglish.isEmpty())
+        showClientText(m_clientEnglish, m_clientNumber);
+}
 
 void NetAssistWidget::initConnect()
 {
@@ -317,6 +391,7 @@ void NetAssistWidget::initConnect()
     connect(m_btnConnect, &QPushButton::clicked, this, &NetAssistWidget::onConnectClicked);
     connect(m_btnClearRecv, &QPushButton::clicked, this, &NetAssistWidget::onClearRecv);
     connect(m_btnSaveLog, &QPushButton::clicked, this, &NetAssistWidget::onSaveLog);
+    connect(m_autoSaveCheck, &QCheckBox::toggled, this, &NetAssistWidget::setAutoSaveEnabled);
     connect(m_checkAutoSend, &QCheckBox::toggled, this, &NetAssistWidget::onAutoSendToggled);
     connect(m_spinAutoSendInterval, QOverload<int>::of(&QSpinBox::valueChanged), this, &NetAssistWidget::onAutoSendIntervalChanged);
     connect(m_timerAutoSend, &QTimer::timeout, this, &NetAssistWidget::onSendClicked);
@@ -400,12 +475,12 @@ void NetAssistWidget::updateProtocolDependentUi()
 void NetAssistWidget::onOpenToggled(bool checked)
 {
     if (checked) {
-        m_btnOpen->setText(QStringLiteral("关闭"));
+        m_btnOpen->setText(tr("Close"));
         m_cmbProtocol->setEnabled(false);
         m_cmbLocalIp->setEnabled(false);
         m_spinLocalPort->setEnabled(false);
         m_btnSend->setEnabled(true);
-        setStatus(QStringLiteral("启动中..."), QStringLiteral("#FF9800"));
+        setStatus(QStringLiteral("Starting..."), QStringLiteral("#FF9800"));
         applyOpenButtonStyle(true);
         updateCountLabel();
 
@@ -415,26 +490,28 @@ void NetAssistWidget::onOpenToggled(bool checked)
         emit sigOpenNetwork(proto, localIp, localPort);
 
         if (proto == NetProtocol::TcpClient) {
-            m_labelClientCount->setText(QStringLiteral("未连接"));
+            showClientText(QStringLiteral("Not Connected"));
         } else if (proto == NetProtocol::TcpServer) {
-            m_labelClientCount->setText(QStringLiteral("连接数: 0"));
+            showClientText(QStringLiteral("Clients: %1"), 0);
         } else {
-            m_labelClientCount->setText(QStringLiteral("UDP模式"));
+            showClientText(QStringLiteral("UDP"));
         }
         updateProtocolDependentUi();
+        // 远程地址已经填好时，打开就要去连。否则状态会停在 Starting...，Connect 也还没发出。
+        if (proto == NetProtocol::TcpClient)
+            onConnectClicked();
     } else {
-        m_btnOpen->setText(QStringLiteral("打开"));
+        m_btnOpen->setText(tr("Open"));
         m_cmbProtocol->setEnabled(true);
         m_cmbLocalIp->setEnabled(true);
         m_spinLocalPort->setEnabled(true);
         m_btnConnect->setEnabled(false);
-        m_btnConnect->setText(QStringLiteral("连接"));
-        applyConnectButtonStyle(false);
+        setConnectLatched(false);
         m_btnSend->setEnabled(false);
         m_checkAutoSend->setChecked(false);
-        setStatus(QStringLiteral("未打开"), QStringLiteral("#f44336"));
+        setStatus(QStringLiteral("Closed"), QStringLiteral("#f44336"));
         applyOpenButtonStyle(false);
-        m_labelClientCount->setText(QStringLiteral("连接数: 0"));
+        showClientText(QStringLiteral("Clients: %1"), 0);
         m_manualTcpDisconnect = true;
         emit sigCloseNetwork();
         updateProtocolDependentUi();
@@ -443,25 +520,23 @@ void NetAssistWidget::onOpenToggled(bool checked)
 
 void NetAssistWidget::onConnectClicked()
 {
-    if (m_btnConnect->text() == QStringLiteral("连接")) {
+    if (!m_showDisconnect) {
         QString remoteIp;
         quint16 remotePort = 0;
         if (!currentRemote(&remoteIp, &remotePort)) {
-            setStatus(QStringLiteral("远程地址无效"), QStringLiteral("#f44336"));
+            setStatus(QStringLiteral("Invalid address"), QStringLiteral("#f44336"));
             return;
         }
         m_manualTcpDisconnect = false;
         emit sigTcpConnect(remoteIp, remotePort);
-        m_btnConnect->setText(QStringLiteral("断开"));
-        applyConnectButtonStyle(true);
-        setStatus(QStringLiteral("连接中..."), QStringLiteral("#FF9800"));
+        setConnectLatched(true);
+        setStatus(QStringLiteral("Connecting..."), QStringLiteral("#FF9800"));
     } else {
         m_manualTcpDisconnect = true;
         emit sigTcpDisconnect();
-        m_btnConnect->setText(QStringLiteral("连接"));
-        applyConnectButtonStyle(false);
-        setStatus(QStringLiteral("已断开"), QStringLiteral("#f44336"));
-        m_labelClientCount->setText(QStringLiteral("未连接"));
+        setConnectLatched(false);
+        setStatus(QStringLiteral("Disconnected"), QStringLiteral("#f44336"));
+        showClientText(QStringLiteral("Not Connected"));
     }
 }
 
@@ -474,7 +549,10 @@ void NetAssistWidget::onClearRecv()
 
 void NetAssistWidget::onSaveLog()
 {
-    QString path = QFileDialog::getSaveFileName(this, "保存日志", "netlog.txt", "文本文件(*.txt)");
+    QString path = QFileDialog::getSaveFileName(
+        this, tr("Save Log"),
+        SettingsWidget::logFilePath(QStringLiteral("netlog.txt")),
+        tr("Text Files (*.txt)"));
     if (!path.isEmpty()) {
         QFile file(path);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -482,9 +560,9 @@ void NetAssistWidget::onSaveLog()
             file.close();
             const QString oldStatus = m_labelStatus->text();
             const QString oldStyle = m_labelStatus->styleSheet();
-            setStatus(QStringLiteral("日志已保存"), QStringLiteral("#4CAF50"));
+            setStatus(QStringLiteral("Log saved"), QStringLiteral("#4CAF50"));
             QTimer::singleShot(2000, this, [this, oldStatus, oldStyle]() {
-                if (m_labelStatus->text().contains(QStringLiteral("日志已保存"))) {
+                if (m_labelStatus->text().contains(tr("Log saved"))) {
                     m_labelStatus->setText(oldStatus);
                     m_labelStatus->setStyleSheet(oldStyle);
                 }
@@ -532,7 +610,7 @@ void NetAssistWidget::onSendClicked()
     } else if (!currentRemote(&remoteIp, &remotePort)) {
         const NetProtocol proto = m_cmbProtocol->currentData().value<NetProtocol>();
         if (proto != NetProtocol::TcpClient) {
-            setStatus(QStringLiteral("请选择有效的远程地址"), QStringLiteral("#f44336"));
+            setStatus(QStringLiteral("Select a valid remote address"), QStringLiteral("#f44336"));
             return;
         }
     }
@@ -568,52 +646,51 @@ void NetAssistWidget::slotRecvData(QByteArray data, QString fromIp, quint16 from
 
 void NetAssistWidget::slotClientConnected(QString ip, quint16 port)
 {
-    appendLog(QString("[新连接] %1:%2").arg(ip).arg(port), Qt::darkGreen);
+    appendLog(tr("[Connect] %1:%2").arg(ip).arg(port), Qt::darkGreen);
 }
 
 void NetAssistWidget::slotClientDisconnected(QString ip, quint16 port)
 {
-    appendLog(QString("[断开连接] %1:%2").arg(ip).arg(port), Qt::darkGray);
+    appendLog(tr("[Disconnect] %1:%2").arg(ip).arg(port), Qt::darkGray);
 }
 
 void NetAssistWidget::slotTcpConnected()
 {
-    appendLog(QStringLiteral("TCP连接成功"), Qt::darkGreen);
-    setStatus(QStringLiteral("已连接"), QStringLiteral("#4CAF50"));
-    applyConnectButtonStyle(true);
-    m_labelClientCount->setText(QStringLiteral("已连接"));
+    appendLog(tr("TCP connected"), Qt::darkGreen);
+    setStatus(QStringLiteral("Connected"), QStringLiteral("#4CAF50"));
+    setConnectLatched(true);
+    showClientText(QStringLiteral("Connected"));
 }
 
 void NetAssistWidget::slotTcpDisconnected()
 {
-    appendLog(QStringLiteral("TCP连接断开"), Qt::darkGray);
+    appendLog(tr("TCP disconnected"), Qt::darkGray);
     if (m_manualTcpDisconnect) {
-        setStatus(QStringLiteral("已断开"), QStringLiteral("#f44336"));
-        m_btnConnect->setText(QStringLiteral("连接"));
-        applyConnectButtonStyle(false);
+        setStatus(QStringLiteral("Disconnected"), QStringLiteral("#f44336"));
+        setConnectLatched(false);
     } else {
-        setStatus(QStringLiteral("重连中..."), QStringLiteral("#FF9800"));
-        m_btnConnect->setText(QStringLiteral("断开"));
-        applyConnectButtonStyle(true);
+        setStatus(QStringLiteral("Reconnecting..."), QStringLiteral("#FF9800"));
+        setConnectLatched(true);
     }
-    m_labelClientCount->setText(QStringLiteral("未连接"));
+    showClientText(QStringLiteral("Not Connected"));
 }
 
 void NetAssistWidget::slotError(QString errStr)
 {
-    appendLog("[错误] " + errStr, Qt::red);
+    appendLog(tr("[Error] %1").arg(errStr), Qt::red);
     setStatus(errStr, QStringLiteral("#f44336"));
 }
 
 void NetAssistWidget::slotStateText(QString text)
 {
     QString color = QStringLiteral("#FF9800");
-    if (text.contains(QStringLiteral("失败")) || text.contains(QStringLiteral("错误"))
-        || text.contains(QStringLiteral("未打开")) || text.contains(QStringLiteral("已断开"))
-        || text.contains(QStringLiteral("已关闭")) || text.contains(QStringLiteral("无效"))) {
+    const QString lower = text.toLower();
+    if (lower.contains(QLatin1String("fail")) || lower.contains(QLatin1String("error"))
+        || lower.contains(QLatin1String("invalid")) || lower.contains(QLatin1String("closed"))
+        || lower.contains(QLatin1String("disconnect"))) {
         color = QStringLiteral("#f44336");
-    } else if (text.contains(QStringLiteral("已连接")) || text.contains(QStringLiteral("监听"))
-               || text.contains(QStringLiteral("UDP"))) {
+    } else if (lower.contains(QLatin1String("connected")) || lower.contains(QLatin1String("listen"))
+               || lower.contains(QLatin1String("udp"))) {
         color = QStringLiteral("#4CAF50");
     }
     setStatus(text, color);
@@ -621,7 +698,7 @@ void NetAssistWidget::slotStateText(QString text)
 
 void NetAssistWidget::slotClientCount(int count)
 {
-    m_labelClientCount->setText(QString("连接数: %1").arg(count));
+    showClientText(QStringLiteral("Clients: %1"), count);
 }
 
 QString NetAssistWidget::dataToText(const QByteArray &data)
@@ -633,20 +710,66 @@ QString NetAssistWidget::dataToText(const QByteArray &data)
 
 void NetAssistWidget::updateCountLabel()
 {
-    m_labelRecvCount->setText(QStringLiteral("R: %1 B").arg(m_recvBytes));
-    m_labelSendCount->setText(QStringLiteral("S: %1 B").arg(m_sendBytes));
+    m_labelRecvCount->setText(tr("R: %1 B").arg(m_recvBytes));
+    m_labelSendCount->setText(tr("S: %1 B").arg(m_sendBytes));
 }
 
-void NetAssistWidget::setStatus(const QString &text, const QString &color)
+void NetAssistWidget::setStatus(const QString &english, const QString &color)
 {
-    m_labelStatus->setText(QStringLiteral("● %1").arg(text));
+    m_statusEnglish = english;
+    m_statusColor = color;
+    m_labelStatus->setText(QStringLiteral("● %1").arg(phrase(english)));
     m_labelStatus->setStyleSheet(
         QStringLiteral("QLabel { color: %1; font-weight: bold; }").arg(color));
 }
 
+void NetAssistWidget::showClientText(const QString &english, int number)
+{
+    m_clientEnglish = english;
+    m_clientNumber = number;
+    const QString text = phrase(english);
+    m_labelClientCount->setText(number < 0 ? text : text.arg(number));
+}
+
+void NetAssistWidget::setConnectLatched(bool latched)
+{
+    m_showDisconnect = latched;
+    m_btnConnect->setText(latched ? tr("Disconnect") : tr("Connect"));
+    applyConnectButtonStyle(latched);
+}
+
+QString NetAssistWidget::phrase(const QString &english) const
+{
+    if (english == QLatin1String("Closed")) return tr("Closed");
+    if (english == QLatin1String("Starting...")) return tr("Starting...");
+    if (english == QLatin1String("Not Connected")) return tr("Not Connected");
+    if (english == QLatin1String("Clients: %1")) return tr("Clients: %1");
+    if (english == QLatin1String("UDP")) return tr("UDP");
+    if (english == QLatin1String("Invalid address")) return tr("Invalid address");
+    if (english == QLatin1String("Connecting...")) return tr("Connecting...");
+    if (english == QLatin1String("Disconnected")) return tr("Disconnected");
+    if (english == QLatin1String("Log saved")) return tr("Log saved");
+    if (english == QLatin1String("Select a valid remote address")) return tr("Select a valid remote address");
+    if (english == QLatin1String("Connected")) return tr("Connected");
+    if (english == QLatin1String("Reconnecting...")) return tr("Reconnecting...");
+    if (english == QLatin1String("UDP Listening")) return tr("UDP Listening");
+    if (english == QLatin1String("TCP Server Listening")) return tr("TCP Server Listening");
+    if (english == QLatin1String("Listen failed, reconnecting...")) return tr("Listen failed, reconnecting...");
+    if (english == QLatin1String("Bind failed, reconnecting...")) return tr("Bind failed, reconnecting...");
+    if (english == QLatin1String("Connection timed out")) return tr("Connection timed out");
+    if (english.startsWith(QLatin1String("Cannot resolve host ")))
+        return tr("Cannot resolve host %1").arg(english.mid(int(QLatin1String("Cannot resolve host ").size())));
+    if (english.startsWith(QLatin1String("Client not found ")))
+        return tr("Client not found %1:%2").arg(english.section(QLatin1Char(' '), 3, 3).section(QLatin1Char(':'), 0, 0),
+                                                english.section(QLatin1Char(':'), 1, 1));
+    if (english.startsWith(QLatin1String("Cannot open auto-save file: ")))
+        return tr("Cannot open auto-save file: %1").arg(english.mid(int(QLatin1String("Cannot open auto-save file: ").size())));
+    return english;
+}
+
 void NetAssistWidget::applyOpenButtonStyle(bool opened)
 {
-    m_btnOpen->setText(opened ? QStringLiteral("关闭") : QStringLiteral("打开"));
+    m_btnOpen->setText(opened ? tr("Close") : tr("Open"));
     m_btnOpen->setStyleSheet(QString::fromLatin1(opened ? kBtnRed : kBtnGreen));
 }
 
@@ -666,7 +789,9 @@ void NetAssistWidget::appendLog(const QString &text, const QColor &color)
 {
     Q_UNUSED(color)
     QString line = timestampPrefix() + text + QLatin1Char('\n');
-    m_editRecv->addData(line.toUtf8());
+    const QByteArray bytes = line.toUtf8();
+    appendAutoSave(bytes);
+    m_editRecv->addData(bytes);
     if (m_scrollToBottom->isChecked())
         m_editRecv->scrollToBottom();
 }
@@ -690,7 +815,9 @@ void NetAssistWidget::appendTrafficLog(bool isSend, const QByteArray &data,
     const bool ownLine = isSend || m_showTimestamp || m_showDirection || hasAddr;
     if (ownLine)
         line += QStringLiteral("\r\n");
-    m_editRecv->addData(line.toUtf8());
+    const QByteArray bytes = line.toUtf8();
+    appendAutoSave(bytes);
+    m_editRecv->addData(bytes);
     if (m_scrollToBottom->isChecked())
         m_editRecv->scrollToBottom();
 }
@@ -761,6 +888,8 @@ bool NetAssistWidget::commitCurrentHost()
     for (int i = 0; i < m_cmbRemoteAddr->count(); ++i) {
         if (m_cmbRemoteAddr->itemData(i).value<RemoteHost>() == host) {
             m_cmbRemoteAddr->setCurrentIndex(i);
+            if (m_cmbRemoteAddr->lineEdit())
+                m_cmbRemoteAddr->lineEdit()->home(false);  // 窄下拉框停在开头，避免只看见域名尾巴
             break;
         }
     }
@@ -790,7 +919,7 @@ void NetAssistWidget::loadSettings()
     if (proto >= 0 && proto < m_cmbProtocol->count())
         m_cmbProtocol->setCurrentIndex(proto);
 
-    const QString localIp = settings.value(QStringLiteral("localIp")).toString();
+    const QString localIp = settings.value(QStringLiteral("localIp")).toString().section(QLatin1Char(' '), 0, 0);
     if (!localIp.isEmpty()) {
         int idx = m_cmbLocalIp->findText(localIp, Qt::MatchStartsWith);
         if (idx >= 0)
@@ -806,6 +935,7 @@ void NetAssistWidget::loadSettings()
     m_scrollToBottom->setChecked(settings.value(QStringLiteral("scrollBottom"), true).toBool());
     m_checkAddModbusCrc16->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
     m_checkAppendCRLF->setChecked(settings.value(QStringLiteral("crlf"), false).toBool());
+    m_autoSaveCheck->setChecked(settings.value(QStringLiteral("autoSave"), false).toBool());
     settings.endGroup();
     updateProtocolDependentUi();
 }
@@ -826,6 +956,46 @@ void NetAssistWidget::saveSettings()
     settings.setValue(QStringLiteral("scrollBottom"), m_scrollToBottom->isChecked());
     settings.setValue(QStringLiteral("crc16"), m_checkAddModbusCrc16->isChecked());
     settings.setValue(QStringLiteral("crlf"), m_checkAppendCRLF->isChecked());
+    settings.setValue(QStringLiteral("autoSave"), m_autoSaveCheck->isChecked());
     settings.endGroup();
+}
+
+void NetAssistWidget::setAutoSaveEnabled(bool enabled)
+{
+    if (!enabled) {
+        delete m_autoSaveFile;
+        m_autoSaveFile = nullptr;
+        return;
+    }
+    openAutoSave();
+}
+
+bool NetAssistWidget::openAutoSave()
+{
+    const QString path = QFileInfo(SettingsWidget::logFilePath(QStringLiteral("net_auto.txt"))).absoluteFilePath();
+    if (m_autoSaveFile && m_autoSaveFile->isOpen() && m_autoSaveFile->fileName() == path)
+        return true;
+    delete m_autoSaveFile;
+    m_autoSaveFile = new QFile(path, this);
+    if (m_autoSaveFile->open(QIODevice::WriteOnly | QIODevice::Append))
+        return true;
+    delete m_autoSaveFile;
+    m_autoSaveFile = nullptr;
+    // 失败时取消勾选，避免每个包都再试一次并刷状态栏。
+    m_autoSaveCheck->blockSignals(true);
+    m_autoSaveCheck->setChecked(false);
+    m_autoSaveCheck->blockSignals(false);
+    setStatus(QStringLiteral("Cannot open auto-save file: %1").arg(path), QStringLiteral("#f44336"));
+    return false;
+}
+
+void NetAssistWidget::appendAutoSave(const QByteArray &bytes)
+{
+    if (!m_autoSaveCheck->isChecked() || bytes.isEmpty())
+        return;
+    if (!openAutoSave())
+        return;
+    m_autoSaveFile->write(bytes);
+    m_autoSaveFile->flush();  // 立刻落盘，方便一边收一边用别的程序打开看
 }
 

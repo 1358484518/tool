@@ -1,4 +1,5 @@
 #include "TMX_TOOL.h"
+#include "AppLanguage.h"
 #include "network/NetCommon.h"
 
 #include <QApplication>
@@ -11,9 +12,11 @@ int main(int argc, char *argv[])  // 启用高 DPI、登记跨线程类型，然
 #endif
     QCoreApplication::setOrganizationName(QStringLiteral("TMX"));
     QCoreApplication::setApplicationName(QStringLiteral("TMX_TOOL"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("2.01"));
+    // APP_VERSION 来自 ymodem.pro 的 VERSION。不能用 QStringLiteral，它会把宏名粘成宽字符串。
+    QCoreApplication::setApplicationVersion(QLatin1String(APP_VERSION));
 
     QApplication a(argc, argv);
+    AppLanguage::applySaved();
     qRegisterMetaType<NetProtocol>("NetProtocol");
     qRegisterMetaType<RemoteHost>("RemoteHost");
 

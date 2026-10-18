@@ -1,0 +1,336 @@
+#include "AppLanguage.h"
+
+/*
+ * 中文不走 .qm。译文在下面 ZhTranslator 的对照表里，英文是 tr() 的源文。
+ *
+ * 新控件要能跟着设置页切换语言，做这三件事：
+ * 1. 按钮、标签、提示写成 tr("英文")。英文必须和对照表的键逐字相同。
+ * 2. 页面重写 changeEvent，收到 QEvent::LanguageChange 就调用 retranslateUi()，
+ *    在里面用 tr() 把已经显示出来的文字再设一遍。只写 changeEvent、不重设文字，
+ *    已经创建的控件不会变。
+ * 3. 在对照表里加一行 {"英文", "中文"}。表里没有的键会继续显示英文。
+ * 同一页的控件集中在该页的 retranslateUi() 里刷新，不必每个按钮各写一个 changeEvent。
+ * QSettings 的键、样式表、CSV 表头保持原样，不要 tr()，也不要放进对照表。
+ */
+
+#include <QApplication>
+#include <QHash>
+#include <QSettings>
+#include <QTranslator>
+
+namespace {
+
+/** 源文是英文。返回空字符串表示没有译文，Qt 会继续用源文。 */
+class ZhTranslator : public QTranslator
+{
+public:
+    explicit ZhTranslator(QObject *parent = nullptr)
+        : QTranslator(parent)
+    {
+        const QPair<const char *, const char *> rows[] = {
+            {"TMX Debug Assistant", "TMX 调试助手"},
+            {"TMX Debug Assistant %1", "TMX 调试助手 %1"},
+            {"Serial", "串口"},
+            {"Network", "网络"},
+            {"Settings", "设置"},
+            {"Firmware", "固件"},
+            {"Address:", "地址:"},
+            {"Username:", "用户名:"},
+            {"Password:", "密码:"},
+            {"Email", "邮箱"},
+            {"Refresh", "刷新"},
+            {"Filename:", "文件名:"},
+            {"Firmware name", "固件名"},
+            {"Search", "搜索"},
+            {"Filename", "文件名"},
+            {"Version", "版本"},
+            {"Size", "大小"},
+            {"Created", "创建时间"},
+            {"Link", "链接"},
+            {"Download", "下载"},
+            {"Delete", "删除"},
+            {"Delete firmware %1?", "删除固件 %1？"},
+            {"Deleting %1", "正在删除 %1"},
+            {"Deleted %1", "已删除 %1"},
+            {"Delete failed: %1", "删除失败: %1"},
+            {"Previous", "上一页"},
+            {"Next", "下一页"},
+            {"Page %1 / %2, %3 in total", "第 %1 / %2 页，共 %3 条"},
+            {"Signing in...", "正在登录..."},
+            {"Loading firmware...", "正在读取固件列表..."},
+            {"Sign-in failed: %1", "登录失败: %1"},
+            {"Load failed: %1", "读取失败: %1"},
+            {"No firmware found", "没有固件"},
+            {"Loaded %1 firmwares", "已载入 %1 个固件"},
+            {"Server did not return a firmware list", "服务器没有返回固件列表"},
+            {"Save Firmware", "保存固件"},
+            {"All Files (*)", "所有文件 (*)"},
+            {"Downloading %1", "正在下载 %1"},
+            {"Downloading %1 (%2 / %3)", "正在下载 %1（%2 / %3）"},
+            {"Saved %1", "已保存 %1"},
+            {"Download failed: %1", "下载失败: %1"},
+            {"Cannot save file: %1", "无法保存文件: %1"},
+            {"Cannot read file: %1", "无法读取文件: %1"},
+            {"Upload", "上传"},
+            {"Upload Firmware", "上传固件"},
+            {"Please choose a file", "请选择文件"},
+            {"Firmware Version:", "固件版本:"},
+            {"Signing Certificate (Optional):", "签名证书（可选）:"},
+            {"Charge Point Models", "充电桩型号"},
+            {"Vendor", "厂商"},
+            {"Model", "型号"},
+            {"Cancel", "取消"},
+            {"Firmware version is required", "请填写固件版本"},
+            {"Uploading %1", "正在上传 %1"},
+            {"Uploaded %1", "已上传 %1"},
+            {"Upload failed: %1", "上传失败: %1"},
+            {"Hash", "校验"},
+            {"File:", "文件:"},
+            {"Size:", "大小:"},
+            {"Modified:", "修改时间:"},
+            {"Copy", "复制"},
+            {"Drop a file here", "把文件拖到这里"},
+            {"Drop files here", "把文件拖到这里"},
+            {"Please choose files", "请选择文件"},
+            {"File: %1", "文件: %1"},
+            {"Size: %1 bytes", "大小: %1 字节"},
+            {"Modified: %1", "修改时间: %1"},
+            {"Clear Result", "清除"},
+            {"Save", "保存"},
+            {"Save Hash", "保存校验"},
+            {"Progress: %1%", "进度: %1%"},
+            {"Completed", "完成"},
+            {"Pack", "组包"},
+            {"Project:", "选择项目:"},
+            {"Select File", "选择文件"},
+            {"Check Suffix:", "校验后缀:"},
+            {"Firmware Suffix:", "固件后缀:"},
+            {"Pack info", "打包信息"},
+            {"Project: %1", "项目: %1"},
+            {"CRC16: %1", "CRC16: %1"},
+            {"Output: %1", "输出: %1"},
+            {"Header: %1", "头: %1"},
+            {"Generate Check File", "生成校验文件"},
+            {"Generate Update File", "生成升级文件"},
+            {"Serial Debug Assistant", "串口调试助手"},
+            {"Enter command to send... (Ctrl+Enter to send)", "输入要发送的命令... (Ctrl+Enter 发送)"},
+            {"Send", "发送"},
+            {"Clear", "清空"},
+            {"Single Send", "单条发送"},
+            {"Add", "添加"},
+            {"Del", "删除"},
+            {"Import", "导入"},
+            {"Export", "导出"},
+            {"Int:", "间隔:"},
+            {"Multi Send", "多条发送"},
+            {"No.", "序号"},
+            {"Command", "命令"},
+            {"Note", "备注"},
+            {"Port Config", "端口配置"},
+            {"Port:", "端口:"},
+            {"Refresh port list", "刷新端口列表"},
+            {"Baud:", "波特率:"},
+            {"Stop:", "停止位:"},
+            {"Data:", "数据位:"},
+            {"Parity:", "校验位:"},
+            {"Flow:", "流控:"},
+            {"Auto Reconnect", "自动重连"},
+            {"Open Port", "打开串口"},
+            {"Close Port", "关闭串口"},
+            {"YMODEM Send", "YMODEM 发送"},
+            {"Send Settings", "发送设置"},
+            {"Timed Send", "定时发送"},
+            {"Interval:", "间隔:"},
+            {"Hex Send", "十六进制发送"},
+            {"Add CRC16 (Modbus)", "加 CRC16 (Modbus)"},
+            {"Line End:", "换行:"},
+            {"Receive Settings", "接收设置"},
+            {"Save Log", "保存日志"},
+            {"Auto Save", "自动保存"},
+            {"Append new receive text to serial_auto.txt in the log directory", "把接收窗口的新内容追加到日志目录中的 serial_auto.txt"},
+            {"Append new receive text to net_auto.txt in the log directory", "把接收窗口的新内容追加到日志目录中的 net_auto.txt"},
+            {"Cannot open auto-save file: %1", "无法打开自动保存文件: %1"},
+            {"Clear Recv", "清空接收"},
+            {"Hex Disp", "十六进制显示"},
+            {"Timestamp", "时间戳"},
+            {"Auto Scroll", "自动滚屏"},
+            {"Wrap", "自动换行"},
+            {"Pause Display", "暂停显示"},
+            {"Reset Counter", "计数清零"},
+            {"R: %1 B", "收: %1 B"},
+            {"S: %1 B", "发: %1 B"},
+            {"● Connected", "● 已连接"},
+            {"● Disconnected", "● 已断开"},
+            {"Port list refreshed", "端口列表已刷新"},
+            {"None", "无"},
+            {"Odd", "奇校验"},
+            {"Even", "偶校验"},
+            {"Mark", "标记"},
+            {"Space", "空格"},
+            {"Warning", "警告"},
+            {"Please select a serial port first!", "请先选择串口"},
+            {"Please open serial port first!", "请先打开串口"},
+            {"Import Commands CSV", "导入命令 CSV"},
+            {"CSV Files (*.csv);;Text Files (*.txt);;All Files (*)", "CSV 文件 (*.csv);;文本文件 (*.txt);;所有文件 (*)"},
+            {"Error", "错误"},
+            {"Failed to open file", "无法打开文件"},
+            {"Imported %1 commands", "已导入 %1 条命令"},
+            {"Export Commands CSV", "导出命令 CSV"},
+            {"CSV Files (*.csv);;All Files (*)", "CSV 文件 (*.csv);;所有文件 (*)"},
+            {"Failed to save file", "无法保存文件"},
+            {"Exported %1 commands", "已导出 %1 条命令"},
+            {"No checked commands to send", "没有勾选要发送的命令"},
+            {"Sending %1 commands...", "正在发送 %1 条命令..."},
+            {"Select file for YModem send", "选择 YModem 发送文件"},
+            {"Firmware Files (*.bin *.hex *.elf);;All Files (*.*)", "固件文件 (*.bin *.hex *.elf);;所有文件 (*.*)"},
+            {"YModem send selected: %1", "已选择 YModem 文件: %1"},
+            {"Sending command...", "正在发送命令..."},
+            {"Network Debug Assistant", "网络调试助手"},
+            {"Enter data to send... (Ctrl+Enter to send)", "输入要发送的数据... (Ctrl+Enter 发送)"},
+            {"Connection", "连接设置"},
+            {"Protocol:", "协议:"},
+            {"TCP Server", "TCP 服务端"},
+            {"TCP Client", "TCP 客户端"},
+            {"Address:", "地址:"},
+            {"0.0.0.0 (All)", "0.0.0.0 (所有网卡)"},
+            {"127.0.0.1 (Local)", "127.0.0.1 (本机)"},
+            {"LocalPort:", "本地端口:"},
+            {"Remote:", "远程:"},
+            {"127.0.0.1:80, www.example.com:443, https://www.example.com", "例如 127.0.0.1:80、www.example.com:443、https://www.example.com"},
+            {"host:port", "主机:端口"},
+            {"Open", "打开"},
+            {"Close", "关闭"},
+            {"Connect", "连接"},
+            {"Disconnect", "断开"},
+            {"CRC16", "CRC16"},
+            {"Add CRLF", "加回车换行"},
+            {"Broadcast", "广播"},
+            {"Show Addr", "显示地址"},
+            {"Show Send", "显示发送"},
+            {"Show Dir", "显示方向"},
+            {"Clients: %1", "连接数: %1"},
+            {"Closed", "已关闭"},
+            {"Starting...", "启动中..."},
+            {"Not Connected", "未连接"},
+            {"Invalid address", "远程地址无效"},
+            {"Connecting...", "连接中..."},
+            {"Disconnected", "已断开"},
+            {"Text Files (*.txt)", "文本文件 (*.txt)"},
+            {"Log saved", "日志已保存"},
+            {"Select a valid remote address", "请选择有效的远程地址"},
+            {"[Connect] %1:%2", "[连接] %1:%2"},
+            {"[Disconnect] %1:%2", "[断开] %1:%2"},
+            {"TCP connected", "TCP 已连接"},
+            {"Connected", "已连接"},
+            {"TCP disconnected", "TCP 已断开"},
+            {"Reconnecting...", "重连中..."},
+            {"[Error] %1", "[错误] %1"},
+            {"UDP Listening", "UDP 监听中"},
+            {"Cannot resolve host %1", "无法解析主机 %1"},
+            {"Client not found %1:%2", "未找到客户端 %1:%2"},
+            {"TCP Server Listening", "TCP 服务端监听中"},
+            {"Listen failed, reconnecting...", "监听失败，重连中..."},
+            {"Bind failed, reconnecting...", "绑定失败，重连中..."},
+            {"Connection timed out", "连接超时"},
+            {"General", "常规"},
+            {"Startup Page:", "启动页面:"},
+            {"Log Directory:", "日志目录:"},
+            {"Firmware Directory:", "固件目录:"},
+            {"Current directory", "当前目录"},
+            {"Downloads", "下载目录"},
+            {"Browse", "浏览"},
+            {"Select Log Directory", "选择日志目录"},
+            {"Select Firmware Directory", "选择固件目录"},
+            {"Language:", "语言:"},
+            {"English", "English"},
+            {"Chinese", "中文"},
+            {"Text Files (*.txt);;All Files (*)", "文本文件 (*.txt);;所有文件 (*)"},
+            {"Log saved to %1", "日志已保存到 %1"},
+            {"Connected to %1", "已连接到 %1"},
+            {"Port lost, reconnecting...", "串口断开，正在重连..."},
+            {"Open failed: %1", "打开失败: %1"},
+            {"Failed to open port: %1", "打开串口失败: %1"},
+            {"Error: %1", "错误: %1"},
+            {"Sending file: %1", "正在发送文件: %1"},
+            {"Sending: %1% (%2/%3 bytes)", "发送中: %1% (%2/%3 字节)"},
+            {"Send success: %1, %2 bytes", "发送成功: %1，%2 字节"},
+            {"Send timed out after 5 seconds", "发送失败：5秒无响应，已自动退出"},
+            {"Send failed: %1, error: %2", "发送失败: %1，错误: %2"},
+            {"Start YModem send, waiting for device response...", "开始 YModem 发送，等待设备响应..."},
+            {"ms", "毫秒"},
+            {"Port name is empty", "端口名为空"},
+            {"Failed to set baud rate", "设置波特率失败"},
+            {"Failed to set data bits", "设置数据位失败"},
+            {"Failed to set parity", "设置校验位失败"},
+            {"Failed to set stop bits", "设置停止位失败"},
+            {"Failed to set flow control", "设置流控失败"},
+        };
+        for (const auto &row : rows)
+            m_zh.insert(QString::fromUtf8(row.first), QString::fromUtf8(row.second));
+    }
+
+    // 没加载 .qm，基类 isEmpty() 为 true。installTranslator 见到空翻译器就直接返回，不发 LanguageChange。
+    bool isEmpty() const override { return false; }
+
+    QString translate(const char *context, const char *sourceText,
+                      const char *disambiguation, int n) const override
+    {
+        Q_UNUSED(context)
+        Q_UNUSED(disambiguation)
+        Q_UNUSED(n)
+        if (!sourceText)
+            return QString();
+        const auto it = m_zh.constFind(QString::fromUtf8(sourceText));
+        if (it == m_zh.cend())
+            return QString();
+        return it.value();
+    }
+
+private:
+    QHash<QString, QString> m_zh;  // 英文源文 -> 中文
+};
+
+ZhTranslator *translator()
+{
+    static ZhTranslator *object = new ZhTranslator(qApp);
+    return object;
+}
+
+QString savedCode()
+{
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("App"));
+    const QString code = settings.value(QStringLiteral("language"), QStringLiteral("en")).toString();
+    settings.endGroup();
+    return code == QLatin1String("zh_CN") ? code : QStringLiteral("en");
+}
+
+} // namespace
+
+void AppLanguage::applySaved()
+{
+    setLanguage(savedCode());
+}
+
+void AppLanguage::setLanguage(const QString &code)
+{
+    // 英文是 tr() 源文，不装翻译器。只有 zh_CN 才装 ZhTranslator。
+    const QString use = (code == QLatin1String("zh_CN")) ? code : QStringLiteral("en");
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("App"));
+    settings.setValue(QStringLiteral("language"), use);
+    settings.endGroup();
+
+    QTranslator *object = translator();
+    // 先卸再装。中文切英文时 removeTranslator 会发 LanguageChange，已有控件立刻回到英文。
+    // 英文切中文靠后面的 installTranslator。ZhTranslator::isEmpty() 必须返回 false，
+    // 否则 Qt 认为翻译器是空的，装上了也不发 LanguageChange，界面要重启才变成中文。
+    qApp->removeTranslator(object);
+    if (use == QLatin1String("zh_CN"))
+        qApp->installTranslator(object);
+}
+
+QString AppLanguage::language()
+{
+    return savedCode();
+}

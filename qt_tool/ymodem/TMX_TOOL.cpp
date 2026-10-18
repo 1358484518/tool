@@ -1,8 +1,11 @@
 #include "TMX_TOOL.h"
 #include "ui_tmx_tool.h"
 #include "network/NetAssistWidget.h"
+#include "firmware/FirmwareWidget.h"
+#include "SettingsWidget.h"
 
 #include <QCoreApplication>
+#include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QIcon>
@@ -16,8 +19,8 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
     ui->setupUi(this);
     const QString ver = QCoreApplication::applicationVersion();
     setWindowTitle(ver.isEmpty()
-                       ? QStringLiteral("TMX 调试助手")
-                       : QStringLiteral("TMX 调试助手 %1").arg(ver));
+                       ? tr("TMX Debug Assistant")
+                       : tr("TMX Debug Assistant %1").arg(ver));
     setWindowIcon(QIcon(QStringLiteral(":/image/tmx.png")));
     initSerialBackend();
     initUi();
@@ -65,10 +68,19 @@ void TMX_TOOL::initUi()
 {
     m_serial_ui = new SerialAssistant(this);
     m_net_ui = new NetAssistWidget(this);
+    m_settings_ui = new SettingsWidget(this);
+    m_firmware_ui = new FirmwareWidget(this);
 
     m_tool_tab = new QTabWidget(this);
-    m_tool_tab->addTab(m_net_ui, QStringLiteral("网络工具"));
-    m_tool_tab->addTab(m_serial_ui, QStringLiteral("串口工具"));
+    m_tool_tab->addTab(m_serial_ui, tr("Serial"));
+    m_tool_tab->addTab(m_net_ui, tr("Network"));
+    m_tool_tab->addTab(m_settings_ui, tr("Settings"));
+    m_tool_tab->addTab(m_firmware_ui, tr("Firmware"));
+    // 下拉里的 data 与上面 addTab 的顺序一致：0 串口、1 网络、2 设置、3 固件。
+    const int startup = m_settings_ui->startupTab();
+    if (startup >= 0 && startup < m_tool_tab->count())
+        m_tool_tab->setCurrentIndex(startup);
+
 
     auto *layout = new QHBoxLayout;
     layout->setContentsMargins(6, 6, 6, 6);
@@ -103,18 +115,19 @@ void TMX_TOOL::initUi()
 
     connect(m_serial_ui, &SerialAssistant::saveLogRequested, this, [this]() {
         const QString fileName = QFileDialog::getSaveFileName(
-            this, QStringLiteral("Save Log"), QString(),
-            QStringLiteral("Text Files (*.txt);;All Files (*)"));
+            this, tr("Save Log"),
+            SettingsWidget::logFilePath(QStringLiteral("seriallog.txt")),
+            tr("Text Files (*.txt);;All Files (*)"));
         if (fileName.isEmpty())
             return;
         QFile file(fileName);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             file.write(m_serial_ui->getReceiveText());
             file.close();
-            m_serial_ui->showStatusMessage(QStringLiteral("Log saved to ") + fileName);
+            m_serial_ui->showStatusMessage(tr("Log saved to %1").arg(fileName));
         } else {
-            QMessageBox::warning(this, QStringLiteral("Error"),
-                                 QStringLiteral("Failed to save file"));
+            QMessageBox::warning(this, tr("Error"),
+                                 tr("Failed to save file"));
         }
     });
 
@@ -122,29 +135,49 @@ void TMX_TOOL::initUi()
             m_serial_ui, &SerialAssistant::onIoData, Qt::QueuedConnection);
     connect(m_serial_operate, &SerialManager::portConnected, this, [this]() {
         m_serial_ui->setConnectionState(true);
-        m_serial_ui->showStatusMessage(
-            QStringLiteral("Connected to ") + m_serial_ui->selectedPortName());
+        m_serial_ui->showStatusMessage(tr("Connected to %1").arg(m_serial_ui->selectedPortName()));
     });
     connect(m_serial_operate, &SerialManager::portDisconnected, this, [this]() {
         m_serial_ui->setConnectionState(false);
         if (m_serial_ui->autoReconnectEnabled())
-            m_serial_ui->showStatusMessage(QStringLiteral("串口断开，正在重连..."));
+            m_serial_ui->showStatusMessage(tr("Port lost, reconnecting..."));
         else
-            m_serial_ui->showStatusMessage(QStringLiteral("Disconnected"));
+            m_serial_ui->showStatusMessage(tr("Disconnected"));
         stopYmodemTransfer();
     });
     connect(m_serial_operate, &SerialManager::openResult, this,
             [this](bool ok, const QString &errorString) {
         if (ok)
             return;
-        m_serial_ui->showStatusMessage(QStringLiteral("Open failed: ") + errorString);
-        QMessageBox::warning(this, QStringLiteral("Error"),
-                             QStringLiteral("Failed to open port: ") + errorString);
+        m_serial_ui->showStatusMessage(tr("Open failed: %1").arg(errorString));
+        QMessageBox::warning(this, tr("Error"),
+                             tr("Failed to open port: %1").arg(errorString));
     });
     connect(m_serial_operate, &SerialManager::errorOccurred, this,
             [this](int, const QString &str) {
-        m_serial_ui->showStatusMessage(QStringLiteral("Error: ") + str);
+        m_serial_ui->showStatusMessage(tr("Error: %1").arg(str));
     });
+}
+
+void TMX_TOOL::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        retranslateUi();
+    QWidget::changeEvent(event);
+}
+
+void TMX_TOOL::retranslateUi()
+{
+    const QString ver = QCoreApplication::applicationVersion();
+    setWindowTitle(ver.isEmpty()
+                       ? tr("TMX Debug Assistant")
+                       : tr("TMX Debug Assistant %1").arg(ver));
+    if (!m_tool_tab)
+        return;
+    m_tool_tab->setTabText(0, tr("Serial"));
+    m_tool_tab->setTabText(1, tr("Network"));
+    m_tool_tab->setTabText(2, tr("Settings"));
+    m_tool_tab->setTabText(3, tr("Firmware"));
 }
 
 IoSource *TMX_TOOL::serialIoSource() const
@@ -183,12 +216,12 @@ void TMX_TOOL::initYmodemBridge()
                 m_serial_operate, &SerialManager::sendBinary, Qt::QueuedConnection);
 
         connect(m_ymodem, &QYmodemFile::transferring, this, [this](const QString &name) {
-            m_serial_ui->showStatusMessage(QStringLiteral("Sending file: ") + name);
+            m_serial_ui->showStatusMessage(tr("Sending file: %1").arg(name));
         }, Qt::QueuedConnection);
         connect(m_ymodem, &QYmodemFile::tick, this, [this](qint64 sent, qint64 total) {
             if (total > 0) {
                 m_serial_ui->showStatusMessage(
-                    QStringLiteral("Sending: %1% (%2/%3 bytes)")
+                    tr("Sending: %1% (%2/%3 bytes)")
                         .arg(sent * 100 / total).arg(sent).arg(total));
             }
         }, Qt::QueuedConnection);
@@ -196,19 +229,19 @@ void TMX_TOOL::initYmodemBridge()
                 [this](const QString &name, int result, size_t size) {
             if (result == 0) {
                 m_serial_ui->showStatusMessage(
-                    QStringLiteral("Send success: %1, %2 bytes").arg(name).arg(size));
+                    tr("Send success: %1, %2 bytes").arg(name).arg(size));
             } else if (result == QXYmodem::XMODEM_ERROR_IDLETIMEOUT) {
                 m_serial_ui->showStatusMessage(
-                    QStringLiteral("发送失败：5秒无响应，已自动退出"));
+                    tr("Send timed out after 5 seconds"));
             } else {
                 m_serial_ui->showStatusMessage(
-                    QStringLiteral("Send failed: %1, error: %2").arg(name).arg(result));
+                    tr("Send failed: %1, error: %2").arg(name).arg(result));
             }
             stopYmodemTransfer();
         }, Qt::QueuedConnection);
 
         m_ymodem->startSend();
         m_serial_ui->showStatusMessage(
-            QStringLiteral("Start YModem send, waiting for device response..."));
+            tr("Start YModem send, waiting for device response..."));
     });
 }
