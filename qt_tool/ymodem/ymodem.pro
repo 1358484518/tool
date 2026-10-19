@@ -3,7 +3,7 @@ QT       += core gui serialport network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-VERSION = 2.06
+VERSION = 2.07
 # 传给 C++ 的是带引号的字符串宏，main 里用 QLatin1String(APP_VERSION) 取
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 # 程序下载页的脚本根目录，qmake 时按源码位置写死。斜杠避免进宏后被当成转义。
@@ -31,6 +31,7 @@ SOURCES += \
     network/QTcpSocketManager.cpp \
     network/QUdpSocketManager.cpp \
     firmware/FirmwareWidget.cpp \
+    firmware/EvlinkLoginDialog.cpp \
     firmware/FirmwarePassword.cpp \
     firmware/FileHashWidget.cpp \
     firmware/FirmwarePackWidget.cpp \
@@ -54,6 +55,7 @@ HEADERS += \
     network/QTcpSocketManager.h \
     network/QUdpSocketManager.h \
     firmware/FirmwareWidget.h \
+    firmware/EvlinkLoginDialog.h \
     firmware/FirmwarePassword.h \
     firmware/FileHashWidget.h \
     firmware/FirmwarePackWidget.h \

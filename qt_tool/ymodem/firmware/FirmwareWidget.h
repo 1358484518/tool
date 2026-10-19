@@ -60,6 +60,8 @@ private:
  * 固件页。地址默认是网站上的固件页，可改。
  * 列表不读这个网页本身，而是读同一站点的 /admin-api/v1/firmwares。
  * 填了用户名就先 POST /login，再带 Authorization 去拉列表。
+ * 启动时用保存的账号登录。成功后本次运行不再拦页签；失败则固件页和程序下载页打不开。
+ * 页上的账号可以改成别的，下次启动用改过的这一份。
  * 上传走 POST /firmwares，表单字段和网站一致：file、version、models、signingCertId。
  * 下载上传在上面。下面校验和组包并排，进度和保存结果写在本页状态栏。
  */
@@ -73,6 +75,13 @@ public:
 
     void downloadRow(int row);  // 分段并行下载到设置里的固件目录，仍弹出保存对话框
     void deleteRow(int row);    // 确认后 DELETE /firmwares/{id}，成功再刷新当前页
+    bool isSessionOpen() const;       // 本次运行已经登录成功，页签不再拦截
+    bool isGateLoginPending() const;  // 启动或登录窗的登录还没返回
+    void trySavedLogin();             // 有保存的账号就登录，没有就立刻算失败
+    bool promptLogin(QWidget *parent);  // 弹出登录窗，成功后记下账号
+
+signals:
+    void gateLoginFinished(bool ok, const QString &message);  // 启动或登录窗这次登录结束
 
 protected:
     void changeEvent(QEvent *event) override;  // 语言切换时刷新本页文字
@@ -145,6 +154,8 @@ private:
     int m_total = 0;                      // 接口返回的固件总数
     QString m_appliedSearch;              // 当前列表实际使用的文件名，翻页时沿用
     QByteArray m_token;                   // 登录返回的 Authorization 值
+    bool m_sessionOpen = false;           // 本次运行登录成功后保持为真，页上再改账号也不收回
+    bool m_gateLogin = false;             // 这次登录决定页签能不能进，页里的刷新不算
 };
 
 #endif // FIRMWAREWIDGET_H

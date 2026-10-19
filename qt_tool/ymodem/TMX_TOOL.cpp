@@ -14,6 +14,7 @@
 #include <QMetaObject>
 #include <QProxyStyle>
 #include <QStyleOption>
+#include <QTimer>
 
 namespace {
 
@@ -119,9 +120,15 @@ void TMX_TOOL::initUi()
     m_tool_tab->addTab(m_program_ui, tr("Program Download"));
     m_tool_tab->addTab(m_settings_ui, tr("Settings"));
     // 下拉 data 与页签序号一致：0 串口、1 网络、2 固件、3 程序下载、4 设置。
+    // 启动页若是还没登录的两个页，先停在第一页，等登录成功再过去。
     const int startup = m_settings_ui->startupTab();
-    if (startup >= 0 && startup < m_tool_tab->count())
+    if (isGuardedTab(startup))
+        m_tool_tab->setCurrentIndex(0);
+    else if (startup >= 0 && startup < m_tool_tab->count())
         m_tool_tab->setCurrentIndex(startup);
+    m_returnTab = m_tool_tab->currentIndex();
+    connect(m_tool_tab, &QTabWidget::currentChanged, this, &TMX_TOOL::onTabChanged);
+    connect(m_firmware_ui, &FirmwareWidget::gateLoginFinished, this, &TMX_TOOL::onGateLoginFinished);
 
 
     auto *layout = new QHBoxLayout;
@@ -198,6 +205,73 @@ void TMX_TOOL::initUi()
     connect(m_serial_operate, &SerialManager::errorOccurred, this,
             [this](int, const QString &str) {
         m_serial_ui->showStatusMessage(tr("Error: %1").arg(str));
+    });
+    m_firmware_ui->trySavedLogin();
+}
+
+bool TMX_TOOL::isGuardedTab(int index) const
+{
+    return index == 2 || index == 3;
+}
+
+void TMX_TOOL::showTab(int index)
+{
+    if (!m_tool_tab || index < 0 || index >= m_tool_tab->count())
+        return;
+    m_switching = true;
+    m_tool_tab->setCurrentIndex(index);
+    m_switching = false;
+    m_returnTab = index;
+}
+
+void TMX_TOOL::onTabChanged(int index)
+{
+    if (m_switching)
+        return;
+    if (!isGuardedTab(index) || m_firmware_ui->isSessionOpen()) {
+        m_returnTab = index;
+        return;
+    }
+    const int back = m_returnTab;
+    showTab(back);
+    if (m_firmware_ui->isGateLoginPending()) {
+        m_heldTab = index;
+        return;
+    }
+    if (m_firmware_ui->promptLogin(this))
+        showTab(index);
+}
+
+void TMX_TOOL::onGateLoginFinished(bool ok, const QString &message)
+{
+    Q_UNUSED(message);
+    if (ok) {
+        int next = m_heldTab;
+        m_heldTab = -1;
+        if (next < 0 && !m_startupSettled)
+            next = m_settings_ui->startupTab();
+        m_startupSettled = true;
+        if (isGuardedTab(next))
+            showTab(next);
+        return;
+    }
+    const int wanted = m_heldTab;
+    m_heldTab = -1;
+    if (!m_startupSettled) {
+        m_startupSettled = true;
+        if (m_tool_tab && isGuardedTab(m_tool_tab->currentIndex()))
+            showTab(0);
+    }
+    if (wanted < 0)
+        return;
+    // 等这次网络回调结束再弹窗，避免在回复槽里再套一层事件循环。
+    QTimer::singleShot(0, this, [this, wanted]() {
+        if (m_firmware_ui->isSessionOpen()) {
+            showTab(wanted);
+            return;
+        }
+        if (m_firmware_ui->promptLogin(this))
+            showTab(wanted);
     });
 }
 

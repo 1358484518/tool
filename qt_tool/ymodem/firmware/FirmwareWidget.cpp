@@ -1,4 +1,5 @@
 #include "FirmwareWidget.h"
+#include "EvlinkLoginDialog.h"
 #include "FileHashWidget.h"
 #include "FirmwarePackWidget.h"
 #include "FirmwarePassword.h"
@@ -882,6 +883,73 @@ void FirmwareWidget::updatePager()
     m_nextBtn->setEnabled(m_page < m_pages && !m_reply);
 }
 
+bool FirmwareWidget::isSessionOpen() const
+{
+    return m_sessionOpen;
+}
+
+bool FirmwareWidget::isGateLoginPending() const
+{
+    return m_gateLogin;
+}
+
+void FirmwareWidget::trySavedLogin()
+{
+    // 拷走的程序没有这份账号。不要匿名拉列表，两个页保持打不开。
+    if (m_userEdit->text().trimmed().isEmpty() || m_passwordEdit->text().isEmpty() || !apiRoot().isValid()) {
+        emit gateLoginFinished(false, QString());
+        return;
+    }
+    abortReply();
+    m_loginForUpload = false;
+    m_gateLogin = true;
+    setBusy(true);
+    startLogin();
+}
+
+bool FirmwareWidget::promptLogin(QWidget *parent)
+{
+    if (m_sessionOpen)
+        return true;
+    EvlinkLoginDialog dialog(parent);
+    dialog.setAccount(m_userEdit->text(), m_passwordEdit->text());
+    connect(&dialog, &EvlinkLoginDialog::signInRequested, this, [this](const QString &email, const QString &password) {
+        // 登录窗里改过的账号马上落盘，下次启动用这一份。
+        m_userEdit->setText(email);
+        m_passwordEdit->setText(password);
+        saveSettings();
+        abortReply();
+        m_loginForUpload = false;
+        if (!apiRoot().isValid()) {
+            m_gateLogin = false;
+            setStatus(tr("Invalid address"));
+            emit gateLoginFinished(false, tr("Invalid address"));
+            return;
+        }
+        m_gateLogin = true;
+        setBusy(true);
+        startLogin();
+    });
+    connect(&dialog, &QDialog::rejected, this, [this]() {
+        if (!m_gateLogin)
+            return;
+        // 用户取消了。丢掉这次请求，不要再报一次登录失败。
+        abortReply();
+        m_gateLogin = false;
+        m_waitingLogin = false;
+        setBusy(false);
+    });
+    connect(this, &FirmwareWidget::gateLoginFinished, &dialog, [&dialog](bool ok, const QString &message) {
+        if (!dialog.isVisible())
+            return;
+        if (ok)
+            dialog.accept();
+        else
+            dialog.showFailure(message);
+    });
+    return dialog.exec() == QDialog::Accepted && m_sessionOpen;
+}
+
 void FirmwareWidget::refresh()
 {
     m_appliedSearch = m_nameEdit->text().trimmed();
@@ -1124,6 +1192,8 @@ void FirmwareWidget::onReplyFinished()
     reply->deleteLater();
 
     if (!error.isEmpty() || status >= 400) {
+        const bool gate = login && m_gateLogin;
+        m_gateLogin = false;
         m_loginForUpload = false;
         setBusy(false);
         updatePager();
@@ -1136,11 +1206,35 @@ void FirmwareWidget::onReplyFinished()
             setStatus(tr("Delete failed: %1").arg(detail));
         else if (kind == ReplyKind::List)
             setStatus(tr("Load failed: %1").arg(detail));
+        // 页里刷新失败不收回已经放开的页签，只让启动和登录窗这次失败。
+        if (gate)
+            emit gateLoginFinished(false, m_statusLabel->text());
         return;
     }
 
     if (login) {
+        const QJsonDocument doc = QJsonDocument::fromJson(body);
+        const QString code = doc.isObject() ? doc.object().value(QStringLiteral("code")).toString() : QString();
+        const QString serverMessage = doc.isObject() ? doc.object().value(QStringLiteral("message")).toString() : QString();
         m_token = tokenFromReply(reply, body);
+        const bool tokenOk = !m_token.isEmpty() && (code.isEmpty() || code == QLatin1String("0000"));
+        if (m_gateLogin && !tokenOk) {
+            m_token.clear();
+            m_gateLogin = false;
+            m_loginForUpload = false;
+            setBusy(false);
+            updatePager();
+            const QString detail = serverMessage.isEmpty() ? tr("No token") : serverMessage;
+            setStatus(tr("Sign-in failed: %1").arg(detail));
+            emit gateLoginFinished(false, m_statusLabel->text());
+            return;
+        }
+        if (tokenOk)
+            m_sessionOpen = true;
+        if (m_gateLogin) {
+            m_gateLogin = false;
+            emit gateLoginFinished(true, QString());
+        }
         if (m_loginForUpload) {
             m_loginForUpload = false;
             setBusy(false);
