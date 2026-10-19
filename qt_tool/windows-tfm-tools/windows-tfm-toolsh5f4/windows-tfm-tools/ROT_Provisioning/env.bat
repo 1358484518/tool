@@ -4,9 +4,18 @@
 ::                               General
 :: ==============================================================================
 :: Configure tools installation path
+:: STM32_PROGRAMMER_CLI is set by the UI and shared by both chips. If it is empty, keep the path below.
+:: ASCII only: cmd reads this file as GBK, and a UTF-8 period swallows the following line break.
+if not defined STM32_PROGRAMMER_CLI goto :stm32programmercli_fallback
+if not exist "%STM32_PROGRAMMER_CLI%" goto :stm32programmercli_fallback
+set stm32programmercli="%STM32_PROGRAMMER_CLI%"
+for %%I in ("%STM32_PROGRAMMER_CLI%") do set "PATH=%%~dpI;%PATH%"
+goto :stm32programmercli_set
+:stm32programmercli_fallback
 :: set stm32programmercli="C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
 :: set stm32tpccli="C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32TrustedPackageCreator_CLI.exe"
 set stm32programmercli="D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
+:stm32programmercli_set
 set stm32tpccli="D:\ST\STM32CubeProgrammer\bin\STM32TrustedPackageCreator_CLI.exe"
 
 :: ==============================================================================

@@ -228,7 +228,7 @@ UPLOADING OPTION BYTES DATA ...
 OPTION BYTE PROGRAMMING VERIFICATION:
 
 Option Bytes successfully programmed
-Time elapsed during option Bytes configuration: 00:00:02.644
+Time elapsed during option Bytes configuration: 00:00:02.592
 CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=UR -ob PRODUCT_STATE=0x17
       -------------------------------------------------------------------
                        STM32CubeProgrammer v2.22.0                  
@@ -237,7 +237,7 @@ CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=
 ST-LINK SN  : 39FF6D065042323421552343
 ST-LINK FW  : V2J47S7
 Board       : --
-Voltage     : 3.22V
+Voltage     : 3.21V
 SWD freq    : 4000 KHz
 Connect mode: Under Reset
 Reset mode  : Hardware reset
@@ -358,7 +358,7 @@ Error: Cannot connect to access port 1!  If you are trying to connect to a devic
 ST-LINK SN  : 39FF6D065042323421552343
 ST-LINK FW  : V2J47S7
 Board       : --
-Voltage     : 3.22V
+Voltage     : 3.21V
 SWD freq    : 4000 KHz
 Connect mode: Hot Plug
 Reset mode  : Software reset
@@ -464,7 +464,7 @@ PROGRAMMING OPTION BYTES AREA ...
 Warning: Option Byte: product_state, value: 0x17, was not modified.
 
 Warning: Option Bytes are unchanged, Data won't be downloaded
-Time elapsed during option Bytes configuration: 00:00:00.513
+Time elapsed during option Bytes configuration: 00:00:00.471
 CMD: "D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" -c port=SWD speed=fast ap=1  mode=Hotplug -hardRst
       -------------------------------------------------------------------
                        STM32CubeProgrammer v2.22.0                  

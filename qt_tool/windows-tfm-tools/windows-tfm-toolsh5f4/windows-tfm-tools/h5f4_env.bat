@@ -22,6 +22,10 @@ if defined H5F4_PATH_DONE exit /b 0
 
 set "H5F4_PF86=%ProgramFiles(x86)%"
 
+if defined STM32_PROGRAMMER_CLI if exist "%STM32_PROGRAMMER_CLI%" (
+    for %%I in ("%STM32_PROGRAMMER_CLI%") do set "PATH=%%~dpI;%PATH%"
+    goto :h5f4_cube_done
+)
 if exist "D:\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" set "PATH=D:\STM32CubeProgrammer\bin;%PATH%"
 if exist "%ProgramFiles%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" set "PATH=%ProgramFiles%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin;%PATH%"
 if exist "%H5F4_PF86%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" set "PATH=%H5F4_PF86%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin;%PATH%"
@@ -29,6 +33,7 @@ if exist "C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\
 if exist "C:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" set "PATH=C:\ST\STM32CubeProgrammer\bin;%PATH%"
 if exist "%ProgramFiles%\STMicroelectronics\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" set "PATH=%ProgramFiles%\STMicroelectronics\STM32CubeProgrammer\bin;%PATH%"
 if exist "%LOCALAPPDATA%\Programs\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" set "PATH=%LOCALAPPDATA%\Programs\STM32CubeProgrammer\bin;%PATH%"
+:h5f4_cube_done
 for /d %%D in ("%ProgramFiles%\SEGGER\JLink*") do if exist "%%~D\JLinkARM.dll" set "PATH=%%~D;%PATH%"
 
 set "H5F4_PATH_DONE=1"

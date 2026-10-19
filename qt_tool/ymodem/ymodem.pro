@@ -34,7 +34,8 @@ SOURCES += \
     firmware/FirmwarePassword.cpp \
     firmware/FileHashWidget.cpp \
     firmware/FirmwarePackWidget.cpp \
-    download/ProgramDownloadWidget.cpp
+    download/ProgramDownloadWidget.cpp \
+    download/DaObk.cpp
 
 HEADERS += \
     TMX_TOOL.h \
@@ -56,7 +57,8 @@ HEADERS += \
     firmware/FirmwarePassword.h \
     firmware/FileHashWidget.h \
     firmware/FirmwarePackWidget.h \
-    download/ProgramDownloadWidget.h
+    download/ProgramDownloadWidget.h \
+    download/DaObk.h
 
 FORMS += \
     tmx_tool.ui

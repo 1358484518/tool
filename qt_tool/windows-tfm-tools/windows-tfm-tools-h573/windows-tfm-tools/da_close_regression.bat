@@ -32,6 +32,10 @@ if not "%~1"=="" (
 
 echo.
 echo [1/8] Locate STM32_Programmer_CLI
+if defined STM32_PROGRAMMER_CLI if exist "%STM32_PROGRAMMER_CLI%" (
+    for %%I in ("%STM32_PROGRAMMER_CLI%") do set "CUBEPROG=%%~dpI"
+    goto :cubeprog_ready
+)
 set "CUBEPROG="
 
 if exist "D:\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" (
@@ -43,6 +47,7 @@ if exist "%ProgramFiles%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\ST
 if not defined CUBEPROG if exist "%ProgramFiles(x86)%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" (
     set "CUBEPROG=%ProgramFiles(x86)%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin"
 )
+:cubeprog_ready
 if defined CUBEPROG (
     echo [info] CubeProgrammer bin = %CUBEPROG%
     set "PATH=%CUBEPROG%;%PATH%"

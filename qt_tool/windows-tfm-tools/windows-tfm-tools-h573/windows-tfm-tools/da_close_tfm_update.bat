@@ -1,13 +1,13 @@
 @echo off
-rem 本文件是 tfm_update.bat 的副本，只给 da_tfm_close.bat 调用。
-rem 内部调用 da_close_regression.bat。不要改原来的 tfm_update.bat。
+rem ??????? tfm_update.bat ?????????? da_tfm_close.bat ??????
+rem ??????? da_close_regression.bat???????????? tfm_update.bat??
 rem ****************************************************************************
 rem  * STM32H573I-DK TF-M flash after regression (Windows)
 rem  *
 rem  * 1) Run da_close_regression.bat (option bytes + erase + OEM-iRoT)
 rem  * 2) If present in current dir (or this script's dir), download:
-rem  *      bl2.hex                 Intel HEX, address inside the file
-rem  *                              (BL2 bin at 0x0C00E000 / hex often 0x0800E000)
+rem  *      bl2.bin                 preferred, written at 0x0C00E000
+rem  *      bl2.hex                 only if no bin; addresses inside the file
 rem  *      tfm_s_signed.hex/.bin   S 512 KB @ 0x0C044000 (preferred)
 rem  *      tfm_ns_signed.bin       NS 1 MB  @ 0x0C100000 (Bank2)
 rem  *      tfm_s_ns_signed.hex     fallback only: S+NS concatenated with no
@@ -66,6 +66,10 @@ echo [ok]   regression finished
 echo.
 
 echo [2] Locate STM32_Programmer_CLI
+if defined STM32_PROGRAMMER_CLI if exist "%STM32_PROGRAMMER_CLI%" (
+    for %%I in ("%STM32_PROGRAMMER_CLI%") do set "CUBEPROG=%%~dpI"
+    goto :cubeprog_ready
+)
 set "CUBEPROG="
 if exist "D:\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" (
     set "CUBEPROG=D:\STM32CubeProgrammer\bin"
@@ -76,6 +80,7 @@ if exist "%ProgramFiles%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\ST
 if not defined CUBEPROG if exist "%ProgramFiles(x86)%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe" (
     set "CUBEPROG=%ProgramFiles(x86)%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin"
 )
+:cubeprog_ready
 if defined CUBEPROG set "PATH=%CUBEPROG%;%PATH%"
 where STM32_Programmer_CLI >nul 2>&1
 if errorlevel 1 (
@@ -97,15 +102,18 @@ if defined SN_ARG (
 
 echo [3] Scan images in current directory
 set "FOUND_ANY=0"
-call :note_file bl2.hex            "BL2  %ADDR_BL2%  (hex uses file addresses)"
+call :note_file bl2.bin            "BL2  %ADDR_BL2%"
+call :note_file bl2.hex            "BL2  hex, used only when bl2.bin is absent"
 call :note_file tfm_s_signed.hex   "S    %ADDR_S%    (hex uses file addresses)"
 call :note_file tfm_s_signed.bin   "S    %ADDR_S%"
 call :note_file tfm_ns_signed.bin  "NS   %ADDR_NS%"
 call :note_file tfm_s_ns_signed.hex "fallback S+NS, NS offset is wrong"
 echo.
 
+if defined TFM_NS_IMAGE set "FOUND_ANY=1"
+if defined TFM_BL2_IMAGE set "FOUND_ANY=1"
 if "%FOUND_ANY%"=="0" (
-    echo [FAIL] no bl2.hex / tfm_s_signed / tfm_ns_signed.bin in:
+    echo [FAIL] no bl2.bin / bl2.hex / tfm_s_signed / tfm_ns_signed.bin in:
     echo        %CD%
     echo        %~dp0
     set "FAILED_STEP=no image files"
@@ -137,7 +145,7 @@ call :flash_hex "!FILE!" S-NS-signed-fallback
 if errorlevel 1 goto :finish
 
 :after_s
-rem TFM_NS_IMAGE 由界面传入，用来替换默认的 tfm_ns_signed.bin。地址仍是 ADDR_NS。
+rem TFM_NS_IMAGE ?????????????I???? tfm_ns_signed.bin????????? ADDR_NS??
 if not defined TFM_NS_IMAGE goto :ns_default
 if not exist "%TFM_NS_IMAGE%" (
     echo [FAIL] TFM_NS_IMAGE not found: %TFM_NS_IMAGE%
@@ -156,9 +164,45 @@ call :flash_bin "!FILE!" %ADDR_NS% NS-signed
 if errorlevel 1 goto :finish
 :after_ns
 
-call :find_file bl2.hex
-if errorlevel 1 goto :after_bl2
-call :flash_hex "!FILE!" BL2
+rem TFM_BL2_IMAGE replaces the search below. A hex keeps the addresses in the file.
+rem A bin is written at ADDR_BL2. Empty prefers bl2.bin, then bl2.hex.
+if not defined TFM_BL2_IMAGE goto :bl2_default
+if not exist "%TFM_BL2_IMAGE%" (
+    echo [FAIL] TFM_BL2_IMAGE not found: %TFM_BL2_IMAGE%
+    set "FAILED_STEP=TFM_BL2_IMAGE"
+    set "EXIT_CODE=1"
+    goto :finish
+)
+for %%I in ("%TFM_BL2_IMAGE%") do set "BL2_EXT=%%~xI"
+if /i "!BL2_EXT!"==".hex" (
+    call :flash_hex "%TFM_BL2_IMAGE%" BL2
+) else (
+    call :flash_bin "%TFM_BL2_IMAGE%" %ADDR_BL2% BL2
+)
+if errorlevel 1 goto :finish
+goto :after_bl2
+:bl2_default
+set "BL2_FILE="
+set "BL2_HEX="
+for %%D in ("%CD%" "%~dp0.") do (
+    if not defined BL2_FILE if exist "%%~fD\bl2.bin" set "BL2_FILE=%%~fD\bl2.bin"
+)
+for %%D in ("%CD%" "%~dp0.") do (
+    if not defined BL2_FILE if not defined BL2_HEX if exist "%%~fD\bl2.hex" set "BL2_HEX=%%~fD\bl2.hex"
+)
+for %%D in ("%~dp0build_s" "%~dp0build_s\bin" "%~dp0build_s\api_ns\bin" "%~dp0build_ns" "%~dp0build_ns\bin") do (
+    if not defined BL2_FILE if not defined BL2_HEX if exist "%%~fD\bl2.bin" set "BL2_FILE=%%~fD\bl2.bin"
+)
+for %%D in ("%~dp0build_s" "%~dp0build_s\bin" "%~dp0build_s\api_ns\bin" "%~dp0build_ns" "%~dp0build_ns\bin") do (
+    if not defined BL2_FILE if not defined BL2_HEX if exist "%%~fD\bl2.hex" set "BL2_HEX=%%~fD\bl2.hex"
+)
+if defined BL2_FILE goto :bl2_flash_bin
+if not defined BL2_HEX goto :after_bl2
+call :flash_hex "%BL2_HEX%" BL2
+if errorlevel 1 goto :finish
+goto :after_bl2
+:bl2_flash_bin
+call :flash_bin "%BL2_FILE%" %ADDR_BL2% BL2
 if errorlevel 1 goto :finish
 :after_bl2
 
@@ -290,8 +334,8 @@ if not "%EXIT_CODE%"=="0" (
     echo ============================================================
 )
 echo.
-rem 总脚本 da_tfm_close.bat 会设 TFM_OUTER_NO_PAUSE=1。这时末尾不 pause，把退出码交回外层。
-rem 单独双击本脚本时没有这个变量，仍然 pause，窗口不会自己关掉。
+rem ???? da_tfm_close.bat ???? TFM_OUTER_NO_PAUSE=1?????????? pause??????????????
+rem ???????????????????????????? pause?????????????????
 if /i "%TFM_OUTER_NO_PAUSE%"=="1" (
     endlocal & exit /b %EXIT_CODE%
 )
