@@ -90,6 +90,7 @@ private:
     void useDefaultApp(QLineEdit *edit);     // 清空这条路径并保存，空着表示用脚本默认
     void setScriptRunning(ChipPanel *panel, bool running);  // 跑脚本时禁用本组按钮；任一组在跑就锁共用编程器路径
     void runScript(ChipPanel *panel, const QString &path);  // 用 cmd 跑脚本，输出进该分区日志
+    bool confirmEraseReset();               // 擦除前用红字提醒接上 ST-LINK 和单片机复位线，确定才继续
     void stopProcessTree(ChipPanel *panel);  // 结束 cmd 以及它启动的 STM32_Programmer_CLI
     void takeScriptOutput(ChipPanel *panel);  // 读出已到的一整行并追加
     void finishScript(ChipPanel *panel, int exitCode, bool crashed);  // 脚本结束，恢复执行和改路径

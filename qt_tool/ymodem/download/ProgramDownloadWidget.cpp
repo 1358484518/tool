@@ -189,7 +189,11 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
                     this, &ProgramDownloadWidget::applyBootChoice);
         }
         connect(chip->download, &QPushButton::clicked, this, [this, chip]() { runScript(chip, chip->path->text()); });
-        connect(chip->erase, &QPushButton::clicked, this, [this, chip]() { runScript(chip, chip->erasePath->text()); });
+        connect(chip->erase, &QPushButton::clicked, this, [this, chip]() {
+            if (!confirmEraseReset())
+                return;
+            runScript(chip, chip->erasePath->text());
+        });
         connect(chip->saveLog, &QPushButton::clicked, this, [this, chip]() { saveLog(chip); });
         connect(chip->clearLog, &QPushButton::clicked, this, [this, chip]() { clearLog(chip); });
         QLineEdit *edits[] = {chip->path, chip->erasePath, chip->appPath};
@@ -499,6 +503,22 @@ void ProgramDownloadWidget::setScriptRunning(ChipPanel *panel, bool running)
     const bool cubeBusy = m_h573.process || m_h5f4.process;
     m_changeCube->setEnabled(!cubeBusy);
     m_defaultCube->setEnabled(!cubeBusy);
+}
+
+bool ProgramDownloadWidget::confirmEraseReset()
+{
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Warning);
+    box.setWindowTitle(tr("Erase"));
+    box.setTextFormat(Qt::RichText);
+    // 回归要接上 ST-LINK 并拉复位线。红字单独写出来，避免被主题色盖掉。
+    box.setText(QStringLiteral("<span style=\"color:#ff0000;\">%1</span>")
+                    .arg(tr("Before erase, connect ST-LINK to the MCU and connect the reset line to NRST.\nClick OK after both are connected.")
+                             .toHtmlEscaped()
+                             .replace(QLatin1Char('\n'), QStringLiteral("<br>"))));
+    box.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Ok);
+    return box.exec() == QMessageBox::Ok;
 }
 
 void ProgramDownloadWidget::runScript(ChipPanel *panel, const QString &path)

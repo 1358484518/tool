@@ -53,6 +53,7 @@ public:
             {"Download Script Path:", "下载脚本路径:"},
             {"Erase", "擦除"},
             {"Run Erase", "执行擦除"},
+            {"Before erase, connect ST-LINK to the MCU and connect the reset line to NRST.\nClick OK after both are connected.", "擦除前请接好两根线：ST-LINK 接到单片机，复位线接到单片机 NRST。\n接好后点确定开始擦除。"},
             {"Erase Script Path:", "擦除脚本路径:"},
             {"Change Path", "修改路径"},
             {"App Program:", "应用程序:"},
