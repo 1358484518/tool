@@ -36,7 +36,7 @@ public:
     ~SerialAssistant() override;                          // 把当前参数写回配置
 
     QString selectedPortName() const;                     // 下拉框里当前选中的 COM 口
-    qint32 selectedBaudRate() const;                      // 当前波特率
+    qint32 selectedBaudRate() const;                      // 当前波特率，以输入框里的数字为准
     QSerialPort::DataBits selectedDataBits() const;       // 当前数据位
     QSerialPort::Parity selectedParity() const;           // 当前校验位
     QSerialPort::StopBits selectedStopBits() const;       // 当前停止位
@@ -67,7 +67,9 @@ public slots:
     void appendReceivedData(const QByteArray &data);      // 把原始字节按 HEX/文本选项显示出来
 
 private slots:
-    void onOpenCloseClicked();                            // 打开/关闭按钮：按当前状态发请求
+    void onOpenCloseClicked();                            // 打开前先确认波特率，再按连接状态发请求
+    void onBaudIndexChanged(int index);                   // 从列表点选时记住这档，非法输入才能退回
+    void commitBaudEdit();                                // 校验输入框，合法就选中，新的自定义档立刻写入配置
     void onSendClicked();                                 // 发送按钮：组包后发 sendDataRequested
     void onAutoSendToggled(bool enabled);                 // 定时发送开关
     void onAutoSendTimer();                               // 定时器到点再发一次
@@ -90,7 +92,11 @@ protected:
 private:
     void setupUi();                                       // 拼左右面板、接收区、发送页签
     void retranslateUi();                                 // 按当前语言重写本页控件文字
-    void populateBaudRates();                             // 填波特率下拉
+    void populateBaudRates();                             // 填常用波特率，并允许输入自定义值
+    void insertBaudRate(qint32 baud);                     // 按数值把一档插进下拉，已有则跳过
+    void selectBaudRate(qint32 baud);                     // 选中这一档，没有就先插入
+    void updateBaudToolTip();                             // 按当前语言刷新波特率输入提示
+    bool baudFromText(const QString &text, qint32 *baud) const;  // 文本是否为允许范围内的整数波特率
     void populateDataBits();                              // 填数据位
     void populateParity();                                // 填校验位
     void populateStopBits();                              // 填停止位
@@ -105,8 +111,8 @@ private:
 
     void importCsvFile(const QString &fileName, bool interactive);  // 读 CSV 填表，interactive 决定是否弹错
     void exportCsvFile(const QString &fileName, bool interactive);  // 把表写成 CSV
-    void loadSettings();                                  // 从 QSettings 恢复上次串口参数
-    void saveSettings();                                  // 把当前参数写入 QSettings
+    void loadSettings();                                  // 从 QSettings 恢复上次串口参数和自定义波特率
+    void saveSettings();                                  // 把当前参数和自定义波特率写入 QSettings
     void setAutoSaveEnabled(bool enabled);                // 打开或关掉接收内容自动追加
     bool openAutoSave();                                  // 按当前日志目录打开追加文件，失败则取消勾选
     void appendAutoSave(const QString &text);             // 把刚显示的接收文字追加进文件
@@ -189,6 +195,9 @@ private:
     QLabel *m_intervalLabel = nullptr;    // 定时发送间隔
     QLabel *m_lineEndLabel = nullptr;     // 行结束符
     QFile *m_autoSaveFile = nullptr;      // 自动保存打开时追加写入，关掉就释放
+    QList<qint32> m_customBaudRates;      // 用户输入过、需要写进配置的波特率
+    qint32 m_lastValidBaud = 115200;      // 最近一次合法波特率，非法输入时退回这一档
+    bool m_baudEditLock = false;          // 正在改下拉框，避免 editingFinished 重入
 };
 
 #endif // SERIALASSISTANT_H

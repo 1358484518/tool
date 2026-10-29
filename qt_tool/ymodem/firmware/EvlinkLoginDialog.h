@@ -8,7 +8,7 @@ class QLineEdit;
 class QPushButton;
 
 /**
- * evlink 登录窗。固件页和程序下载页还没登录成功时，点页签弹出这一层。
+ * evlink 登录窗。固件页还没登录成功时，点页签弹出这一层。程序下载页不弹。
  * 只收集邮箱和密码，登录请求由固件页发出。取消则不改已保存的账号。
  */
 class EvlinkLoginDialog : public QDialog

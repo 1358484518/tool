@@ -151,7 +151,8 @@ void SerialManager::close()
 
     if (m_state != Disconnected) {
         setState(Disconnected);
-        emit portDisconnected();
+        // 用户点的关闭，通知界面不要当成掉线重连。
+        emit portDisconnected(true);
     }
 }
 
@@ -262,7 +263,8 @@ void SerialManager::handlePortError(int error, const QString &errorString)
         m_readBufferTimer->stop();
     flushReceiveBuffer();
     setState(Disconnected);
-    emit portDisconnected();
+    // 不是用户关闭。界面按是否勾了自动重连决定文案。
+    emit portDisconnected(false);
     destroySerialPort();
 
     if (m_config.autoReconnect && !m_manualClose) {

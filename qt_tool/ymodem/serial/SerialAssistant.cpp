@@ -12,7 +12,10 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QKeyEvent>
+#include <QLineEdit>
 #include <QMessageBox>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QScrollBar>
 #include <QSettings>
 #include <QTextCodec>
@@ -20,6 +23,30 @@
 #include <QTextStream>
 #include <QTimer>
 #include <algorithm>
+
+namespace {
+
+constexpr int kMinBaudRate = 50;        // 自定义波特率下限
+constexpr int kMaxBaudRate = 12000000;  // 自定义波特率上限，再大的数多半不是串口速率
+
+const QList<int> &builtinBaudRates()  // 固定波特率，按数值从小到大
+{
+    static const QList<int> rates = {
+        1200, 2400, 4800, 9600,
+        19200, 38400, 43000, 57600, 76800,
+        115200, 128000, 230400, 256000,
+        460800, 921600,
+        1000000, 1500000, 2000000, 3000000
+    };
+    return rates;
+}
+
+bool isBuiltinBaudRate(int baud)  // 是否为下拉里的固定档
+{
+    return builtinBaudRates().contains(baud);
+}
+
+} // namespace
 
 SerialAssistant::SerialAssistant(QWidget *parent)
     : QWidget(parent)
@@ -444,6 +471,7 @@ void SerialAssistant::retranslateUi()
     m_portLabel->setText(tr("Port:"));
     m_refreshBtn->setToolTip(tr("Refresh port list"));
     m_baudLabel->setText(tr("Baud:"));
+    updateBaudToolTip();
     m_stopLabel->setText(tr("Stop:"));
     m_dataLabel->setText(tr("Data:"));
     m_parityLabel->setText(tr("Parity:"));
@@ -490,9 +518,105 @@ void SerialAssistant::retranslateUi()
 
 void SerialAssistant::populateBaudRates()
 {
-    QList<qint32> baudRates = {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
-    for (qint32 baud : baudRates) m_baudCombo->addItem(QString::number(baud), baud);
-    m_baudCombo->setCurrentText("115200");
+    m_baudCombo->setEditable(true);
+    // 自己按数值插入。默认策略会把输入文本再追加一条，和已有档重复。
+    m_baudCombo->setInsertPolicy(QComboBox::NoInsert);
+    for (int baud : builtinBaudRates())
+        m_baudCombo->addItem(QString::number(baud), baud);
+
+    if (QLineEdit *edit = m_baudCombo->lineEdit()) {
+        edit->setValidator(new QRegularExpressionValidator(
+            QRegularExpression(QStringLiteral("\\d{0,8}")), edit));
+        connect(edit, &QLineEdit::editingFinished, this, &SerialAssistant::commitBaudEdit);
+    }
+    connect(m_baudCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &SerialAssistant::onBaudIndexChanged);
+    selectBaudRate(115200);
+    updateBaudToolTip();
+}
+
+void SerialAssistant::insertBaudRate(qint32 baud)
+{
+    if (m_baudCombo->findData(baud) >= 0)
+        return;
+    int row = 0;
+    // 按数值插入，自定义档不堆在列表末尾。
+    while (row < m_baudCombo->count() && m_baudCombo->itemData(row).toInt() < baud)
+        ++row;
+    m_baudCombo->insertItem(row, QString::number(baud), baud);
+}
+
+void SerialAssistant::selectBaudRate(qint32 baud)
+{
+    insertBaudRate(baud);
+    const int idx = m_baudCombo->findData(baud);
+    if (idx >= 0)
+        m_baudCombo->setCurrentIndex(idx);
+    m_lastValidBaud = baud;
+}
+
+void SerialAssistant::updateBaudToolTip()
+{
+    m_baudCombo->setToolTip(tr("Type an integer from %1 to %2 to add a custom baud rate")
+                                .arg(kMinBaudRate)
+                                .arg(kMaxBaudRate));
+}
+
+bool SerialAssistant::baudFromText(const QString &text, qint32 *baud) const
+{
+    bool ok = false;
+    const int value = text.trimmed().toInt(&ok);
+    // 只拦明显无效的数。芯片和 USB 转串口各自还有上限，打不开时由串口后端报错。
+    if (!ok || value < kMinBaudRate || value > kMaxBaudRate)
+        return false;
+    if (baud)
+        *baud = value;
+    return true;
+}
+
+void SerialAssistant::onBaudIndexChanged(int index)
+{
+    if (m_baudEditLock || index < 0)
+        return;
+    qint32 baud = 0;
+    // 点列表时输入框还没失焦，先记住这档，后面输入非法才能退回来。
+    if (!baudFromText(m_baudCombo->itemText(index), &baud))
+        return;
+    m_lastValidBaud = baud;
+}
+
+void SerialAssistant::commitBaudEdit()
+{
+    // setCurrentIndex 会让输入框再发一次 editingFinished，重入时直接返回。
+    // 下拉列表弹出来时输入框也会失焦，这时还没输完，不能当成一次提交。
+    if (m_baudEditLock || m_baudCombo->view()->isVisible())
+        return;
+
+    qint32 baud = 0;
+    if (!baudFromText(m_baudCombo->currentText(), &baud)) {
+        showStatusMessage(tr("Baud rate must be an integer from %1 to %2")
+                              .arg(kMinBaudRate)
+                              .arg(kMaxBaudRate));
+        m_baudEditLock = true;
+        const int idx = m_baudCombo->findData(m_lastValidBaud);
+        if (idx >= 0)
+            m_baudCombo->setCurrentIndex(idx);
+        else
+            m_baudCombo->setEditText(QString::number(m_lastValidBaud));
+        m_baudEditLock = false;
+        return;
+    }
+
+    const bool newlyAdded = !isBuiltinBaudRate(baud) && !m_customBaudRates.contains(baud);
+    m_baudEditLock = true;
+    selectBaudRate(baud);
+    m_baudEditLock = false;
+    if (!newlyAdded)
+        return;
+
+    m_customBaudRates.append(baud);
+    // 自定义档马上落盘。只等析构保存的话，异常退出会把新档丢掉。
+    saveSettings();
 }
 
 void SerialAssistant::populateDataBits()
@@ -594,7 +718,13 @@ QString SerialAssistant::csvEscape(const QString &field)
 }
 
 QString SerialAssistant::selectedPortName() const { return m_portCombo->currentData().toString(); }
-qint32 SerialAssistant::selectedBaudRate() const { return m_baudCombo->currentData().toInt(); }
+qint32 SerialAssistant::selectedBaudRate() const
+{
+    qint32 baud = 0;
+    if (baudFromText(m_baudCombo->currentText(), &baud))
+        return baud;
+    return m_lastValidBaud;
+}
 QSerialPort::DataBits SerialAssistant::selectedDataBits() const { return static_cast<QSerialPort::DataBits>(m_dataBitsCombo->currentData().toInt()); }
 QSerialPort::Parity SerialAssistant::selectedParity() const { return static_cast<QSerialPort::Parity>(m_parityCombo->currentData().toInt()); }
 QSerialPort::StopBits SerialAssistant::selectedStopBits() const { return static_cast<QSerialPort::StopBits>(m_stopBitsCombo->currentData().toInt()); }
@@ -707,6 +837,8 @@ QByteArray SerialAssistant::getReceiveText()
 void SerialAssistant::onOpenCloseClicked()
 {
     if (!m_isConnected) {
+        // 点打开时输入框可能还没失焦，先把当前文本收成一档再读波特率。
+        commitBaudEdit();
         if (m_portCombo->currentData().toString().isEmpty()) {
             QMessageBox::warning(this, tr("Warning"), tr("Please select a serial port first!"));
             return;
@@ -1030,13 +1162,35 @@ void SerialAssistant::loadSettings()
             m_portCombo->setCurrentIndex(idx);
     }
 
+    const QVariantList storedCustom = settings.value(QStringLiteral("customBauds")).toList();
+    for (const QVariant &value : storedCustom) {
+        bool ok = false;
+        const int raw = value.toInt(&ok);
+        qint32 baud = 0;
+        if (!ok || !baudFromText(QString::number(raw), &baud))
+            continue;
+        if (isBuiltinBaudRate(baud) || m_customBaudRates.contains(baud))
+            continue;
+        m_customBaudRates.append(baud);
+        insertBaudRate(baud);
+    }
+
+    qint32 storedBaud = 0;
+    // 旧配置只存了当前值。自定义档不在列表里时补上，下次下拉还能看到。
+    if (baudFromText(settings.value(QStringLiteral("baud"), 115200).toString(), &storedBaud)) {
+        if (!isBuiltinBaudRate(storedBaud) && !m_customBaudRates.contains(storedBaud)) {
+            m_customBaudRates.append(storedBaud);
+            insertBaudRate(storedBaud);
+        }
+        selectBaudRate(storedBaud);
+    }
+
     auto restoreCombo = [&settings](QComboBox *combo, const QString &key, const QVariant &fallback) {
         const QVariant stored = settings.value(key, fallback);
         const int idx = combo->findData(stored);
         if (idx >= 0)
             combo->setCurrentIndex(idx);
     };
-    restoreCombo(m_baudCombo, QStringLiteral("baud"), 115200);
     restoreCombo(m_dataBitsCombo, QStringLiteral("dataBits"), static_cast<int>(QSerialPort::Data8));
     restoreCombo(m_parityCombo, QStringLiteral("parity"), static_cast<int>(QSerialPort::NoParity));
     restoreCombo(m_stopBitsCombo, QStringLiteral("stopBits"), static_cast<int>(QSerialPort::OneStop));
@@ -1060,6 +1214,10 @@ void SerialAssistant::saveSettings()
     settings.beginGroup(QStringLiteral("Serial"));
     settings.setValue(QStringLiteral("port"), selectedPortName());
     settings.setValue(QStringLiteral("baud"), selectedBaudRate());
+    QVariantList customBauds;
+    for (qint32 baud : m_customBaudRates)
+        customBauds.append(baud);
+    settings.setValue(QStringLiteral("customBauds"), customBauds);
     settings.setValue(QStringLiteral("dataBits"), static_cast<int>(selectedDataBits()));
     settings.setValue(QStringLiteral("parity"), static_cast<int>(selectedParity()));
     settings.setValue(QStringLiteral("stopBits"), static_cast<int>(selectedStopBits()));

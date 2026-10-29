@@ -71,7 +71,7 @@ signals:
     void dataReceived(const QByteArray &data);  // 原始字节，YModem 订这个
     void errorOccurred(int error, const QString &errorString);  // error 即 QSerialPort::SerialPortError
     void portConnected();       // 打开成功
-    void portDisconnected();    // 关掉或掉线
+    void portDisconnected(bool manualClose);  // manualClose 为真是用户点关闭，界面不要提示重连
     void openResult(bool ok, const QString &errorString);       // 给 UI 弹失败原因
 
 private slots:

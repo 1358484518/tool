@@ -181,6 +181,8 @@ public:
             {"Port:", "端口:"},
             {"Refresh port list", "刷新端口列表"},
             {"Baud:", "波特率:"},
+            {"Type an integer from %1 to %2 to add a custom baud rate", "输入 %1 到 %2 的整数，作为自定义波特率"},
+            {"Baud rate must be an integer from %1 to %2", "波特率须为 %1 到 %2 的整数"},
             {"Stop:", "停止位:"},
             {"Data:", "数据位:"},
             {"Parity:", "校验位:"},

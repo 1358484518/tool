@@ -22,7 +22,7 @@ class IoSource;
 /**
  * 主窗口：页签是串口、网络、固件、程序下载、设置，下面管串口工作线程和 YModem。
  * 自己不读写串口或套接字，只把 UI 信号转到后端。
- * 固件和程序下载要等 evlink 登录成功才能打开。失败时停在第一页，再点这两个页会弹出登录窗。
+ * 固件页要等 evlink 登录成功才能打开。失败时停在第一页，再点固件页会弹出登录窗。程序下载页不拦。
  */
 class TMX_TOOL : public QWidget
 {
@@ -39,11 +39,11 @@ protected:
     void changeEvent(QEvent *event) override;  // 语言切换时刷新标题和页签
 
 private:
-    void initUi();              // 建页签，把串口 UI 信号接到 SerialManager，并按登录结果拦两个页
-    void onTabChanged(int index);  // 未登录时挡回固件和程序下载；登录中先记下要点的页
+    void initUi();              // 建页签，把串口 UI 信号接到 SerialManager，并按登录结果拦固件页
+    void onTabChanged(int index);  // 未登录时挡回固件页；登录中先记下要点的页
     void onGateLoginFinished(bool ok, const QString &message);  // 启动登录成功打开启动页；点过的页失败后再弹登录窗
     void showTab(int index);    // 切页，不再次进入拦截
-    bool isGuardedTab(int index) const;  // 固件页和程序下载页
+    bool isGuardedTab(int index) const;  // 只有固件页要登录，程序下载页不拦
     void retranslateUi();       // 按当前语言重写窗口标题和页签
     void initSerialBackend();   // 创建 SerialManager 并移到工作线程
     void initYmodemBridge();    // 串口页「YModem 发送」接到传输线程

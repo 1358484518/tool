@@ -120,7 +120,7 @@ void TMX_TOOL::initUi()
     m_tool_tab->addTab(m_program_ui, tr("Program Download"));
     m_tool_tab->addTab(m_settings_ui, tr("Settings"));
     // 下拉 data 与页签序号一致：0 串口、1 网络、2 固件、3 程序下载、4 设置。
-    // 启动页若是还没登录的两个页，先停在第一页，等登录成功再过去。
+    // 启动页若是还没登录的固件页，先停在第一页，等登录成功再过去。程序下载页直接打开。
     const int startup = m_settings_ui->startupTab();
     if (isGuardedTab(startup))
         m_tool_tab->setCurrentIndex(0);
@@ -186,9 +186,10 @@ void TMX_TOOL::initUi()
         m_serial_ui->setConnectionState(true);
         m_serial_ui->showStatusMessage(tr("Connected to %1").arg(m_serial_ui->selectedPortName()));
     });
-    connect(m_serial_operate, &SerialManager::portDisconnected, this, [this]() {
+    connect(m_serial_operate, &SerialManager::portDisconnected, this, [this](bool manualClose) {
         m_serial_ui->setConnectionState(false);
-        if (m_serial_ui->autoReconnectEnabled())
+        // 主动关闭已经停掉重连，不能再提示正在重连。
+        if (!manualClose && m_serial_ui->autoReconnectEnabled())
             m_serial_ui->showStatusMessage(tr("Port lost, reconnecting..."));
         else
             m_serial_ui->showStatusMessage(tr("Disconnected"));
@@ -211,7 +212,7 @@ void TMX_TOOL::initUi()
 
 bool TMX_TOOL::isGuardedTab(int index) const
 {
-    return index == 2 || index == 3;
+    return index == 2;
 }
 
 void TMX_TOOL::showTab(int index)
