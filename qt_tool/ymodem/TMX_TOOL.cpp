@@ -1,6 +1,7 @@
 #include "TMX_TOOL.h"
 #include "ui_tmx_tool.h"
 #include "network/NetAssistWidget.h"
+#include "ftp/FtpWidget.h"
 #include "firmware/FirmwareWidget.h"
 #include "download/ProgramDownloadWidget.h"
 #include "SettingsWidget.h"
@@ -105,6 +106,7 @@ void TMX_TOOL::initUi()
 {
     m_serial_ui = new SerialAssistant(this);
     m_net_ui = new NetAssistWidget(this);
+    m_ftp_ui = new FtpWidget(this);
     m_settings_ui = new SettingsWidget(this);
     m_firmware_ui = new FirmwareWidget(this);
     m_program_ui = new ProgramDownloadWidget(this);
@@ -115,12 +117,13 @@ void TMX_TOOL::initUi()
     m_tool_tab->tabBar()->setExpanding(true);
     m_tool_tab->addTab(m_serial_ui, tr("Serial"));
     m_tool_tab->addTab(m_net_ui, tr("Network"));
+    m_tool_tab->addTab(m_ftp_ui, tr("FTP / TFTP"));
     m_tool_tab->addTab(m_firmware_ui, tr("Firmware"));
 
     m_tool_tab->addTab(m_program_ui, tr("Program Download"));
     m_tool_tab->addTab(m_settings_ui, tr("Settings"));
-    // 下拉 data 与页签序号一致：0 串口、1 网络、2 固件、3 程序下载、4 设置。
-    // 启动页若是还没登录的固件页，先停在第一页，等登录成功再过去。程序下载页直接打开。
+    // 下拉 data 与页签序号一致：0 串口、1 网络、2 FTP、3 固件、4 程序下载、5 设置。
+    // 启动页若是还没登录的固件页，先停在第一页，等登录成功再过去。FTP 和程序下载直接打开。
     const int startup = m_settings_ui->startupTab();
     if (isGuardedTab(startup))
         m_tool_tab->setCurrentIndex(0);
@@ -212,7 +215,7 @@ void TMX_TOOL::initUi()
 
 bool TMX_TOOL::isGuardedTab(int index) const
 {
-    return index == 2;
+    return index == 3;
 }
 
 void TMX_TOOL::showTab(int index)
@@ -293,9 +296,10 @@ void TMX_TOOL::retranslateUi()
         return;
     m_tool_tab->setTabText(0, tr("Serial"));
     m_tool_tab->setTabText(1, tr("Network"));
-    m_tool_tab->setTabText(2, tr("Firmware"));
-    m_tool_tab->setTabText(3, tr("Program Download"));
-    m_tool_tab->setTabText(4, tr("Settings"));
+    m_tool_tab->setTabText(2, tr("FTP / TFTP"));
+    m_tool_tab->setTabText(3, tr("Firmware"));
+    m_tool_tab->setTabText(4, tr("Program Download"));
+    m_tool_tab->setTabText(5, tr("Settings"));
 }
 
 IoSource *TMX_TOOL::serialIoSource() const

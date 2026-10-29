@@ -84,6 +84,7 @@ void SettingsWidget::setupUi()
     m_startupCombo->addItem(QString(), 2);
     m_startupCombo->addItem(QString(), 3);
     m_startupCombo->addItem(QString(), 4);
+    m_startupCombo->addItem(QString(), 5);
     grid->addWidget(m_startupCombo, 0, 1);
 
     m_languageLabel = new QLabel(group);
@@ -133,6 +134,13 @@ void SettingsWidget::loadSettings()
             tab = 3;
         settings.setValue(QStringLiteral("startupTab"), tab);
         settings.setValue(QStringLiteral("startupTabMoved"), true);
+    }
+    // FTP 插到序号 2，固件以及后面的页各加 1。已保存的启动页按这个改一次。
+    if (!settings.value(QStringLiteral("startupTabFtp"), false).toBool()) {
+        if (tab >= 2)
+            ++tab;
+        settings.setValue(QStringLiteral("startupTab"), tab);
+        settings.setValue(QStringLiteral("startupTabFtp"), true);
     }
     const int idx = m_startupCombo->findData(tab);
     if (idx >= 0)
@@ -199,9 +207,10 @@ void SettingsWidget::retranslateUi()
     m_startupLabel->setText(tr("Startup Page:"));
     m_startupCombo->setItemText(0, tr("Serial"));
     m_startupCombo->setItemText(1, tr("Network"));
-    m_startupCombo->setItemText(2, tr("Firmware"));
-    m_startupCombo->setItemText(3, tr("Program Download"));
-    m_startupCombo->setItemText(4, tr("Settings"));
+    m_startupCombo->setItemText(2, tr("FTP / TFTP"));
+    m_startupCombo->setItemText(3, tr("Firmware"));
+    m_startupCombo->setItemText(4, tr("Program Download"));
+    m_startupCombo->setItemText(5, tr("Settings"));
     m_languageLabel->setText(tr("Language:"));
     m_languageCombo->setItemText(0, tr("English"));
     m_languageCombo->setItemText(1, tr("Chinese"));

@@ -14,13 +14,14 @@ namespace Ui { class TMX_TOOL; }
 QT_END_NAMESPACE
 
 class FirmwareWidget;
+class FtpWidget;
 class NetAssistWidget;
 class ProgramDownloadWidget;
 class SettingsWidget;
 class IoSource;
 
 /**
- * 主窗口：页签是串口、网络、固件、程序下载、设置，下面管串口工作线程和 YModem。
+ * 主窗口：页签是串口、网络、FTP、固件、程序下载、设置，下面管串口工作线程和 YModem。
  * 自己不读写串口或套接字，只把 UI 信号转到后端。
  * 固件页要等 evlink 登录成功才能打开。失败时停在第一页，再点固件页会弹出登录窗。程序下载页不拦。
  */
@@ -43,7 +44,7 @@ private:
     void onTabChanged(int index);  // 未登录时挡回固件页；登录中先记下要点的页
     void onGateLoginFinished(bool ok, const QString &message);  // 启动登录成功打开启动页；点过的页失败后再弹登录窗
     void showTab(int index);    // 切页，不再次进入拦截
-    bool isGuardedTab(int index) const;  // 只有固件页要登录，程序下载页不拦
+    bool isGuardedTab(int index) const;  // 只有固件页要登录。FTP 插在网络后面，固件是页签 3
     void retranslateUi();       // 按当前语言重写窗口标题和页签
     void initSerialBackend();   // 创建 SerialManager 并移到工作线程
     void initYmodemBridge();    // 串口页「YModem 发送」接到传输线程
@@ -58,6 +59,7 @@ private:
     SerialManager *m_serial_operate = nullptr;  // 串口后端，无 parent，一直活在工作线程
     SerialAssistant *m_serial_ui = nullptr;
     NetAssistWidget *m_net_ui = nullptr;
+    FtpWidget *m_ftp_ui = nullptr;        // FTP 页，套接字在它自己的工作线程
     SettingsWidget *m_settings_ui = nullptr;  // 设置页：启动页签和日志目录
     FirmwareWidget *m_firmware_ui = nullptr;  // 固件页：拉网站上的固件列表并下载
     ProgramDownloadWidget *m_program_ui = nullptr;  // 程序下载页，独立于串口和固件页

@@ -12,7 +12,7 @@ TFM_TOOLS_ROOT ~= s,\\\\,/,g
 DEFINES += TFM_TOOLS_DIR=\\\"$$TFM_TOOLS_ROOT\\\"
 
 # 源码按模块分目录：app 在根目录，串口/网络/公共工具各放各的目录
-INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network $$PWD/firmware $$PWD/download
+INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network $$PWD/firmware $$PWD/download $$PWD/ftp $$PWD/ftp/tftp
 
 DEFINES += QT_DEPRECATED_WARNINGS
 
@@ -36,7 +36,24 @@ SOURCES += \
     firmware/FileHashWidget.cpp \
     firmware/FirmwarePackWidget.cpp \
     download/ProgramDownloadWidget.cpp \
-    download/DaObk.cpp
+    download/DaObk.cpp \
+    ftp/FtpCommand.cpp \
+    ftp/DataConnection.cpp \
+    ftp/FtpListCommand.cpp \
+    ftp/FtpRetrCommand.cpp \
+    ftp/FtpStorCommand.cpp \
+    ftp/FtpControlConnection.cpp \
+    ftp/FtpServer.cpp \
+    ftp/FtpWorker.cpp \
+    ftp/FtpClientWorker.cpp \
+    ftp/qftp.cpp \
+    ftp/qurlinfo.cpp \
+    ftp/FtpWidget.cpp \
+    ftp/TftpServerWorker.cpp \
+    ftp/TftpClientWorker.cpp \
+    ftp/tftp/TftpProtocol.cpp \
+    ftp/tftp/TftpServer.cpp \
+    ftp/tftp/TftpClient.cpp
 
 HEADERS += \
     TMX_TOOL.h \
@@ -60,7 +77,24 @@ HEADERS += \
     firmware/FileHashWidget.h \
     firmware/FirmwarePackWidget.h \
     download/ProgramDownloadWidget.h \
-    download/DaObk.h
+    download/DaObk.h \
+    ftp/FtpCommand.h \
+    ftp/DataConnection.h \
+    ftp/FtpListCommand.h \
+    ftp/FtpRetrCommand.h \
+    ftp/FtpStorCommand.h \
+    ftp/FtpControlConnection.h \
+    ftp/FtpServer.h \
+    ftp/FtpWorker.h \
+    ftp/FtpClientWorker.h \
+    ftp/qftp.h \
+    ftp/qurlinfo.h \
+    ftp/FtpWidget.h \
+    ftp/TftpServerWorker.h \
+    ftp/TftpClientWorker.h \
+    ftp/tftp/TftpProtocol.h \
+    ftp/tftp/TftpServer.h \
+    ftp/tftp/TftpClient.h
 
 FORMS += \
     tmx_tool.ui
