@@ -58,27 +58,18 @@ QString toolsRoot()  // windows-tfm-tools。程序旁边的那份优先，避免
 #endif
 }
 
-QString acsfParent()  // 含有 ACSF 文件夹的那一层。影子构建在别的盘时用 qmake 写进程序的源码位置
+QString acsfParent()  // 含有 ACSF 的那一层。exe 旁边有 ACSF 就用它，da 也在这一层。没有才用编译时的源码目录
 {
     const QString inside = QStringLiteral("G0/G0-test/windows-tfm-tools/flash_stm32h573.bat");
-#ifdef ACSF_DIR
-    {
-        const QString compiled = QDir::cleanPath(QString::fromUtf8(ACSF_DIR));
-        if (QFileInfo::exists(QDir(compiled).filePath(inside)))
-            return QFileInfo(compiled).dir().absolutePath();
-    }
-#endif
     const QString marker = QStringLiteral("ACSF/") + inside;
-    const QStringList starts = {QCoreApplication::applicationDirPath(), QDir::currentPath()};
-    for (const QString &start : starts) {
-        QDir dir(start);
-        for (int i = 0; i < 8; ++i) {
-            if (QFileInfo::exists(dir.absoluteFilePath(marker)))
-                return dir.absolutePath();
-            if (!dir.cdUp())
-                break;
-        }
-    }
+    const QString besideExe = QDir(appDir()).absoluteFilePath(marker);
+    if (QFileInfo::exists(besideExe))
+        return appDir();
+#ifdef ACSF_DIR
+    const QString compiled = QDir::cleanPath(QString::fromUtf8(ACSF_DIR));
+    if (QFileInfo::exists(QDir(compiled).filePath(inside)))
+        return QFileInfo(compiled).dir().absolutePath();
+#endif
     return QString();
 }
 
@@ -96,6 +87,21 @@ QString existingFile(const QString &root, const QString &relative)  // root 下�
         return QString();
     const QString full = QDir(root).filePath(relative);
     return QFileInfo::exists(full) ? QFileInfo(full).absoluteFilePath() : QString();
+}
+
+QString packagedCopy(const QString &path)  // 旧绝对路径里的 ACSF 或 da 后半段，exe 旁边有同一份就改用那份
+{
+    const QString norm = QDir::fromNativeSeparators(path);
+    const QStringList markers = {QStringLiteral("/ACSF/"), QStringLiteral("/da/")};
+    for (const QString &marker : markers) {
+        const int at = norm.indexOf(marker, 0, Qt::CaseInsensitive);
+        if (at < 0)
+            continue;
+        const QString local = existingFile(appDir(), norm.mid(at + 1));
+        if (!local.isEmpty())
+            return local;
+    }
+    return QString();
 }
 
 QString storedScriptPath(const QString &path)  // 程序目录里存相对程序的路径；否则工具目录里存相对工具目录的路径
@@ -137,8 +143,14 @@ QString resolvedScriptPath(const QString &stored)  // 相对路径先按程序�
         const QString fromAcsf = existingFile(acsfParent(), trimmed);
         if (!fromAcsf.isEmpty())
             return fromAcsf;
+        const QString copied = packagedCopy(trimmed);
+        if (!copied.isEmpty())
+            return copied;
         return QDir::toNativeSeparators(QDir::cleanPath(QDir(appDir()).filePath(trimmed)));
     }
+    const QString copied = packagedCopy(trimmed);
+    if (!copied.isEmpty())
+        return copied;
     if (QFileInfo::exists(trimmed))
         return QFileInfo(trimmed).absoluteFilePath();
     const QString norm = QDir::fromNativeSeparators(trimmed);
@@ -1093,8 +1105,11 @@ void ProgramDownloadWidget::showStoredOrDefault(QLineEdit *edit, const QString &
                                                  const QString &relativeToAcsf)
 {
     if (!saved.isEmpty()) {
-        showPath(edit, saved);
-        return;
+        const QString resolved = resolvedScriptPath(saved);
+        if (QFileInfo::exists(resolved)) {
+            showPath(edit, resolved);
+            return;
+        }
     }
     const QString full = existingFile(acsfParent(), relativeToAcsf);
     if (!full.isEmpty())
@@ -1210,6 +1225,7 @@ void ProgramDownloadWidget::loadSettings()
         showDaMaterial(leaf);
     }
     settings.endGroup();
+    saveSettings();
 }
 
 void ProgramDownloadWidget::saveSettings() const

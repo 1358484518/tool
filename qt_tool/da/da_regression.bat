@@ -65,8 +65,11 @@ echo [info] Auth: !AUTH!
 if /i "!AUTH!"=="PASSWORD" goto :password_auth
 
 echo [info] Certificate regression
-STM32_Programmer_CLI -c port=SWD per=a key="!PRIV!" cert="!CERT!" debugauth=1
+call :stage_key
+if errorlevel 1 exit /b 1
+STM32_Programmer_CLI -c port=SWD per=a key="!CLIKEY!" cert="!CERT!" debugauth=1
 set "CERT_RC=!ERRORLEVEL!"
+if exist "!CLIKEY!" del /f /q "!CLIKEY!" >nul 2>&1
 if "!CERT_RC!"=="0" (
     call :discover
     if /i "!PRODUCT!"=="OPEN" (
@@ -124,8 +127,12 @@ if errorlevel 1 (
     echo [FAIL] Writing password OBK failed
     exit /b 1
 )
-STM32_Programmer_CLI -c port=SWD per=a key="!PRIV!" cert="!CERT!" pwd="!PASS!" debugauth=1
-if errorlevel 1 (
+call :stage_key
+if errorlevel 1 exit /b 1
+STM32_Programmer_CLI -c port=SWD per=a key="!CLIKEY!" cert="!CERT!" pwd="!PASS!" debugauth=1
+set "PWD_RC=!ERRORLEVEL!"
+if exist "!CLIKEY!" del /f /q "!CLIKEY!" >nul 2>&1
+if not "!PWD_RC!"=="0" (
     echo [FAIL] Password regression failed
     exit /b 1
 )
@@ -137,6 +144,16 @@ if /i "!PRODUCT!"=="OPEN" (
 )
 echo [FAIL] Product state after password regression is !PRODUCT!
 exit /b 1
+
+:stage_key
+rem CubeProgrammer deletes the pem passed to key=. Give it a temporary copy.
+set "CLIKEY=%TEMP%\da_regression_key.pem"
+copy /y "!PRIV!" "!CLIKEY!" >nul
+if not exist "!CLIKEY!" (
+    echo [FAIL] Cannot copy the private key to a temporary file
+    exit /b 1
+)
+exit /b 0
 
 :find_cli
 echo [1] Locate STM32_Programmer_CLI
