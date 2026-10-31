@@ -1,0 +1,226 @@
+ACSF Windows 烧录包使用说明
+打包日期：2026-10-28
+仓库：stm32h5xx_tfm
+
+本目录四个压缩包是 2026-10-28 晚上按当前编译脚本重新编出来的。
+这次只做了编译，并用签名脚本、bl2.hex 脚本对过产物，没有上板。
+每个 test、prod、release 目录里，除了已签名镜像，还有未签名的
+tfm_s.bin、tfm_s.hex、tfm_ns.bin、tfm_ns.hex，以及同一次编译的 bl2.elf。
+未签名文件没有 MCUboot 头。bl2.elf 给 bl2_bin2hex.py 切节和写入口。
+包里还有 Windows 烧录脚本、sign_image.py、bl2_bin2hex.py 和 mcuboot_sign。
+不含编译器，也不含 Python 依赖。签名要自行安装 cryptography、click、cbor2、intelhex。
+解压后进入 windows-tfm-tools，按下面的脚本烧录。
+
+镜像没有加密（MCUboot 头 flags=0）。签名算法是 ECDSA-P256，摘要是 SHA-256。
+签名用的是仓库里的开发密钥，不是量产密钥。编译时仓库根目录 keys/ 里没有 pem，
+所以没有用 keys/ 覆盖。BL2 的 OTP ROTPK 就是下面这两把公钥的 SHA-256。
+换密钥后必须重编 BL2 并整片重烧，旧包不能和新密钥混用。
+
+安全计数器（TLV SEC_CNT）S 和 NS 都是 1（小端 0x00000001）。
+镜像头 magic 是 0x96f3b83d。
+S、NS 各用一把密钥，不能对调。
+
+不要写 PRODUCT_STATE=0x72。脚本保持 Open（0xED）。
+板上没有 W25Q32 时，JEDEC 读到 ff:ff:ff 是正常的，BL2 会改用内部 Flash 启动。
+
+
+一、包和源码
+
+这次打包时各分支停在「编译后把同一次的 bl2.elf 一并复制到工具目录」这个本地提交上，
+这四个提交还没推到远程。固件相对上一包，只有测试版 S 摘要变了（测试版把 git 版本编进了镜像）。
+正式版和发布版的签名摘要没变。
+
+  windows-tfm-tool-G0.tar.gz
+    编译提交 d2f2f606
+    上游 TF-M v2.3.1
+
+  windows-tfm-tool-RAT.tar.gz
+    编译提交 3d948cc5
+    上游 TF-M v2.3.1
+
+  windows-tfm-tool-RD0047.tar.gz
+    编译提交 894cedb9
+    上游 TF-M v2.3.1
+
+  windows-tfm-tool-PLC.tar.gz
+    编译提交 d896e8b1
+    上游 TF-M v2.3.1 这条线；编译进镜像的 S 版本仍是 versions/config 里的 2.3.0
+    签名脚本默认 S 版本是 2.3.1，要和本包编译镜像一致时加 --version 2.3.0
+    这套槽位和密钥不能烧到 H573
+
+
+二、版本
+
+MCUboot 镜像版本来自 versions/config，已经签进镜像头。
+imgtool verify 读到的值和下面一致。
+
+  G0 / RAT / RD0047
+    S  版本 2.3.1+0    安全计数器 1    槽大小 512 KB
+    NS 版本 0.0.0+0    安全计数器 1    槽大小 1 MB
+    测试版和正式版的 NS 摘要相同（同一份 NS 测试镜像）。
+    发布版关掉了 NS 测试，NS 摘要与前两版不同。
+    S 摘要每个分支、每种类型都不同。
+
+  PLC
+    S  版本 2.3.0+0    安全计数器 1    槽大小 512 KB
+    NS 版本 0.0.0+0    安全计数器 1    槽大小 1024 KB
+    测试版和正式版的 NS 摘要相同。发布版 NS 摘要不同。
+
+三种类型：
+
+  test     TEST_S 和 TEST_NS 都打开，BL2 是 INFO 日志
+  prod     TEST_S 关闭，TEST_NS 打开，BL2 是 ERROR 日志
+  release  TEST_S、TEST_NS、TFM_DEV_MODE 都关闭，BL2 是 ERROR 日志
+
+串口怎么算烧对了：
+
+  G0 / RAT / RD0047，USART1 PA9(TX) / PA10(RX)，115200 8N1
+    test     有 Starting bootloader，安全区和非安全区套件都 PASSED
+    prod     没有 Starting bootloader，非安全区套件 PASSED
+    release  Open 上串口 0 字节，选项字节 SECBOOT_LOCK=0xB4
+
+  PLC，USART6 PC6(TX) / PC7(RX)，115200 8N1
+    复位后第一行必须是 [ERR] H5F4BL2
+    test     接着有 Starting bootloader S-sec=，安全区和非安全区套件都 PASSED
+    prod     没有 Starting bootloader，非安全区套件 PASSED
+    release  Open 上只反复打印 H5F4BL2
+
+
+三、签名
+
+算法：ECDSA，曲线 NIST P-256，哈希 SHA-256。
+S 私钥文件：trusted-firmware-m/bl2/ext/mcuboot/root-EC-P256.pem
+NS 私钥文件：trusted-firmware-m/bl2/ext/mcuboot/root-EC-P256_1.pem
+BL2 用来比对的是公钥 SHA-256（imgtool getpubhash，也写在镜像 BOOT_RECORD 里）。
+
+G0、RAT、RD0047 三包密钥相同，可以互相验签，但不能和 PLC 互相验签。
+
+  G0 / RAT / RD0047
+    S  公钥 SHA-256
+       f4b4a4de52220c0e2b2171cdfaae6b3166ddbd58fbcacaa676ac8dd26fc81e0f
+    NS 公钥 SHA-256
+       cd1514adc645c4963ff1955329909270738a8cfe33c8b14e000bc0b38b7dd9d2
+
+  PLC（另一对开发密钥）
+    S  公钥 SHA-256
+       b5d8b37f006efde3d6da35d7efdf7e60bdfd0cb967b6358f25fdbc1025f5b66d
+    NS 公钥 SHA-256
+       a12b9daf88ce343a15e65c2aceac0e5939e2b55598deb5592cd612168da736e1
+
+imgtool 校验过的镜像摘要（SHA-256）。测试版、正式版 NS 在同一组密钥里相同。
+
+  G0
+    test    S  a20bf125052866e80219aac4624818b4a2589d4ef1edac7e4d8a9efb994f88ec
+            NS e41dedc648ef33e9ce73da1977c6cbaf0a0b23f702d097d6664f3a9b17896b21
+    prod    S  4ab6b11e27efa65f6c866897ec78c03dd7d95c5069885d5541bdcf04ade13fd6
+            NS 与 test NS 相同
+    release S  b2986c8182babbc43aa7c8446dcd9d1c2ec7ff6400b4a0a900348571f5b5d13b
+            NS 9ce28340c85d2c81c3a971dad5d7262cc4d8310df321bf35d20dedc0c53a7420
+
+  RAT
+    test    S  11851dec088fc7f09fe60671a508f66ff1643d287406d9b254ed6ce11115efbd
+            NS 与 G0 test NS 相同
+    prod    S  2b1d6377379b6bdc6e03c89bd4a0dbe295dadc41efbee80f39154a3e744cab3c
+            NS 与 G0 test NS 相同
+    release S  8edfe41d7b96d81211d433f4503cf87e39b51492516646c70671d2dff45b9fec
+            NS 与 G0 release NS 相同
+
+  RD0047
+    test    S  ac2bbb473064a011d42ec537b4ed23589f47932c6acfcb2e580ab91c5d0b0123
+            NS 与 G0 test NS 相同
+    prod    S  46014c7b17c02f04ed83b549452d630b7597f459e0384e50d41773ca444b6c43
+            NS 与 G0 test NS 相同
+    release S  69dcd353a05b2805613ad36b2861af22eae241d5e48138dba613960114f1c05c
+            NS 与 G0 release NS 相同
+
+  PLC
+    test    S  427ebc61b7b5be21ce280e93441b6d5bf1da66d4e1e116bd848e3b7d2321902b
+            NS 12786b4a6a912286e62eca60aee5a58695ae39555cd44bc33d5b0d88856cf0a2
+    prod    S  888814dbda3b414168fc096c492a2704b65e676947a7ba555c85071262530729
+            NS 与 PLC test NS 相同
+    release S  77093b65061db037f65e7c6f0bb2921f60714e589cb4364c6e5c74be5f729c0a
+            NS 3771b4c4d94224aa75b9c880aa526533c73c6b827256077666d75edd498a93c0
+
+
+四、槽位和板级差异
+
+G0、RAT、RD0047 共用 H573 布局，一份镜像烧 H573 或 H5F4。
+不要用 PLC 的地址，也不要和 PLC 的密钥混烧。
+
+  BL2  0x0C00E000
+  S    0x0C044000    512 KB
+  NS   0x0C100000    1 MB
+  控制台  USART1  PA9/PA10
+  写保护  H573 用 WRPSGn1=0xFFFFFFE3
+          H5F4 用 WRPSG11=0xFFFFFFE3
+          脚本按 Device ID 自己选
+  另外    SECWM2=[127,0]，HDP1=[0,19]，BOOT_UBE=0xB4
+
+  W25 引脚（没有芯片时 JEDEC 为 ff:ff:ff）：
+    G0      PE12/PE13/PE14  CS=PE11
+    RD0047  PA5/PA6/PA7     CS=PB2
+    RAT     PA5/PA6/PA7     CS=PC4
+
+PLC 只给 STM32H5F4。
+
+  BL2  0x0C00E000
+  S    0x0C078000    512 KB
+  NS   0x0C0F8000    1024 KB
+  S 升级槽  0x0C200000
+  NS 升级槽 0x0C280000
+  控制台  USART6  PC6/PC7
+  发布版锁完：SECBOOTADD=0xC0100，SECWM1=[0,123]，SECWM2=[0,63]
+            WRPSG11=0xFFFFFFE3，HDP1=[0,19]，SECBOOT_LOCK=0xB4
+  BL2 标记  H5F4BL2、H5F4SWP2
+
+
+五、怎么烧
+
+先安装 STM32CubeProgrammer。脚本按顺序找：
+  D:\ST\STM32CubeProgrammer\bin
+  C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin
+  PATH 里的 STM32_Programmer_CLI.exe
+
+解压对应的 tar.gz，进入 windows-tfm-tools。
+每个包里的 test、prod、release 三个目录各有 bl2.bin、bl2.hex、bl2.elf、tfm_s_signed、tfm_ns_signed，以及未签名的 tfm_s、tfm_ns。
+不要单独烧拼接的 tfm_s_ns_signed，S 和 NS 中间有空隙。
+多把 ST-Link 时，序列号放在参数最后。烧完脚本不复位。
+
+G0 / RAT / RD0047（HotPlug，AP=1）：
+
+  flash_stm32h573.bat test
+  flash_stm32h573.bat prod
+  flash_stm32h573.bat prod download
+  flash_stm32h573.bat test regression
+
+  默认先全片擦除再烧。烧之前把 SECBOOT_LOCK 写成 0xC3。
+  发布版留下的 0xB4 不解开的话，测试版和正式版会一直复位。
+
+  flash_stm32h573_release.bat
+  flash_stm32h573_release.bat download
+  flash_stm32h573_release.bat regression
+
+  发布版在镜像写完后把 SECBOOT_LOCK 写成 0xB4。
+  芯片仍是 Open 时，发布版在打开串口前就复位，所以串口是 0 字节。SWD 还在。
+  发布版如果正在复位，HotPlug 会连不上，按住复位再连。
+  TrustZone 关着（TZEN=0xC3）时，要先把 TZEN 写成 0xB4，否则 Boot lock 写不进去。
+  不要改 PRODUCT_STATE。
+
+PLC（Under Reset，AP=1，只烧 H5F4）：
+
+  flash_stm32h5f4.bat test
+  flash_stm32h5f4.bat prod
+  flash_stm32h5f4.bat test erase
+  flash_stm32h5f4.bat prod unlock-only
+
+  HDP 还盖住 BL2 时，test / prod 会整片擦再烧，并把 SECBOOT_LOCK 写成 0xC3。
+
+  flash_stm32h5f4_release.bat
+  flash_stm32h5f4_release.bat download
+  flash_stm32h5f4_release.bat regression
+
+  regression 只回归，并把 SECBOOT_LOCK 改回 0xC3。
+  出厂选项字节用同目录的 设置STM32H5F4出厂选项字节.bat。它不写 SECBOOT_LOCK。
+
+每个包里还有 本目录工具使用说明.txt，参数和这里一致。
+Linux 上对应的脚本是 linux-tfm-tool 里的同名 .sh。

@@ -1,0 +1,4 @@
+# Windows cmd.exe needs CRLF. LF-only .bat files can fail to parse
+# parenthesized blocks and close the window on double-click.
+*.bat text eol=crlf
+*.cmd text eol=crlf

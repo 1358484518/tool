@@ -1,0 +1,27 @@
+log: da close
+
+Public key: C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_1_root_pub.pem
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   578 : open       : Unable to detect DBGMCU Mailbox
+
+Error: 
+Debug Authentication: Discovery Failed
+[info] Product state: UNKNOWN
+[info] Auth: UNKNOWN
+[FAIL] Product state is unknown.

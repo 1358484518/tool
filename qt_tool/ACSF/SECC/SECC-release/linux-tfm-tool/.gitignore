@@ -1,0 +1,3 @@
+# Images copied by buildtfm.sh into test/ prod/ release/
+*.bin
+*.hex

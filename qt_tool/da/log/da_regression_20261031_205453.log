@@ -1,0 +1,178 @@
+log: da regression
+
+Private key: C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_3_leaf.pem
+Certificate: C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Certificates\cert_leaf_chain.b64
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Close debug if it is open
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: target ID.......................:0x484
+discovery: SoC ID..........................:0x00000000_34383631_3535510C_006B0036
+discovery: SDA version.....................:2.4.0
+discovery: Vendor ID.......................:STMicroelectronics
+discovery: PSA lifecycle...................:ST_LIFECYCLE_CLOSED
+discovery: PSA auth version................:1.0
+discovery: ST HDPL1 status.................:0xffffffff
+discovery: ST HDPL2 status.................:0xffffffff
+discovery: ST HDPL3 status.................:0xffffffff
+discovery: Token Formats...................:0x200
+discovery: Certificate Formats.............:0x201
+discovery: cryptosystems...................:Ecdsa-P256 SHA256
+discovery: ST provisioning integrity status:0xeaeaeaea
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+discovery: permission if authorized...........:(b/12) ==> To TZ Regression
+discovery: permission if authorized...........:(c/6) ==> Level 3 Intrusive Debug
+discovery: permission if authorized...........:(d/5) ==> Level 2 Intrusive Debug
+discovery: permission if authorized...........:(e/4) ==> Level 1 Intrusive Debug
+discovery: permission if authorized...........:(f/2) ==> Level 3 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(g/1) ==> Level 2 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(h/0) ==> Level 1 Intrusive Non Secure Debug
+To select multiple permission/actions:
+    Using numerical values: List the needed bit numbers, separated by commas without spaces.
+    Using symbolic letters: List the needed letters by concatenating them without separators.
+
+Debug Authentication: Discovery Success
+response_packet_lock
+[info] Product state: CLOSED
+[info] Auth: CERTIFICATE
+[info] Certificate regression
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Permission request submitted : a 
+
+Key file path submitted : C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_3_leaf.pem 
+
+Certificate file path submitted : C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Certificates\cert_leaf_chain.b64 
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+discovery: permission if authorized...........:(b/12) ==> To TZ Regression
+discovery: permission if authorized...........:(c/6) ==> Level 3 Intrusive Debug
+discovery: permission if authorized...........:(d/5) ==> Level 2 Intrusive Debug
+discovery: permission if authorized...........:(e/4) ==> Level 1 Intrusive Debug
+discovery: permission if authorized...........:(f/2) ==> Level 3 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(g/1) ==> Level 2 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(h/0) ==> Level 1 Intrusive Non Secure Debug
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+[00%]	discovery command
+[10%]	sending discovery command
+[20%]	receiving discovery
+[40%]	loading credentials
+
+C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_3_leaf.pem
+
+C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Certificates\cert_leaf_chain.b64
+[50%]	sending challenge request
+[60%]	receiving challenge
+[70%]	signing token
+
+ the submitted permissions are : a
+SDMAuthenticate               :  1453 : client     : Found 3 certificates
+
+[80%]	sending response
+[90%]	receiving status
+SDMAuthenticate               :  1634 : client     : Authentication successful
+
+[100%]	finished authentication
+
+Debug Authentication Success
+response_packet_lock
+response_packet_lock
+response_packet_lock
+response_packet_lock
+response_packet_lock
+response_packet_lock
+response_packet_lock
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: target ID.......................:0x484
+discovery: SoC ID..........................:0x00000000_34383631_3535510C_006B0036
+discovery: SDA version.....................:2.4.0
+discovery: Vendor ID.......................:STMicroelectronics
+discovery: PSA lifecycle...................:ST_LIFECYCLE_OPEN
+discovery: PSA auth version................:1.0
+discovery: ST HDPL1 status.................:0xffffffff
+discovery: ST HDPL2 status.................:0xffffffff
+discovery: ST HDPL3 status.................:0xffffffff
+discovery: Token Formats...................:0x200
+discovery: Certificate Formats.............:0x201
+discovery: cryptosystems...................:ST Password
+discovery: ST provisioning integrity status:0xf5f5f5f5
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+To select multiple permission/actions:
+    Using numerical values: List the needed bit numbers, separated by commas without spaces.
+    Using symbolic letters: List the needed letters by concatenating them without separators.
+
+Debug Authentication: Discovery Success
+response_packet_lock
+[ok] Open
+[info] User flash was erased. Program the image again.

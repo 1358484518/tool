@@ -1,0 +1,146 @@
+STM32H5F4 Windows 烧录说明（ST-Link）
+本文件是 windows-tfm-tools 的用法。Linux 用仓库里的 linux-tfm-tool，步骤和地址与这里相同。
+
+================================================================
+一、这个目录里有什么
+================================================================
+
+双击用的：
+  flash_stm32h5f4.bat              烧 test 或 prod。不写发布版锁，结束时不复位。
+  flash_stm32h5f4_release.bat      只烧 release。会写本布局的 WRP/HDP/Boot lock。
+  STM32H5F4_reset_factory_ob.bat   选项字节恢复出厂。产品状态保持 Open。
+
+镜像不放在脚本旁边，按编译类型放进子目录：
+  test\      ./buildtfm.sh test
+  prod\      ./buildtfm.sh prod
+  release\   ./buildtfm.sh release
+
+每个目录里烧录要用的是：
+  bl2.hex               有这份就烧这份。地址在文件内，并带 OTP
+  bl2.bin               没有 hex 时烧这份
+  tfm_s_signed.bin
+  tfm_ns_signed.bin
+BL2 提供 hex 或 bin 其中一份即可。两份都有时烧 hex。版本从实际烧入的那一份里认。
+
+本目录的 .gitignore 忽略 bin/hex，镜像不要提交。
+
+================================================================
+二、准备
+================================================================
+
+1. 代码
+     git checkout SECC-AC
+     git pull origin SECC-AC
+
+2. 编译（在 Ubuntu 仓库根目录，开发密钥）
+     ./buildtfm.sh test
+     ./buildtfm.sh prod
+     ./buildtfm.sh release
+   编译完成后把对应镜像放进本目录的 test、prod 或 release。
+   bl2.bin 里必须能搜到字符串 H5F4BL2 和 H5F4SWP2。
+
+3. Windows
+     安装 STM32CubeProgrammer。
+     flash_stm32h5f4.bat 和 flash_stm32h5f4_release.bat 会自己找 STM32_Programmer_CLI。
+     STM32H5F4_reset_factory_ob.bat 写死了本机路径：
+       D:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe
+     这台电脑路径不同时，改 bat 里的 CLI。
+
+4. 板子
+     ST-Link 插上，NRST 接到调试器。
+     串口 USART6，PC6 发、PC7 收，1000000 8N1。
+
+================================================================
+三、test / prod
+================================================================
+
+  flash_stm32h5f4.bat                       窗口里选 1=test 或 2=prod
+  flash_stm32h5f4.bat test                  烧 test\
+  flash_stm32h5f4.bat prod                  烧 prod\
+  flash_stm32h5f4.bat test D:\bins          测试版，镜像从外部目录读
+  flash_stm32h5f4.bat prod --dir D:\bins    正式版，同样的文件名
+  flash_stm32h5f4.bat test erase [SN]       先整片擦除再烧
+  flash_stm32h5f4.bat prod unlock-only [SN] HDP 仍盖住 BL2 时直接失败，不擦除
+
+地址：
+  BL2  0x0C00E000
+  S    0x0C078000
+  NS   0x0C0F8000
+
+不写 PRODUCT_STATE，不写发布版 WRP/HDP/Boot lock。脚本结束不复位。
+
+多个 ST-Link 时把序列号放在最后：
+  flash_stm32h5f4.bat test erase <SN>
+
+================================================================
+四、release
+================================================================
+
+默认只读 release\。给了目录或 --dir 时，从那个目录读同样的文件名。
+不写 PRODUCT_STATE=0x72，板子仍可以是 Open。
+选项字节用 Under Reset。
+
+  flash_stm32h5f4_release.bat                 整片擦除后烧 BL2/S/NS，再锁
+  flash_stm32h5f4_release.bat all [SN]
+  flash_stm32h5f4_release.bat download [SN]   只烧镜像，然后写锁
+  flash_stm32h5f4_release.bat regression [SN] 只回归。先把 SECBOOT_LOCK 改回 0xC3
+  flash_stm32h5f4_release.bat --dir D:\bins   发布版，镜像从外部目录读
+
+锁完：
+  SECBOOTADD=0xC0100
+  SECWM1 [0, 123]    SECWM2 [0, 63]
+  WRPSG11=0xFFFFFFE3
+  HDP1 [0, 19]
+  SECBOOT_LOCK=0xB4
+
+HDP 写上之后，下次要先 regression 才能再改 BL2。脚本结束不复位。
+
+================================================================
+五、恢复出厂选项字节
+================================================================
+
+  STM32H5F4_reset_factory_ob.bat
+
+产品状态保持 Open（0xED）。不写 Closed，不写 Locked。
+不把 SECBOOT_LOCK 写进出厂值。写出厂值最多 3 次，三次都失败则不擦 Flash。
+写成功后再整片擦除。
+
+================================================================
+六、Flash 槽位
+================================================================
+
+安全别名 0x0C000000 用来烧 TF-M。非安全窗口 0x08000000 是同一片硅，差 0x04000000。
+
+  槽            安全别名          大小
+  ------------- ----------------  --------
+  BL2           0x0C00E000        96 KB
+  S 当前运行    0x0C078000        512 KB
+  NS 当前运行   0x0C0F8000        1024 KB
+  S 升级下载    0x0C200000        512 KB
+  NS 升级下载   0x0C280000        1024 KB
+
+升级包写到 0x0C200000 / 0x0C280000，不要写到当前运行槽。
+不要用 H573 的 NS 地址 0x0C088000，也不要用 H573 升级地址 0x0C118000 / 0x0C168000。
+
+================================================================
+七、烧完怎么确认
+================================================================
+
+串口 1000000，复位后第一行必须有 H5F4BL2。
+没有这行，就是 BL2 没写进去。test/prod 用带 erase 的命令再烧一次。
+开发密钥下日志里的 NOT SECURE 是预期现象。换签名配置档后必须整片重烧 BL2、S、NS。
+
+================================================================
+八、Linux
+================================================================
+
+  ./linux-tfm-tool/flash_stm32h5f4.sh test
+  ./linux-tfm-tool/flash_stm32h5f4.sh prod
+  ./linux-tfm-tool/flash_stm32h5f4_release.sh
+  ./linux-tfm-tool/STM32H5F4_reset_factory_ob.sh [SN]
+
+不给目录时，镜像目录是 linux-tfm-tool/test、prod、release。
+测试版和正式版都可以另给目录，文件名不变：
+  ./linux-tfm-tool/flash_stm32h5f4.sh test /path/to/bins
+  ./linux-tfm-tool/flash_stm32h5f4.sh prod --dir /path/to/bins
+  ./linux-tfm-tool/flash_stm32h5f4_release.sh --dir /path/to/bins

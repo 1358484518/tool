@@ -1,0 +1,38 @@
+==== 2026-10-31 19:24:32 ====
+log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-test\windows-tfm-tools\log\flash_20261031_192430.log
+
+Image: test
+Dir:   D:\test\1\ymode\build-ymodem-Desktop_Qt_5_14_2_MinGW_64_bit-Release\release\tmp\
+Mode:  all
+
+[ok]   BL2 markers match test
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Treat as H573, write protection is WRPSGn1
+
+[1] SECBOOT_LOCK=0xC3
+    Disable. A release image leaves 0xB4, and dev BL2 reset-loops while it stays.
+    BOOT_UBE and SECBOOTADD cannot change until this is cleared.
+    If TrustZone is off, SECBOOT_LOCK reads 0x0. Enable TZEN, then write 0xC3.
+------------------------------------------------------------
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Error: No debug probe detected.
+[info] SECBOOT_LOCK stayed 0x0. Enable TZEN=0xB4 and retry.
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Error: No debug probe detected.
+[FAIL] Writing SECBOOT_LOCK=0xC3 failed.
+
+============================================================
+ Failed: SECBOOT_LOCK
+ log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-test\windows-tfm-tools\log\flash_20261031_192430.log
+============================================================
+
+请按任意键继续. . . 

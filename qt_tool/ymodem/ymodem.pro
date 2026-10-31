@@ -3,13 +3,17 @@ QT       += core gui serialport network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-VERSION = 2.16
+VERSION = 2.17
 # 传给 C++ 的是带引号的字符串宏，main 里用 QLatin1String(APP_VERSION) 取
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 # 程序下载页的脚本根目录，qmake 时按源码位置写死。斜杠避免进宏后被当成转义。
 TFM_TOOLS_ROOT = $$clean_path($$PWD/../windows-tfm-tools)
 TFM_TOOLS_ROOT ~= s,\\\\,/,g
 DEFINES += TFM_TOOLS_DIR=\\\"$$TFM_TOOLS_ROOT\\\"
+# G0 烧录脚本在源码旁的 ACSF。影子构建在别的盘时，运行目录往上找不到它。
+ACSF_ROOT = $$clean_path($$PWD/../ACSF)
+ACSF_ROOT ~= s,\\\\,/,g
+DEFINES += ACSF_DIR=\\\"$$ACSF_ROOT\\\"
 
 # 源码按模块分目录：app 在根目录，串口/网络/公共工具各放各的目录
 INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network $$PWD/firmware $$PWD/download $$PWD/ftp $$PWD/ftp/tftp
@@ -37,6 +41,7 @@ SOURCES += \
     firmware/FirmwarePackWidget.cpp \
     download/ProgramDownloadWidget.cpp \
     download/DaObk.cpp \
+    download/FwmpPack.cpp \
     ftp/FtpCommand.cpp \
     ftp/DataConnection.cpp \
     ftp/FtpListCommand.cpp \
@@ -78,6 +83,7 @@ HEADERS += \
     firmware/FirmwarePackWidget.h \
     download/ProgramDownloadWidget.h \
     download/DaObk.h \
+    download/FwmpPack.h \
     ftp/FtpCommand.h \
     ftp/DataConnection.h \
     ftp/FtpListCommand.h \

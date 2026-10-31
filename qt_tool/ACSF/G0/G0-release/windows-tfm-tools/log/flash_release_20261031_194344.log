@@ -1,0 +1,28 @@
+==== 2026-10-31 19:43:46 ====
+log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-release\windows-tfm-tools\log\flash_release_20261031_194344.log
+
+Image: release
+[ok]   BL2 markers match release
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Treat as H573, write protection is WRPSGn1
+
+[2] Regression. This mass-erases the device.
+    SECBOOTADD=0xC0100 boots BL2 at 0x0C010000
+------------------------------------------------------------
+PRODUCT_STATE=0xED  TZEN=0xB4
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Error: No debug probe detected.
+[FAIL] Option-byte regression failed.
+
+============================================================
+ Failed: regression
+ log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-release\windows-tfm-tools\log\flash_release_20261031_194344.log
+============================================================
+
+请按任意键继续. . . 

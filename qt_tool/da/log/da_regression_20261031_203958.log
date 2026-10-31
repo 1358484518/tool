@@ -1,0 +1,97 @@
+log: da regression
+
+Private key: C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_3_leaf.pem
+Certificate: C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Certificates\cert_leaf_chain.b64
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Close debug if it is open
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: target ID.......................:0x47a
+discovery: SoC ID..........................:0x00000000_30313331_32355107_0030000B
+discovery: SDA version.....................:1.1.0
+discovery: Vendor ID.......................:STMicroelectronics
+discovery: PSA lifecycle...................:ST_LIFECYCLE_CLOSED
+discovery: PSA auth version................:1.0
+discovery: ST HDPL1 status.................:0xffffffff
+discovery: ST HDPL2 status.................:0xffffffff
+discovery: ST HDPL3 status.................:0xffffffff
+discovery: Token Formats...................:0x200
+discovery: Certificate Formats.............:0x201
+discovery: cryptosystems...................:ST Password
+discovery: ST provisioning integrity status:0xeaeaeaea
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+To select multiple permission/actions:
+    Using numerical values: List the needed bit numbers, separated by commas without spaces.
+    Using symbolic letters: List the needed letters by concatenating them without separators.
+
+Debug Authentication: Discovery Success
+response_packet_lock
+[info] Product state: CLOSED
+[info] Certificate regression
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Permission request submitted : a 
+
+Key file path submitted : C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_3_leaf.pem 
+
+Certificate file path submitted : C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Certificates\cert_leaf_chain.b64 
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+[00%]	discovery command
+[10%]	sending discovery command
+[20%]	receiving discovery
+[40%]	loading credentials
+
+ please enter your password file path 

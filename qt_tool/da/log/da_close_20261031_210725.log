@@ -1,0 +1,424 @@
+log: da close
+
+Public key: C:\Users\13584\Desktop\stm32h5xx\STM32CubeH5-1.7.0\Projects\STM32H573I-DK\ROT_Provisioning\DA\Keys\key_1_root_pub.pem
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: target ID.......................:0x484
+discovery: SoC ID..........................:0x00000000_34383631_3535510C_006B0036
+discovery: SDA version.....................:2.4.0
+discovery: Vendor ID.......................:STMicroelectronics
+discovery: PSA lifecycle...................:ST_LIFECYCLE_OPEN
+discovery: PSA auth version................:1.0
+discovery: ST HDPL1 status.................:0xffffffff
+discovery: ST HDPL2 status.................:0xffffffff
+discovery: ST HDPL3 status.................:0xffffffff
+discovery: Token Formats...................:0x200
+discovery: Certificate Formats.............:0x201
+discovery: cryptosystems...................:Ecdsa-P256 SHA256
+discovery: ST provisioning integrity status:0xf5f5f5f5
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+discovery: permission if authorized...........:(b/12) ==> To TZ Regression
+discovery: permission if authorized...........:(c/6) ==> Level 3 Intrusive Debug
+discovery: permission if authorized...........:(d/5) ==> Level 2 Intrusive Debug
+discovery: permission if authorized...........:(e/4) ==> Level 1 Intrusive Debug
+discovery: permission if authorized...........:(f/2) ==> Level 3 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(g/1) ==> Level 2 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(h/0) ==> Level 1 Intrusive Non Secure Debug
+To select multiple permission/actions:
+    Using numerical values: List the needed bit numbers, separated by commas without spaces.
+    Using symbolic letters: List the needed letters by concatenating them without separators.
+
+Debug Authentication: Discovery Success
+response_packet_lock
+[info] Product state: OPEN
+[info] Auth: CERTIFICATE
+[info] Product state is Open. Set PRODUCT_STATE=0x17
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.19V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x484
+Revision ID : Rev X
+Device name : STM32H56x/573
+NVM size  : 2 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xE4
+SFSP Version: v2.5.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x500220e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x500221e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Reconnected !
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x400220e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x400221e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:03.203
+[info] Generate OBK
+PUBHASH=CC05B01317775C865A3F987D1778C12D7E517851A0F42DD92DFA6C1D859B25FE
+SIZE=108 OUT=C:\Users\13584\AppData\Local\Temp\da_close_config.obk
+[info] Write OBK
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.20V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x484
+Revision ID : Rev X
+Device name : STM32H56x/573
+NVM size  : 2 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xE4
+SFSP Version: v2.5.0
+Debug in Low Power mode enabled
+
+
+
+Reconnecting...
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.19V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x484
+Revision ID : Rev X
+Secure Data Provisioning Start. OBK Input file : C:\Users\13584\AppData\Local\Temp\da_close_config.obk
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%OBKey Provisioned successfully
+[info] SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 3.19V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x484
+Revision ID : Rev X
+Device name : STM32H56x/573
+NVM size  : 2 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xE4
+SFSP Version: v2.5.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x400220e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x400221e0 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: boot_ube, value: 0xB4, was not modified.
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Error: failed to reconnect after reset !
+Error: Unable to reconnect after setting the Option Bytes
+ 0%[info] The debug port drops when the product state becomes CLOSED. The command result is ignored.
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: target ID.......................:0x484
+discovery: SoC ID..........................:0x00000000_34383631_3535510C_006B0036
+discovery: SDA version.....................:2.4.0
+discovery: Vendor ID.......................:STMicroelectronics
+discovery: PSA lifecycle...................:ST_LIFECYCLE_CLOSED
+discovery: PSA auth version................:1.0
+discovery: ST HDPL1 status.................:0xffffffff
+discovery: ST HDPL2 status.................:0xffffffff
+discovery: ST HDPL3 status.................:0xffffffff
+discovery: Token Formats...................:0x200
+discovery: Certificate Formats.............:0x201
+discovery: cryptosystems...................:Ecdsa-P256 SHA256
+discovery: ST provisioning integrity status:0xeaeaeaea
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+discovery: permission if authorized...........:(b/12) ==> To TZ Regression
+discovery: permission if authorized...........:(c/6) ==> Level 3 Intrusive Debug
+discovery: permission if authorized...........:(d/5) ==> Level 2 Intrusive Debug
+discovery: permission if authorized...........:(e/4) ==> Level 1 Intrusive Debug
+discovery: permission if authorized...........:(f/2) ==> Level 3 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(g/1) ==> Level 2 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(h/0) ==> Level 1 Intrusive Non Secure Debug
+To select multiple permission/actions:
+    Using numerical values: List the needed bit numbers, separated by commas without spaces.
+    Using symbolic letters: List the needed letters by concatenating them without separators.
+
+Debug Authentication: Discovery Success
+response_packet_lock
+[ok] CLOSED

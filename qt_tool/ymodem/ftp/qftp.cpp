@@ -475,6 +475,15 @@ void QFtpDTP::abortConnection()
         socket->abort();
 }
 
+static QString decodeFtpText(const QByteArray &bytes)  // 列表和回复：合法 UTF-8 用 UTF-8，否则用系统编码
+{
+    const QString utf8 = QString::fromUtf8(bytes);
+    // 本机服务端发的是 UTF-8。能还原成原字节就用它；GBK 中文过不了，再走系统编码。
+    if (utf8.toUtf8() == bytes)
+        return utf8;
+    return QString::fromLocal8Bit(bytes);
+}
+
 static void _q_fixupDateTime(QDateTime *dateTime)
 {
     // Adjust for future tolerance.
@@ -627,12 +636,12 @@ static void _q_parseDosDir(const QStringList &tokens, const QString &userName, Q
 
 }
 
-bool QFtpDTP::parseDir(const QByteArray &buffer, const QString &userName, QUrlInfo *info)
+bool QFtpDTP::parseDir(const QByteArray &buffer, const QString &userName, QUrlInfo *info)  // 解析一行 LIST，文件名按 UTF-8 或系统编码
 {
     if (buffer.isEmpty())
         return false;
 
-    QString bufferStr = QString::fromLatin1(buffer).trimmed();
+    QString bufferStr = decodeFtpText(buffer).trimmed();
 
     // Unix style FTP servers
     QRegExp unixPattern(QLatin1String("^([\\-dl])([a-zA-Z\\-]{9,9})\\s+\\d+\\s+(\\S*)\\s+"
@@ -945,14 +954,14 @@ void QFtpPI::error(QAbstractSocket::SocketError e)
     }
 }
 
-void QFtpPI::readyRead()
+void QFtpPI::readyRead()  // 读控制连接回复，中文路径按 UTF-8 或系统编码解码
 {
     if (waitForDtpToClose)
         return;
 
     while (commandSocket.canReadLine()) {
         // read line with respect to line continuation
-        QString line = QString::fromLatin1(commandSocket.readLine());
+        QString line = decodeFtpText(commandSocket.readLine());
         if (replyText.isEmpty()) {
             if (line.length() < 3) {
                 // protocol error
@@ -986,7 +995,7 @@ void QFtpPI::readyRead()
                 replyText += line;
             if (!commandSocket.canReadLine())
                 return;
-            line = QString::fromLatin1(commandSocket.readLine());
+            line = decodeFtpText(commandSocket.readLine());
             lineLeft4 = line.left(4);
         }
         replyText += line.mid(4); // strip reply code 'xyz '
@@ -1241,7 +1250,8 @@ bool QFtpPI::startNextCmd()
     qDebug("QFtpPI send: %s", currentCmd.left(currentCmd.length()-2).toLatin1().constData());
 #endif
     state = Waiting;
-    commandSocket.write(currentCmd.toLatin1());
+    // 服务端按 UTF-8 读命令。toLatin1() 会把中文路径写成 ?，进目录和下文件都会失败。
+    commandSocket.write(currentCmd.toUtf8());
     return true;
 }
 
