@@ -1,6 +1,7 @@
 @echo off
 rem Close STM32H5 with certificate DA. English only: UTF-8 inside cmd breaks on GBK Windows.
-rem Usage: da_close.bat <public.pem>
+rem Usage: da_close.bat <public.pem> [obk]
+rem The Qt page passes an OBK it already built. Without that file the script calls gen_da_obk.py.
 rem Open: enter PROVISIONING, write OBK, then SECBOOTADD + BOOT_UBE + CLOSED.
 rem Already PROVISIONING or PROVISIONED: skip 0x17 and finish the close.
 rem Does not erase flash and does not call provisioning.bat.
@@ -66,26 +67,35 @@ if /i "!PRODUCT!"=="OPEN" (
     echo [info] Product state is !PRODUCT!. Continue without writing 0x17
 )
 
-set "GEN=%~dp0..\windows-tfm-tools\windows-tfm-tools-h573\windows-tfm-tools\gen_da_obk.py"
-set "OBK=%TEMP%\da_close_config.obk"
-if not exist "!GEN!" (
-    echo [FAIL] Cannot find gen_da_obk.py
-    exit /b 1
-)
-echo [info] Generate OBK
-where py >nul 2>&1
-if not errorlevel 1 (
-    py -3 "!GEN!" -InFile "!PUB!" -OutFile "!OBK!" -Permission 0x00005077 -Encrypt 1
+set "OBK=%~2"
+if defined OBK (
+    if not exist "!OBK!" (
+        echo [FAIL] OBK not found: !OBK!
+        exit /b 1
+    )
+    echo [info] Use the OBK from the Qt page: !OBK!
 ) else (
-    python "!GEN!" -InFile "!PUB!" -OutFile "!OBK!" -Permission 0x00005077 -Encrypt 1
-)
-if errorlevel 1 (
-    echo [FAIL] Generating OBK failed
-    exit /b 1
-)
-if not exist "!OBK!" (
-    echo [FAIL] OBK was not created
-    exit /b 1
+    set "GEN=%~dp0..\windows-tfm-tools\windows-tfm-tools-h573\windows-tfm-tools\gen_da_obk.py"
+    set "OBK=%TEMP%\da_close_config.obk"
+    if not exist "!GEN!" (
+        echo [FAIL] Cannot find gen_da_obk.py
+        exit /b 1
+    )
+    echo [info] Generate OBK
+    where py >nul 2>&1
+    if not errorlevel 1 (
+        py -3 "!GEN!" -InFile "!PUB!" -OutFile "!OBK!" -Permission 0x00005077 -Encrypt 1
+    ) else (
+        python "!GEN!" -InFile "!PUB!" -OutFile "!OBK!" -Permission 0x00005077 -Encrypt 1
+    )
+    if errorlevel 1 (
+        echo [FAIL] Generating OBK failed
+        exit /b 1
+    )
+    if not exist "!OBK!" (
+        echo [FAIL] OBK was not created
+        exit /b 1
+    )
 )
 
 echo [info] Write OBK

@@ -944,8 +944,36 @@ void ProgramDownloadWidget::runDaClose()
         QMessageBox::warning(this, tr("DA Authentication"), message);
         return;
     }
+    const QString obkPath = QDir(QDir::tempPath()).filePath(QStringLiteral("da_close_qt.obk"));
+    DaObk::Error obkError = DaObk::Error::Ok;
+    const quint32 permission = 0x00005077;
+    const QByteArray blob = DaObk::fromPublicKey(key, permission, 1, &obkError);
+    if (blob.isEmpty()) {
+        QString message;
+        if (obkError == DaObk::Error::Read)
+            message = tr("Cannot read key: %1").arg(key);
+        else if (obkError == DaObk::Error::Pem)
+            message = tr("PEM has no Base64: %1").arg(key);
+        else
+            message = tr("Not a P-256 uncompressed public key");
+        appendLog(message + QLatin1Char('\n'));
+        showRunStatus(message, false);
+        QMessageBox::warning(this, tr("DA Authentication"), message);
+        return;
+    }
+    QFile obkFile(obkPath);
+    if (!obkFile.open(QIODevice::WriteOnly) || obkFile.write(blob) != blob.size()) {
+        const QString message = tr("Cannot write OBK: %1").arg(QDir::toNativeSeparators(obkPath));
+        appendLog(message + QLatin1Char('\n'));
+        showRunStatus(message, false);
+        QMessageBox::warning(this, tr("DA Authentication"), message);
+        return;
+    }
+    obkFile.close();
+    appendLog(tr("OBK written: %1 (%2 bytes)").arg(QDir::toNativeSeparators(obkPath)).arg(blob.size())
+              + QLatin1Char('\n'));
     runDaScript(QStringLiteral("da/da_close.bat"),
-                QStringList() << QDir::toNativeSeparators(key),
+                QStringList() << QDir::toNativeSeparators(key) << QDir::toNativeSeparators(obkPath),
                 tr("DA Authentication"));
 }
 

@@ -28,11 +28,9 @@ da\
   da_regression.bat           回归到 Open
   password.bin                密码认证时用的口令文件
   DA_ConfigWithPassword.obk   停在 PROVISIONING 时的密码 OBK
-windows-tfm-tools\
-  windows-tfm-tools-h573\windows-tfm-tools\gen_da_obk.py
 ```
 
-`da\log` 是每次运行自己写的日志，不用打包。
+`da\log` 是每次运行自己写的日志，不用打包。下载页点「DA 认证」时，Qt 自己用公钥生成 OBK，权限固定 `0x00005077`，再把这个文件传给 `da_close.bat`。别的电脑不需要 `gen_da_obk.py`，也不需要 Python。只有手工运行脚本、并且没有带上现成的 OBK 时，才会去找 `gen_da_obk.py`。
 
 | 文件 | 作用 |
 |------|------|
@@ -41,7 +39,7 @@ windows-tfm-tools\
 | `password.bin` | 芯片已经是密码认证时，回归带上的口令 |
 | `DA_ConfigWithPassword.obk` | 芯片停在 PROVISIONING、证书回归失败时，改走密码认证用的 OBK |
 
-本机要有 STM32CubeProgrammer，还要有 `py -3` 或 `python`。生成 OBK 会调用 `gen_da_obk.py`。脚本按这个顺序找编程器：`D:\ST\STM32CubeProgrammer\bin`、Program Files、Program Files (x86)、最后才是 PATH。下载页上填了编程器路径时，只是把它的目录加到 PATH 前面，前面三个目录里已经有编程器时，仍用那三个。
+本机要有 STM32CubeProgrammer。脚本按这个顺序找编程器：`D:\ST\STM32CubeProgrammer\bin`、Program Files、Program Files (x86)、最后才是 PATH。下载页上填了编程器路径时，只是把它的目录加到 PATH 前面，前面三个目录里已经有编程器时，仍用那三个。
 
 ### 下载页怎么用
 
@@ -71,7 +69,7 @@ DA 栏固定在抽屉下面，一直显示，不跟着抽屉收起。
 
 1. 发现当前产品状态和认证方式。LOCKED、已经 CLOSED、状态读不出来，都失败退出。不是证书认证，也失败退出。
 2. 当前是 Open（`0xED`）时，先写成 PROVISIONING（`0x17`）。已经是 PROVISIONING（`0x17`）或 PROVISIONED（`0x2E`）就跳过这一步。
-3. 用公钥生成 OBK。权限固定 `0x00005077`，加密标志为 1。OBK 写到临时文件，再烧进芯片。
+3. 下载页已经用公钥生成好 OBK，权限是 `0x00005077`，加密标志为 1。脚本把这个文件烧进芯片。
 4. 一条命令同时写 `SECBOOTADD=0xC0100`、`BOOT_UBE=0xB4`、`PRODUCT_STATE=0x72`。进入 PROVISIONING 会把启动地址清成 0，所以启动地址必须和 CLOSED 写在一起。
 5. 变成 CLOSED 后 SWD 会掉线，编程器常打印 `failed to reconnect after reset`。这个报错不代表失败。脚本再做一次发现，看到 `ST_LIFECYCLE_CLOSED` 才算成功。
 
