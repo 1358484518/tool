@@ -2,12 +2,17 @@
 #define PROGRAMDOWNLOADWIDGET_H
 
 #include <QStringList>
+#include <QList>
 #include <QWidget>
 
+#include <QList>
 #include <functional>
 
 class QButtonGroup;
+class QCheckBox;
+class QComboBox;
 class QEvent;
+class QFile;
 class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
@@ -56,6 +61,9 @@ private:
         QString appKey;                       // 设置里应用程序路径的键
         QString defaultScript;                // 相对 ACSF 的烧录脚本，界面不显示
         QString scriptArg;                    // 传给 bat 的镜像参数。发布脚本不用
+        bool chainDa = false;                // 发布烧录成功后接着做 DA 认证
+        QWidget *host = nullptr;              // 这一行和下面的横线。测试、调试整行随功能扩展隐藏
+        QList<QWidget *> extendParts;         // 发布行里随功能扩展隐藏的 Boot 和安全程序
         QString defaultBoot;                  // 相对 ACSF 的缺省 Boot
         QString defaultSecure;                // 相对 ACSF 的缺省安全程序
         QString defaultApp;                   // 相对 ACSF 的缺省应用程序
@@ -87,6 +95,8 @@ private:
     QWidget *addDrawer(QVBoxLayout *host, QPushButton **headerOut, const QString &title, bool open);  // 抽屉头和内容，各自展开
     void eachRow(const std::function<void(ImageRow *)> &fn);  // 四个产品的测试、调试、发布
     void refreshDrawers();        // 按展开状态重写抽屉标题
+    void applyProductFilter();    // 按产品下拉框显示一个抽屉，或全部显示
+    void applyFeatureExtend(bool shown);  // 功能扩展未勾选时藏起后面的按钮和 DA 抽屉
     void buildDaRow(QWidget *parent);  // 公钥和 DA 认证一行，私钥、证书链和回归一行
     void showDaMaterial(bool leaf);  // 按叶子或中间填入缺省私钥和证书链
     void runDaClose();            // 用页面上的公钥做 DA 认证并设为 CLOSED
@@ -99,7 +109,9 @@ private:
     void showStoredOrDefault(QLineEdit *edit, const QString &saved, const QString &relativeToAcsf);  // 有保存用保存的，否则用 ACSF 缺省
     void runDownload(const ImageRow *row);  // 启动这一行的 bat，并把页面上的编程器目录放进 PATH
     void setDownloadRunning(bool running);  // 有脚本在跑时停用三个下载按钮
-    void appendLog(const QString &text);    // 追加到日志框末尾。框自己丢掉超过 2000 行的旧内容
+    void appendLog(const QString &text);    // 追加到日志框，并写入日志文件。框自己丢掉超过 2000 行的旧内容
+    void writeOutputLog(const QString &text);  // 脚本输出落盘。当前文件达到 1MB 后换一个新文件
+    QString outputLogDir() const;              // 设置里的日志目录，没有就用程序目录
     void showRunStatus(const QString &result, bool ok);  // 页底状态：这次下载的结果和用时
     QString formatElapsed(qint64 ms) const;  // 不到一分钟用秒，否则用分和秒
     void pollScriptLog();                   // 把脚本 log 目录里这次新文件的新内容追加到日志框
@@ -112,6 +124,10 @@ private:
     QPushButton *m_packNs = nullptr;       // 非安全侧升级固件打包
     QPushButton *m_unpackS = nullptr;      // 安全侧升级固件解包
     QPushButton *m_unpackNs = nullptr;     // 非安全侧升级固件解包
+    QLabel *m_productLabel = nullptr;      // 「产品选择」
+    QComboBox *m_productFilter = nullptr;  // 产品抽屉：G0、RAT、RD0047、SECC，最后一项全部显示
+    QCheckBox *m_featureExtend = nullptr;  // 功能扩展。未勾选时藏起后面的按钮和 DA 抽屉
+    QWidget *m_featureTools = nullptr;     // 功能扩展后面的按钮，跟着勾选显示
     ProductPane m_products[4];             // G0、RAT、RD0047、SECC
     QLabel *m_daTitle = nullptr;           // DA 标题，一直显示
     QWidget *m_daBody = nullptr;           // DA 内容，一直显示
@@ -131,6 +147,7 @@ private:
     QPushButton *m_regress = nullptr;      // 全回归到 Open
     QPushButton *m_clearLog = nullptr;     // 清空日志框里已经显示的内容
     QPlainTextEdit *m_log = nullptr;       // 脚本 log 文件的内容。只读，最多 2000 行
+    QFile *m_outputLog = nullptr;          // 正在写入的脚本输出文件，达到 1MB 后换新文件
     QLabel *m_statusLabel = nullptr;       // 页底状态，显示这次下载的结果和用时
     QString m_runTitle;                    // 这次下载的行标题，写进状态栏
     QTimer *m_logPoll = nullptr;           // 烧录过程中定期读脚本 log 文件

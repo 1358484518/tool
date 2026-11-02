@@ -1,6 +1,7 @@
 #include "SettingsWidget.h"
 #include "AppLanguage.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
 #include <QEvent>
@@ -12,6 +13,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSettings>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QVBoxLayout>
 
@@ -27,6 +29,15 @@ SettingsWidget::SettingsWidget(QWidget *parent)
             this, [this](int) { applyLanguage(); });
     connect(m_logDirEdit, &QLineEdit::editingFinished, this, [this]() { saveSettings(); });
     connect(m_firmwareDirEdit, &QLineEdit::editingFinished, this, [this]() { saveSettings(); });
+    const auto onTabBox = [this](bool) {
+        syncStartupCombo();
+        saveSettings();
+        emit tabVisibilityChanged();
+    };
+    connect(m_showSerial, &QCheckBox::toggled, this, onTabBox);
+    connect(m_showNetwork, &QCheckBox::toggled, this, onTabBox);
+    connect(m_showFtp, &QCheckBox::toggled, this, onTabBox);
+    connect(m_showFirmware, &QCheckBox::toggled, this, onTabBox);
 }
 
 SettingsWidget::~SettingsWidget()
@@ -38,6 +49,26 @@ int SettingsWidget::startupTab() const
 {
     const int tab = m_startupCombo->currentData().toInt();
     return tab < 0 ? 0 : tab;
+}
+
+bool SettingsWidget::showSerial() const
+{
+    return m_showSerial->isChecked();
+}
+
+bool SettingsWidget::showNetwork() const
+{
+    return m_showNetwork->isChecked();
+}
+
+bool SettingsWidget::showFtp() const
+{
+    return m_showFtp->isChecked();
+}
+
+bool SettingsWidget::showFirmware() const
+{
+    return m_showFirmware->isChecked();
 }
 
 QString SettingsWidget::logFilePath(const QString &fileName)
@@ -71,7 +102,7 @@ void SettingsWidget::setupUi()
 
     auto *group = new QGroupBox(this);
     m_group = group;
-    group->setMaximumWidth(560);
+    group->setMaximumWidth(820);
     auto *grid = new QGridLayout(group);
     grid->setSpacing(8);
     grid->setContentsMargins(10, 16, 10, 10);
@@ -116,6 +147,25 @@ void SettingsWidget::setupUi()
     grid->addLayout(firmwareRow, 3, 1);
     connect(m_firmwareBrowseBtn, &QPushButton::clicked, this, &SettingsWidget::browseFirmwareDir);
 
+    m_tabsLabel = new QLabel(group);
+    grid->addWidget(m_tabsLabel, 4, 0);
+    auto *tabsRow = new QHBoxLayout();
+    tabsRow->setSpacing(12);
+    m_showSerial = new QCheckBox(group);
+    m_showNetwork = new QCheckBox(group);
+    m_showFtp = new QCheckBox(group);
+    m_showFirmware = new QCheckBox(group);
+    m_showSerial->setChecked(false);
+    m_showNetwork->setChecked(false);
+    m_showFtp->setChecked(false);
+    m_showFirmware->setChecked(false);
+    tabsRow->addWidget(m_showSerial);
+    tabsRow->addWidget(m_showNetwork);
+    tabsRow->addWidget(m_showFtp);
+    tabsRow->addWidget(m_showFirmware);
+    tabsRow->addStretch();
+    grid->addLayout(tabsRow, 4, 1);
+
     root->addWidget(group, 0, Qt::AlignTop | Qt::AlignLeft);
     root->addStretch();
     retranslateUi();
@@ -147,6 +197,11 @@ void SettingsWidget::loadSettings()
         m_startupCombo->setCurrentIndex(idx);
     m_logDirEdit->setText(settings.value(QStringLiteral("logDir")).toString());
     m_firmwareDirEdit->setText(settings.value(QStringLiteral("firmwareDir")).toString());
+    m_showSerial->setChecked(settings.value(QStringLiteral("showSerial"), false).toBool());
+    m_showNetwork->setChecked(settings.value(QStringLiteral("showNetwork"), false).toBool());
+    m_showFtp->setChecked(settings.value(QStringLiteral("showFtp"), false).toBool());
+    m_showFirmware->setChecked(settings.value(QStringLiteral("showFirmware"), false).toBool());
+    syncStartupCombo();
     const QString language = settings.value(QStringLiteral("language"), QStringLiteral("en")).toString();
     const int langIdx = m_languageCombo->findData(language);
     if (langIdx >= 0)
@@ -162,7 +217,39 @@ void SettingsWidget::saveSettings()
     settings.setValue(QStringLiteral("language"), m_languageCombo->currentData().toString());
     settings.setValue(QStringLiteral("logDir"), m_logDirEdit->text().trimmed());
     settings.setValue(QStringLiteral("firmwareDir"), m_firmwareDirEdit->text().trimmed());
+    settings.setValue(QStringLiteral("showSerial"), m_showSerial->isChecked());
+    settings.setValue(QStringLiteral("showNetwork"), m_showNetwork->isChecked());
+    settings.setValue(QStringLiteral("showFtp"), m_showFtp->isChecked());
+    settings.setValue(QStringLiteral("showFirmware"), m_showFirmware->isChecked());
     settings.endGroup();
+}
+
+void SettingsWidget::syncStartupCombo()
+{
+    auto *model = qobject_cast<QStandardItemModel *>(m_startupCombo->model());
+    if (!model)
+        return;
+    const bool enabled[] = {
+        m_showSerial->isChecked(),
+        m_showNetwork->isChecked(),
+        m_showFtp->isChecked(),
+        m_showFirmware->isChecked(),
+        true,
+        true,
+    };
+    for (int i = 0; i < 6; ++i) {
+        if (QStandardItem *item = model->item(i))
+            item->setEnabled(enabled[i]);
+    }
+    const int current = m_startupCombo->currentIndex();
+    if (current >= 0 && current < 6 && enabled[current])
+        return;
+    for (int i = 0; i < 6; ++i) {
+        if (enabled[i]) {
+            m_startupCombo->setCurrentIndex(i);
+            break;
+        }
+    }
 }
 
 void SettingsWidget::browseLogDir()
@@ -220,6 +307,11 @@ void SettingsWidget::retranslateUi()
     m_firmwareDirLabel->setText(tr("Firmware Directory:"));
     m_firmwareDirEdit->setPlaceholderText(tr("Downloads"));
     m_firmwareBrowseBtn->setText(tr("Browse"));
+    m_tabsLabel->setText(tr("Visible Tabs:"));
+    m_showSerial->setText(tr("Serial"));
+    m_showNetwork->setText(tr("Network"));
+    m_showFtp->setText(tr("FTP / TFTP"));
+    m_showFirmware->setText(tr("Firmware"));
     m_startupCombo->setCurrentIndex(startup);
     m_languageCombo->setCurrentIndex(language);
     m_startupCombo->blockSignals(false);

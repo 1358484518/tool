@@ -122,13 +122,17 @@ void TMX_TOOL::initUi()
 
     m_tool_tab->addTab(m_program_ui, tr("Program Download"));
     m_tool_tab->addTab(m_settings_ui, tr("Settings"));
-    // 下拉 data 与页签序号一致：0 串口、1 网络、2 FTP、3 固件、4 程序下载、5 设置。
-    // 启动页若是还没登录的固件页，先停在第一页，等登录成功再过去。FTP 和程序下载直接打开。
-    const int startup = m_settings_ui->startupTab();
-    if (isGuardedTab(startup))
-        m_tool_tab->setCurrentIndex(0);
-    else if (startup >= 0 && startup < m_tool_tab->count())
-        m_tool_tab->setCurrentIndex(startup);
+    connect(m_settings_ui, &SettingsWidget::tabVisibilityChanged, this, [this]() {
+        QTimer::singleShot(0, this, &TMX_TOOL::applyTabVisibility);
+    });
+    applyTabVisibility();
+    // 启动页序号是固定的：0 串口、1 网络、2 FTP、3 固件、4 程序下载、5 设置。
+    // 藏起来的页不在页签栏里。固件页要等登录，未登录时先停在别的页。
+    QWidget *startPage = pageForLogical(m_settings_ui->startupTab());
+    int startIndex = m_tool_tab->indexOf(startPage);
+    if (startIndex < 0 || m_tool_tab->widget(startIndex) == m_firmware_ui)
+        startIndex = firstOpenTab();
+    m_tool_tab->setCurrentIndex(startIndex);
     m_returnTab = m_tool_tab->currentIndex();
     connect(m_tool_tab, &QTabWidget::currentChanged, this, &TMX_TOOL::onTabChanged);
     connect(m_firmware_ui, &FirmwareWidget::gateLoginFinished, this, &TMX_TOOL::onGateLoginFinished);
@@ -215,7 +219,63 @@ void TMX_TOOL::initUi()
 
 bool TMX_TOOL::isGuardedTab(int index) const
 {
-    return index == 3;
+    return m_tool_tab && m_tool_tab->widget(index) == m_firmware_ui;
+}
+
+QWidget *TMX_TOOL::pageForLogical(int logical) const
+{
+    switch (logical) {
+    case 0: return m_serial_ui;
+    case 1: return m_net_ui;
+    case 2: return m_ftp_ui;
+    case 3: return m_firmware_ui;
+    case 4: return m_program_ui;
+    case 5: return m_settings_ui;
+    default: return nullptr;
+    }
+}
+
+int TMX_TOOL::firstOpenTab() const
+{
+    if (!m_tool_tab)
+        return 0;
+    for (int i = 0; i < m_tool_tab->count(); ++i) {
+        if (m_tool_tab->widget(i) != m_firmware_ui)
+            return i;
+    }
+    return 0;
+}
+
+void TMX_TOOL::applyTabVisibility()
+{
+    if (!m_tool_tab || !m_settings_ui)
+        return;
+    const struct {
+        QWidget *page;
+        bool visible;
+    } pages[] = {
+        {m_serial_ui, m_settings_ui->showSerial()},
+        {m_net_ui, m_settings_ui->showNetwork()},
+        {m_ftp_ui, m_settings_ui->showFtp()},
+        {m_firmware_ui, m_settings_ui->showFirmware()},
+        {m_program_ui, true},
+        {m_settings_ui, true},
+    };
+    QWidget *current = m_tool_tab->currentWidget();
+    m_switching = true;
+    while (m_tool_tab->count() > 0)
+        m_tool_tab->removeTab(0);
+    for (const auto &page : pages) {
+        if (page.visible && page.page)
+            m_tool_tab->addTab(page.page, QString());
+    }
+    retranslateUi();
+    int index = m_tool_tab->indexOf(current);
+    if (index < 0)
+        index = firstOpenTab();
+    m_tool_tab->setCurrentIndex(index);
+    m_returnTab = index;
+    m_switching = false;
 }
 
 void TMX_TOOL::showTab(int index)
@@ -252,8 +312,13 @@ void TMX_TOOL::onGateLoginFinished(bool ok, const QString &message)
     if (ok) {
         int next = m_heldTab;
         m_heldTab = -1;
-        if (next < 0 && !m_startupSettled)
-            next = m_settings_ui->startupTab();
+        if (next < 0 && !m_startupSettled) {
+            m_startupSettled = true;
+            const int index = m_tool_tab ? m_tool_tab->indexOf(pageForLogical(m_settings_ui->startupTab())) : -1;
+            if (isGuardedTab(index))
+                showTab(index);
+            return;
+        }
         m_startupSettled = true;
         if (isGuardedTab(next))
             showTab(next);
@@ -264,7 +329,7 @@ void TMX_TOOL::onGateLoginFinished(bool ok, const QString &message)
     if (!m_startupSettled) {
         m_startupSettled = true;
         if (m_tool_tab && isGuardedTab(m_tool_tab->currentIndex()))
-            showTab(0);
+            showTab(firstOpenTab());
     }
     if (wanted < 0)
         return;
@@ -294,12 +359,17 @@ void TMX_TOOL::retranslateUi()
                        : tr("TMX Debug Assistant %1").arg(ver));
     if (!m_tool_tab)
         return;
-    m_tool_tab->setTabText(0, tr("Serial"));
-    m_tool_tab->setTabText(1, tr("Network"));
-    m_tool_tab->setTabText(2, tr("FTP / TFTP"));
-    m_tool_tab->setTabText(3, tr("Firmware"));
-    m_tool_tab->setTabText(4, tr("Program Download"));
-    m_tool_tab->setTabText(5, tr("Settings"));
+    auto setText = [this](QWidget *page, const QString &text) {
+        const int index = m_tool_tab->indexOf(page);
+        if (index >= 0)
+            m_tool_tab->setTabText(index, text);
+    };
+    setText(m_serial_ui, tr("Serial"));
+    setText(m_net_ui, tr("Network"));
+    setText(m_ftp_ui, tr("FTP / TFTP"));
+    setText(m_firmware_ui, tr("Firmware"));
+    setText(m_program_ui, tr("Program Download"));
+    setText(m_settings_ui, tr("Settings"));
 }
 
 IoSource *TMX_TOOL::serialIoSource() const

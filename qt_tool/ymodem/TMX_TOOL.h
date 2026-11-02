@@ -46,6 +46,9 @@ private:
     void showTab(int index);    // 切页，不再次进入拦截
     bool isGuardedTab(int index) const;  // 只有固件页要登录。FTP 插在网络后面，固件是页签 3
     void retranslateUi();       // 按当前语言重写窗口标题和页签
+    void applyTabVisibility();  // 按设置显示或藏起串口、网络、FTP 页
+    QWidget *pageForLogical(int logical) const;  // 启动页序号对应的页面
+    int firstOpenTab() const;   // 固件页以外的第一页，未登录时停在这里
     void initSerialBackend();   // 创建 SerialManager 并移到工作线程
     void initYmodemBridge();    // 串口页「YModem 发送」接到传输线程
     void stopYmodemTransfer();  // 停传输：wait 后 delete，不用 deleteLater

@@ -4,6 +4,8 @@
 #include "FwmpPack.h"
 
 #include <QButtonGroup>
+#include <QCheckBox>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
@@ -32,6 +34,7 @@ namespace {
 
 const char kH573Dir[] = "windows-tfm-tools-h573";  // OBK 缺省公钥和输出仍从这里找
 const int kLogLines = 2000;  // 日志框最多留这么多行，再写就丢掉最旧的
+const qint64 kLogBytes = 1024 * 1024;  // 脚本输出文件超过这个大小就另起一个文件
 
 QString appDir()  // 程序所在目录。整包移动时相对路径都相对这里
 {
@@ -398,6 +401,14 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
     connect(m_packNs, &QPushButton::clicked, this, &ProgramDownloadWidget::packNonSecureFirmware);
     connect(m_unpackS, &QPushButton::clicked, this, &ProgramDownloadWidget::unpackSecureFirmware);
     connect(m_unpackNs, &QPushButton::clicked, this, &ProgramDownloadWidget::unpackNonSecureFirmware);
+    connect(m_productFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        applyProductFilter();
+        saveSettings();
+    });
+    connect(m_featureExtend, &QCheckBox::toggled, this, [this](bool checked) {
+        applyFeatureExtend(checked);
+        saveSettings();
+    });
     connect(m_clearLog, &QPushButton::clicked, m_log, &QPlainTextEdit::clear);
 }
 
@@ -410,6 +421,7 @@ ProgramDownloadWidget::~ProgramDownloadWidget()
         m_process->waitForFinished(1000);
     }
     removeDownloadTemp();
+    delete m_outputLog;
 }
 
 void ProgramDownloadWidget::setupUi()
@@ -436,11 +448,37 @@ void ProgramDownloadWidget::setupUi()
     m_packNs = new QPushButton(this);
     m_unpackS = new QPushButton(this);
     m_unpackNs = new QPushButton(this);
-    obkRow->addWidget(m_genObk);
-    obkRow->addWidget(m_packS);
-    obkRow->addWidget(m_unpackS);
-    obkRow->addWidget(m_packNs);
-    obkRow->addWidget(m_unpackNs);
+    m_productLabel = new QLabel(this);
+    m_productFilter = new QComboBox(this);
+    m_productFilter->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_featureExtend = new QCheckBox(this);
+    m_featureTools = new QWidget(this);
+    auto *tools = new QHBoxLayout(m_featureTools);
+    tools->setContentsMargins(0, 0, 0, 0);
+    tools->setSpacing(obkRow->spacing());
+    auto addRule = [tools]() {
+        auto *rule = new QFrame(tools->parentWidget());
+        rule->setFrameShape(QFrame::VLine);
+        rule->setFrameShadow(QFrame::Sunken);
+        tools->addWidget(rule);
+    };
+    auto *leadRule = new QFrame(this);
+    leadRule->setFrameShape(QFrame::VLine);
+    leadRule->setFrameShadow(QFrame::Sunken);
+    obkRow->addWidget(m_productLabel);
+    obkRow->addWidget(m_productFilter);
+    obkRow->addWidget(leadRule);
+    obkRow->addWidget(m_featureExtend);
+    addRule();
+    tools->addWidget(m_packS);
+    tools->addWidget(m_unpackS);
+    addRule();
+    tools->addWidget(m_packNs);
+    tools->addWidget(m_unpackNs);
+    addRule();
+    tools->addWidget(m_genObk);
+    m_featureTools->setVisible(false);
+    obkRow->addWidget(m_featureTools);
     obkRow->addStretch();
     root->addLayout(obkRow);
 
@@ -477,13 +515,8 @@ void ProgramDownloadWidget::setupUi()
         QWidget *body = addDrawer(drawers, &m_products[i].header, m_products[i].name, i == 0);
         m_products[i].body = body;
         ImageRow *rows[] = {&m_products[i].test, &m_products[i].debug, &m_products[i].release};
-        for (ImageRow *row : rows) {
+        for (ImageRow *row : rows)
             buildImageRow(row, body);
-            auto *rule = new QFrame(body);
-            rule->setFrameShape(QFrame::HLine);
-            rule->setFrameShadow(QFrame::Sunken);
-            static_cast<QVBoxLayout *>(body->layout())->addWidget(rule);
-        }
     }
     drawers->addStretch();
     root->addWidget(scroll, 1);
@@ -509,6 +542,8 @@ void ProgramDownloadWidget::setupUi()
     buildDaRow(m_daBody);
     root->addWidget(m_daTitle);
     root->addWidget(m_daBody);
+    m_daTitle->setVisible(false);
+    m_daBody->setVisible(false);
 
     auto *logBar = new QHBoxLayout();
     m_clearLog = new QPushButton(this);
@@ -528,6 +563,7 @@ void ProgramDownloadWidget::setupUi()
     m_statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     root->addWidget(m_statusLabel);
     retranslateUi();
+    applyFeatureExtend(false);
 }
 
 void ProgramDownloadWidget::configureProduct(ProductPane *pane, const QString &name, const QString &prefix,
@@ -539,6 +575,7 @@ void ProgramDownloadWidget::configureProduct(ProductPane *pane, const QString &n
         row->secureKey = prefix + QLatin1String(kind) + QLatin1String("Secure");
         row->appKey = prefix + QLatin1String(kind) + QLatin1String("App");
         row->scriptArg = arg;
+        row->chainDa = release;
         const QString base = QStringLiteral("ACSF/%1/%1-%2/windows-tfm-tools/").arg(folder, QLatin1String(variant));
         row->defaultScript = base + script + (release ? QStringLiteral("_release.bat") : QStringLiteral(".bat"));
         row->defaultBoot = base + QLatin1String(variant) + QStringLiteral("/bl2.hex");
@@ -587,6 +624,33 @@ void ProgramDownloadWidget::eachRow(const std::function<void(ImageRow *)> &fn)
     }
 }
 
+void ProgramDownloadWidget::applyFeatureExtend(bool shown)
+{
+    m_featureTools->setVisible(shown);
+    m_daTitle->setVisible(shown);
+    m_daBody->setVisible(shown);
+    eachRow([shown](ImageRow *row) {
+        if (!row->chainDa) {
+            if (row->host)
+                row->host->setVisible(shown);
+            return;
+        }
+        for (QWidget *part : row->extendParts)
+            part->setVisible(shown);
+    });
+}
+
+void ProgramDownloadWidget::applyProductFilter()
+{
+    const int index = m_productFilter->currentIndex();
+    const bool showAll = index < 0 || index >= 4;
+    for (int i = 0; i < 4; ++i) {
+        const bool show = showAll || i == index;
+        m_products[i].header->setVisible(show);
+        m_products[i].body->setVisible(show && m_products[i].header->isChecked());
+    }
+}
+
 void ProgramDownloadWidget::refreshDrawers()
 {
     auto paint = [](QPushButton *header) {
@@ -601,35 +665,55 @@ void ProgramDownloadWidget::refreshDrawers()
 
 void ProgramDownloadWidget::buildImageRow(ImageRow *row, QWidget *parent)
 {
+    auto *host = new QWidget(parent);
+    row->host = host;
+    auto *outer = new QVBoxLayout(host);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(8);
     auto *line = new QHBoxLayout();
     line->setSpacing(8);
-    row->title = new QLabel(parent);
+    outer->addLayout(line);
+    row->title = new QLabel(host);
     line->addWidget(row->title);
 
-    auto addRule = [parent, line]() {
-        auto *rule = new QFrame(parent);
+    auto addRule = [host, line]() {
+        auto *rule = new QFrame(host);
         rule->setFrameShape(QFrame::VLine);
         rule->setFrameShadow(QFrame::Sunken);
         line->addWidget(rule);
+        return rule;
     };
-    auto addPath = [parent, line](QLabel *&label, QLineEdit *&edit, QPushButton *&button) {
-        label = new QLabel(parent);
-        edit = new QLineEdit(parent);
-        button = new QPushButton(parent);
+    auto addPath = [host, line](QLabel *&label, QLineEdit *&edit, QPushButton *&button) {
+        label = new QLabel(host);
+        edit = new QLineEdit(host);
+        button = new QPushButton(host);
         line->addWidget(label);
         line->addWidget(edit, 1);
         line->addWidget(button);
     };
-    addRule();
+    QFrame *ruleBoot = addRule();
     addPath(row->bootLabel, row->boot, row->chooseBoot);
-    addRule();
+    QFrame *ruleSecure = addRule();
     addPath(row->secureLabel, row->secure, row->chooseSecure);
-    addRule();
+    QFrame *ruleApp = addRule();
     addPath(row->appLabel, row->app, row->chooseApp);
 
-    row->download = new QPushButton(parent);
+    row->download = new QPushButton(host);
     line->addWidget(row->download);
-    static_cast<QVBoxLayout *>(parent->layout())->addLayout(line);
+    if (row->chainDa) {
+        const QWidget *parts[] = {
+            row->title, ruleBoot,
+            row->bootLabel, row->boot, row->chooseBoot, ruleSecure,
+            row->secureLabel, row->secure, row->chooseSecure, ruleApp,
+        };
+        for (const QWidget *part : parts)
+            row->extendParts.append(const_cast<QWidget *>(part));
+    }
+    auto *underline = new QFrame(host);
+    underline->setFrameShape(QFrame::HLine);
+    underline->setFrameShadow(QFrame::Sunken);
+    outer->addWidget(underline);
+    static_cast<QVBoxLayout *>(parent->layout())->addWidget(host);
 }
 
 void ProgramDownloadWidget::buildDaRow(QWidget *parent)
@@ -728,6 +812,65 @@ void ProgramDownloadWidget::appendLog(const QString &text)
     m_log->moveCursor(QTextCursor::End);
     m_log->insertPlainText(chunk);
     m_log->ensureCursorVisible();
+    writeOutputLog(chunk);
+}
+
+QString ProgramDownloadWidget::outputLogDir() const
+{
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("App"));
+    const QString dir = settings.value(QStringLiteral("logDir")).toString();
+    settings.endGroup();
+    if (!dir.isEmpty() && QDir(dir).exists())
+        return QDir(dir).absolutePath();
+    return appDir();
+}
+
+void ProgramDownloadWidget::writeOutputLog(const QString &text)
+{
+    const QByteArray bytes = text.toUtf8();
+    if (bytes.isEmpty())
+        return;
+    const bool rotate = !m_outputLog || !m_outputLog->isOpen() || m_outputLog->size() >= kLogBytes;
+    if (rotate) {
+        delete m_outputLog;
+        m_outputLog = nullptr;
+        const QDir dir(outputLogDir());
+        if (!dir.exists())
+            QDir().mkpath(dir.absolutePath());
+        QString path;
+        const QFileInfoList files = dir.entryInfoList(
+            QStringList() << QStringLiteral("script_output_*.log"),
+            QDir::Files, QDir::Time | QDir::Reversed);
+        if (!files.isEmpty() && files.first().size() < kLogBytes)
+            path = files.first().absoluteFilePath();
+        if (path.isEmpty()) {
+            const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+            for (int n = 0; n < 100; ++n) {
+                const QString name = n == 0
+                    ? QStringLiteral("script_output_%1.log").arg(stamp)
+                    : QStringLiteral("script_output_%1_%2.log").arg(stamp).arg(n);
+                const QString candidate = dir.absoluteFilePath(name);
+                if (!QFileInfo::exists(candidate)) {
+                    path = candidate;
+                    break;
+                }
+            }
+        }
+        if (path.isEmpty())
+            return;
+        const bool existed = QFileInfo::exists(path) && QFileInfo(path).size() > 0;
+        m_outputLog = new QFile(path);
+        if (!m_outputLog->open(QIODevice::WriteOnly | QIODevice::Append)) {
+            delete m_outputLog;
+            m_outputLog = nullptr;
+            return;
+        }
+        if (!existed)
+            m_outputLog->write("\xEF\xBB\xBF");
+    }
+    m_outputLog->write(bytes);
+    m_outputLog->flush();
 }
 
 void ProgramDownloadWidget::pollScriptLog()
@@ -822,6 +965,29 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
         QMessageBox::warning(this, tr("Download"), message);
         return;
     }
+    if (row->chainDa) {
+        const QString key = resolvedScriptPath(m_key->text());
+        QString keyError;
+        if (!QFileInfo::exists(key)) {
+            keyError = tr("Cannot find file: %1").arg(m_key->text());
+        } else {
+            DaObk::Error obkError = DaObk::Error::Ok;
+            if (DaObk::fromPublicKey(key, 0x00005077, 1, &obkError).isEmpty()) {
+                if (obkError == DaObk::Error::Read)
+                    keyError = tr("Cannot read key: %1").arg(key);
+                else if (obkError == DaObk::Error::Pem)
+                    keyError = tr("PEM has no Base64: %1").arg(key);
+                else
+                    keyError = tr("Not a P-256 uncompressed public key");
+            }
+        }
+        if (!keyError.isEmpty()) {
+            appendLog(keyError + QLatin1Char('\n'));
+            showRunStatus(keyError, false);
+            QMessageBox::warning(this, tr("DA Authentication"), keyError);
+            return;
+        }
+    }
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     const QString cubeText = m_cubeProg->text().trimmed();
     if (!cubeText.isEmpty()) {
@@ -865,15 +1031,15 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
         if (m_process)
             m_process->readAllStandardOutput();
     });
+    const bool chainDa = row->chainDa;
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this](int code, QProcess::ExitStatus status) {
+            this, [this, chainDa](int code, QProcess::ExitStatus status) {
                 QProcess *process = m_process;
                 m_process = nullptr;
                 if (m_logPoll)
                     m_logPoll->stop();
                 pollScriptLog();
                 removeDownloadTemp();
-                setDownloadRunning(false);
                 QString message;
                 if (m_scriptFailed)
                     message = tr("Script failed: %1").arg(m_failStep.isEmpty() ? tr("Download") : m_failStep);
@@ -881,13 +1047,19 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
                     message = tr("Script finished with code %1").arg(code);
                 else
                     message = tr("Script finished.");
-                appendLog(message + QLatin1Char('\n'));
                 const bool ok = !m_scriptFailed && status != QProcess::CrashExit && code == 0;
+                if (process)
+                    process->deleteLater();
+                if (ok && chainDa) {
+                    appendLog(tr("Download finished. Starting DA authentication.") + QLatin1Char('\n'));
+                    QTimer::singleShot(0, this, [this]() { runDaClose(); });
+                    return;
+                }
+                setDownloadRunning(false);
+                appendLog(message + QLatin1Char('\n'));
                 showRunStatus(message, ok);
                 if (!ok)
                     QMessageBox::warning(this, m_boxTitle, message);
-                if (process)
-                    process->deleteLater();
             });
     connect(m_process, &QProcess::errorOccurred, this, [this, script](QProcess::ProcessError error) {
         if (error != QProcess::FailedToStart || !m_process)
@@ -941,6 +1113,7 @@ void ProgramDownloadWidget::runDaClose()
         const QString message = tr("Cannot find file: %1").arg(m_key->text());
         appendLog(message + QLatin1Char('\n'));
         showRunStatus(message, false);
+        setDownloadRunning(false);
         QMessageBox::warning(this, tr("DA Authentication"), message);
         return;
     }
@@ -958,6 +1131,7 @@ void ProgramDownloadWidget::runDaClose()
             message = tr("Not a P-256 uncompressed public key");
         appendLog(message + QLatin1Char('\n'));
         showRunStatus(message, false);
+        setDownloadRunning(false);
         QMessageBox::warning(this, tr("DA Authentication"), message);
         return;
     }
@@ -966,6 +1140,7 @@ void ProgramDownloadWidget::runDaClose()
         const QString message = tr("Cannot write OBK: %1").arg(QDir::toNativeSeparators(obkPath));
         appendLog(message + QLatin1Char('\n'));
         showRunStatus(message, false);
+        setDownloadRunning(false);
         QMessageBox::warning(this, tr("DA Authentication"), message);
         return;
     }
@@ -1252,6 +1427,25 @@ void ProgramDownloadWidget::loadSettings()
     } else {
         showDaMaterial(leaf);
     }
+    const QString filter = settings.value(QStringLiteral("productFilter"), QStringLiteral("all")).toString();
+    int filterIndex = m_productFilter->count() - 1;
+    if (filter != QLatin1String("all")) {
+        for (int i = 0; i < 4; ++i) {
+            if (m_products[i].name == filter) {
+                filterIndex = i;
+                break;
+            }
+        }
+    }
+    m_productFilter->blockSignals(true);
+    m_productFilter->setCurrentIndex(filterIndex);
+    m_productFilter->blockSignals(false);
+    applyProductFilter();
+    const bool extend = settings.value(QStringLiteral("featureExtend"), false).toBool();
+    m_featureExtend->blockSignals(true);
+    m_featureExtend->setChecked(extend);
+    m_featureExtend->blockSignals(false);
+    applyFeatureExtend(extend);
     settings.endGroup();
     saveSettings();
 }
@@ -1274,6 +1468,12 @@ void ProgramDownloadWidget::saveSettings() const
                       m_leaf->isChecked() ? QStringLiteral("leaf") : QStringLiteral("intermediate"));
     settings.setValue(QStringLiteral("g0DaPriv"), storedScriptPath(m_priv->text()));
     settings.setValue(QStringLiteral("g0DaCert"), storedScriptPath(m_cert->text()));
+    QString filter = QStringLiteral("all");
+    const int filterIndex = m_productFilter->currentIndex();
+    if (filterIndex >= 0 && filterIndex < 4)
+        filter = m_products[filterIndex].name;
+    settings.setValue(QStringLiteral("productFilter"), filter);
+    settings.setValue(QStringLiteral("featureExtend"), m_featureExtend->isChecked());
     settings.endGroup();
 }
 
@@ -1288,6 +1488,17 @@ void ProgramDownloadWidget::retranslateUi()
     m_packNs->setText(tr("Pack NS upgrade firmware"));
     m_unpackS->setText(tr("Unpack S upgrade firmware"));
     m_unpackNs->setText(tr("Unpack NS upgrade firmware"));
+    m_productLabel->setText(tr("Product selection:"));
+    m_featureExtend->setText(tr("Feature extension"));
+    const int filter = m_productFilter->currentIndex();
+    m_productFilter->blockSignals(true);
+    m_productFilter->clear();
+    for (const ProductPane &pane : m_products)
+        m_productFilter->addItem(pane.name);
+    m_productFilter->addItem(tr("Show all"));
+    const int last = m_productFilter->count() - 1;
+    m_productFilter->setCurrentIndex(filter >= 0 && filter <= last ? filter : last);
+    m_productFilter->blockSignals(false);
     for (ProductPane &pane : m_products) {
         pane.header->setProperty("drawerTitle", pane.name);
         pane.test.title->setText(tr("%1 test program:").arg(pane.name));
