@@ -22,6 +22,7 @@ shift
 setlocal EnableExtensions EnableDelayedExpansion
 echo log: da regression
 echo.
+set "DEVICE=UNKNOWN"
 
 set "PRIV=%~1"
 set "CERT=%~2"
@@ -48,6 +49,7 @@ STM32_Programmer_CLI -c port=SWD speed=fast ap=1 mode=Hotplug debugauth=3 >nul 2
 call :discover
 set "STATE=!PRODUCT!"
 echo [info] Product state: !STATE!
+echo [info] Device: !DEVICE!
 if /i "!STATE!"=="OPEN" (
     echo [FAIL] Product state is already Open. Regression is not needed.
     exit /b 1
@@ -71,8 +73,8 @@ STM32_Programmer_CLI -c port=SWD per=a key="!CLIKEY!" cert="!CERT!" debugauth=1
 set "CERT_RC=!ERRORLEVEL!"
 if exist "!CLIKEY!" del /f /q "!CLIKEY!" >nul 2>&1
 if "!CERT_RC!"=="0" (
-    call :discover
-    if /i "!PRODUCT!"=="OPEN" (
+    call :confirm_open
+    if not errorlevel 1 (
         echo [ok] Open
         echo [info] User flash was erased. Program the image again.
         exit /b 0
@@ -96,8 +98,8 @@ if errorlevel 1 (
     echo [FAIL] Password regression failed
     exit /b 1
 )
-call :discover
-if /i "!PRODUCT!"=="OPEN" (
+call :confirm_open
+if not errorlevel 1 (
     echo [ok] Open
     echo [info] User flash was erased. Program the image again.
     exit /b 0
@@ -136,14 +138,32 @@ if not "!PWD_RC!"=="0" (
     echo [FAIL] Password regression failed
     exit /b 1
 )
-call :discover
-if /i "!PRODUCT!"=="OPEN" (
+call :confirm_open
+if not errorlevel 1 (
     echo [ok] Open
     echo [info] User flash was erased. TrustZone is restored to 0xB4 the next time the release image is programmed.
     exit /b 0
 )
 echo [FAIL] Product state after password regression is !PRODUCT!
 exit /b 1
+
+:confirm_open
+rem H573 answers discovery immediately. H5F4 SDA 1.1.0 often does not, and says the target is in OPEN mode.
+call :discover
+if /i "!PRODUCT!"=="OPEN" exit /b 0
+if /i not "!DEVICE!"=="H5F4" exit /b 1
+findstr /i /c:"is in OPEN mode" "%DISC%" >nul
+if not errorlevel 1 exit /b 0
+set /a TRY=0
+:h5f4_retry
+set /a TRY+=1
+if !TRY! GTR 3 exit /b 1
+ping -n 3 127.0.0.1 >nul
+call :discover
+if /i "!PRODUCT!"=="OPEN" exit /b 0
+findstr /i /c:"is in OPEN mode" "%DISC%" >nul
+if not errorlevel 1 exit /b 0
+goto h5f4_retry
 
 :stage_key
 rem CubeProgrammer deletes the pem passed to key=. Give it a temporary copy.
@@ -183,6 +203,12 @@ set "DISC=%TEMP%\da_product_state.txt"
 echo [info] Discovery
 STM32_Programmer_CLI -c port=SWD debugauth=2 > "%DISC%" 2>&1
 type "%DISC%"
+set "DLINE="
+for /f "usebackq delims=" %%L in (`findstr /i /c:"target ID" "%DISC%"`) do set "DLINE=%%L"
+echo !DLINE! | findstr /i /c:"0x47a" >nul
+if not errorlevel 1 set "DEVICE=H5F4"
+echo !DLINE! | findstr /i /c:"0x484" >nul
+if not errorlevel 1 set "DEVICE=H573"
 set "AUTH=CERTIFICATE"
 set "ALINE="
 for /f "usebackq delims=" %%L in (`findstr /i /c:"cryptosystems" "%DISC%"`) do set "ALINE=%%L"
