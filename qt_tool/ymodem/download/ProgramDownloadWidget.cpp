@@ -2,6 +2,7 @@
 
 #include "DaObk.h"
 #include "FwmpPack.h"
+#include "SettingsWidget.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -90,6 +91,20 @@ QString existingFile(const QString &root, const QString &relative)  // root 下�
         return QString();
     const QString full = QDir(root).filePath(relative);
     return QFileInfo::exists(full) ? QFileInfo(full).absoluteFilePath() : QString();
+}
+
+QString factoryResetScript(const QString &name)  // 出厂设置 bat。程序目录优先，打包根目录其次，最后是当前这份
+{
+    const QString besideExe = QDir(appDir()).filePath(name);
+    if (QFileInfo::exists(besideExe))
+        return QFileInfo(besideExe).absoluteFilePath();
+    const QString packaged = existingFile(acsfParent(), name);
+    if (!packaged.isEmpty())
+        return packaged;
+    const QString given = QStringLiteral("C:/Users/13584/Desktop/stm32h5xx/qt_tmxpublic/") + name;
+    if (QFileInfo::exists(given))
+        return QFileInfo(given).absoluteFilePath();
+    return QString();
 }
 
 QString packagedCopy(const QString &path)  // 旧绝对路径里的 ACSF 或 da 后半段，exe 旁边有同一份就改用那份
@@ -238,6 +253,14 @@ QString imageSideName(quint8 imageType)
     return QString::number(imageType);
 }
 
+bool startsWithFwmp(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    return file.read(4) == QByteArrayLiteral("FWMP");
+}
+
 bool stageBoot(const QString &shown, QString *error, QString *log)
 {
     const QString hex = resolvedScriptPath(shown);
@@ -249,8 +272,11 @@ bool stageBoot(const QString &shown, QString *error, QString *log)
     }
     if (!copyIntoTemp(hex, QStringLiteral("bl2.hex"), error))
         return false;
-    if (log)
-        *log = QObject::tr("Copied %1 to %2").arg(QDir::toNativeSeparators(hex), QStringLiteral("bl2.hex"));
+    if (log) {
+        *log = QObject::tr("Recognized as HEX boot: %1").arg(QDir::toNativeSeparators(hex));
+        *log += QLatin1Char('\n');
+        *log += QObject::tr("Copied %1 to %2").arg(QDir::toNativeSeparators(hex), QStringLiteral("bl2.hex"));
+    }
     return true;
 }
 
@@ -263,22 +289,25 @@ bool stageImage(const QString &shown, const QString &destName, quint8 expectedTy
             *error = QObject::tr("Cannot find file: %1").arg(shown);
         return false;
     }
+    const QString native = QDir::toNativeSeparators(src);
     const QString suffix = QFileInfo(src).suffix();
-    if (suffix.compare(QLatin1String("bin"), Qt::CaseInsensitive) == 0) {
-        if (!copyIntoTemp(src, destName, error))
-            return false;
-        if (log)
-            *log = QObject::tr("Copied %1 to %2").arg(QDir::toNativeSeparators(src), destName);
-        return true;
-    }
-    if (suffix.compare(QLatin1String("fwmp"), Qt::CaseInsensitive) == 0) {
+    const bool suffixBin = suffix.compare(QLatin1String("bin"), Qt::CaseInsensitive) == 0;
+    const bool suffixFwmp = suffix.compare(QLatin1String("fwmp"), Qt::CaseInsensitive) == 0;
+    const bool magic = startsWithFwmp(src);
+    if (magic || suffixFwmp) {
+        const QString recognized = QObject::tr("Recognized as packed firmware: %1").arg(native);
         FwmpPayload payload;
-        if (!readFwmpPayload(src, &payload, error))
+        QString packError;
+        if (!readFwmpPayload(src, &payload, &packError)) {
+            if (error)
+                *error = recognized + QLatin1Char('\n') + packError;
             return false;
+        }
         if (payload.imageType != expectedType) {
             if (error) {
-                *error = QObject::tr("This FWMP is %1, expected %2")
-                             .arg(imageSideName(payload.imageType), imageSideName(expectedType));
+                *error = recognized + QLatin1Char('\n')
+                         + QObject::tr("This FWMP is %1, expected %2")
+                               .arg(imageSideName(payload.imageType), imageSideName(expectedType));
             }
             return false;
         }
@@ -290,7 +319,8 @@ bool stageImage(const QString &shown, const QString &destName, quint8 expectedTy
             return false;
         }
         output.close();
-        QString note = QObject::tr("Unpacked %1 to %2").arg(QDir::toNativeSeparators(src), destName);
+        QString note = recognized + QLatin1Char('\n');
+        note += QObject::tr("Unpacked %1 to %2").arg(native, destName);
         const qint64 expectedBytes = expectedType == 1 ? qint64(512) * 1024 : qint64(1024) * 1024;
         if (payload.bytes.size() != expectedBytes) {
             note += QLatin1Char('\n');
@@ -300,6 +330,16 @@ bool stageImage(const QString &shown, const QString &destName, quint8 expectedTy
         }
         if (log)
             *log = note;
+        return true;
+    }
+    if (suffixBin) {
+        if (!copyIntoTemp(src, destName, error))
+            return false;
+        if (log) {
+            *log = QObject::tr("Recognized as BIN firmware: %1").arg(native);
+            *log += QLatin1Char('\n');
+            *log += QObject::tr("Copied %1 to %2").arg(native, destName);
+        }
         return true;
     }
     if (error)
@@ -321,6 +361,17 @@ QString daFile(const QString &relative)  // 生成 OBK 时的缺省公钥和输�
     const QString stored = QString::fromLatin1(kH573Dir) + QLatin1Char('/')
                            + QStringLiteral("windows-tfm-tools/") + relative;
     return resolvedScriptPath(stored);
+}
+
+QString factoryDaFile(const QString &name)  // 程序旁边 DA-FACTORY-zephyr 里的出厂密钥
+{
+    const QString relative = QStringLiteral("DA-FACTORY-zephyr/") + name;
+    const QString full = existingFile(acsfParent(), relative);
+    if (!full.isEmpty())
+        return full;
+    if (!acsfParent().isEmpty())
+        return QDir(acsfParent()).filePath(relative);
+    return QDir::toNativeSeparators(relative);
 }
 
 } // namespace
@@ -397,6 +448,9 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
         saveSettings();
     });
     connect(m_genObk, &QPushButton::clicked, this, &ProgramDownloadWidget::generateDaObk);
+    connect(m_inspectPackage, &QPushButton::clicked, this, &ProgramDownloadWidget::inspectPackage);
+    connect(m_h573Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH573Factory);
+    connect(m_h5f4Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH5f4Factory);
     connect(m_packS, &QPushButton::clicked, this, &ProgramDownloadWidget::packSecureFirmware);
     connect(m_packNs, &QPushButton::clicked, this, &ProgramDownloadWidget::packNonSecureFirmware);
     connect(m_unpackS, &QPushButton::clicked, this, &ProgramDownloadWidget::unpackSecureFirmware);
@@ -444,6 +498,9 @@ void ProgramDownloadWidget::setupUi()
 
     auto *obkRow = new QHBoxLayout();
     m_genObk = new QPushButton(this);
+    m_inspectPackage = new QPushButton(this);
+    m_h573Factory = new QPushButton(this);
+    m_h5f4Factory = new QPushButton(this);
     m_packS = new QPushButton(this);
     m_packNs = new QPushButton(this);
     m_unpackS = new QPushButton(this);
@@ -477,6 +534,9 @@ void ProgramDownloadWidget::setupUi()
     tools->addWidget(m_unpackNs);
     addRule();
     tools->addWidget(m_genObk);
+    tools->addWidget(m_inspectPackage);
+    tools->addWidget(m_h573Factory);
+    tools->addWidget(m_h5f4Factory);
     m_featureTools->setVisible(false);
     obkRow->addWidget(m_featureTools);
     obkRow->addStretch();
@@ -488,7 +548,11 @@ void ProgramDownloadWidget::setupUi()
                      QStringLiteral("RAT"), QStringLiteral("flash_stm32h573"));
     configureProduct(&m_products[2], QStringLiteral("RD0047"), QStringLiteral("rd0047"),
                      QStringLiteral("RD0047"), QStringLiteral("flash_stm32h573"));
-    configureProduct(&m_products[3], QStringLiteral("SECC"), QStringLiteral("secc"),
+    configureProduct(&m_products[3], QStringLiteral("RD0050"), QStringLiteral("rd0050"),
+                     QStringLiteral("RD0050"), QStringLiteral("flash_stm32h573"));
+    configureProduct(&m_products[4], QStringLiteral("EAW"), QStringLiteral("eaw"),
+                     QStringLiteral("EAW"), QStringLiteral("flash_stm32h573"));
+    configureProduct(&m_products[5], QStringLiteral("SECC"), QStringLiteral("secc"),
                      QStringLiteral("SECC"), QStringLiteral("flash_stm32h5f4"));
 
     auto *scroll = new QScrollArea(this);
@@ -511,7 +575,7 @@ void ProgramDownloadWidget::setupUi()
     drawers->setContentsMargins(0, 0, 0, 0);
     drawers->setSpacing(6);
     scroll->setWidget(host);
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kProductCount; ++i) {
         QWidget *body = addDrawer(drawers, &m_products[i].header, m_products[i].name, i == 0);
         m_products[i].body = body;
         ImageRow *rows[] = {&m_products[i].test, &m_products[i].debug, &m_products[i].release};
@@ -643,8 +707,8 @@ void ProgramDownloadWidget::applyFeatureExtend(bool shown)
 void ProgramDownloadWidget::applyProductFilter()
 {
     const int index = m_productFilter->currentIndex();
-    const bool showAll = index < 0 || index >= 4;
-    for (int i = 0; i < 4; ++i) {
+    const bool showAll = index < 0 || index >= kProductCount;
+    for (int i = 0; i < kProductCount; ++i) {
         const bool show = showAll || i == index;
         m_products[i].header->setVisible(show);
         m_products[i].body->setVisible(show && m_products[i].header->isChecked());
@@ -765,15 +829,15 @@ void ProgramDownloadWidget::buildDaRow(QWidget *parent)
 
 void ProgramDownloadWidget::showDaMaterial(bool leaf)
 {
+    if (leaf) {
+        showPath(m_priv, factoryDaFile(QStringLiteral("leaf.key.pem")));
+        showPath(m_cert, factoryDaFile(QStringLiteral("cert_leaf_chain.b64")));
+        return;
+    }
     const QString dir = QStringLiteral(
         "C:/Users/13584/Desktop/stm32h5xx/STM32CubeH5-1.7.0/Projects/STM32H573I-DK/ROT_Provisioning/DA");
-    if (leaf) {
-        showPath(m_priv, QDir(dir).filePath(QStringLiteral("Keys/key_3_leaf.pem")));
-        showPath(m_cert, QDir(dir).filePath(QStringLiteral("Certificates/cert_leaf_chain.b64")));
-    } else {
-        showPath(m_priv, QDir(dir).filePath(QStringLiteral("Keys/key_2_intermediate.pem")));
-        showPath(m_cert, QDir(dir).filePath(QStringLiteral("Certificates/cert_intermediate_chain.b64")));
-    }
+    showPath(m_priv, QDir(dir).filePath(QStringLiteral("Keys/key_2_intermediate.pem")));
+    showPath(m_cert, QDir(dir).filePath(QStringLiteral("Certificates/cert_intermediate_chain.b64")));
 }
 
 QString ProgramDownloadWidget::pickExistingFile(QLineEdit *edit, const QString &title, const QString &filter)
@@ -817,13 +881,7 @@ void ProgramDownloadWidget::appendLog(const QString &text)
 
 QString ProgramDownloadWidget::outputLogDir() const
 {
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("App"));
-    const QString dir = settings.value(QStringLiteral("logDir")).toString();
-    settings.endGroup();
-    if (!dir.isEmpty() && QDir(dir).exists())
-        return QDir(dir).absolutePath();
-    return appDir();
+    return SettingsWidget::logDirectory();
 }
 
 void ProgramDownloadWidget::writeOutputLog(const QString &text)
@@ -913,9 +971,43 @@ void ProgramDownloadWidget::pollScriptLog()
     appendLog(text);
 }
 
+void ProgramDownloadWidget::showProcessOutput()
+{
+    if (!m_process)
+        return;
+    const QByteArray raw = m_process->readAllStandardOutput();
+    if (raw.isEmpty())
+        return;
+    // 使用 flash_stm32h573 的产品脚本自己写 flash_*.log，页面已经在跟那个文件。再显示管道会重复一遍。
+    // SECC 的脚本不写这个文件，进度只在标准输出里。
+    if (!m_scriptLogFile.isEmpty())
+        return;
+    const QString text = QString::fromLocal8Bit(raw);
+    if (text.contains(QLatin1String("#< CLIXML")) || text.contains(QLatin1String("<Objs ")))
+        return;
+    QString flat = text;
+    flat.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    flat.replace(QLatin1Char('\r'), QLatin1Char('\n'));
+    const QStringList lines = flat.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.startsWith(QLatin1String("[FAIL]")) || trimmed.startsWith(QLatin1String("FAILED at:")))
+            m_scriptFailed = true;
+        if (trimmed.startsWith(QLatin1String("FAILED at:")))
+            m_failStep = trimmed.mid(int(QStringLiteral("FAILED at:").size())).trimmed();
+        if (trimmed.startsWith(QLatin1String("Failed:"))) {
+            m_scriptFailed = true;
+            m_failStep = trimmed.mid(int(QStringLiteral("Failed:").size())).trimmed();
+        }
+    }
+    appendLog(text);
+}
+
 void ProgramDownloadWidget::setDownloadRunning(bool running)
 {
     eachRow([running](ImageRow *row) { row->download->setEnabled(!running); });
+    m_h573Factory->setEnabled(!running);
+    m_h5f4Factory->setEnabled(!running);
     m_key->setEnabled(!running);
     m_chooseKey->setEnabled(!running);
     m_daClose->setEnabled(!running);
@@ -1003,6 +1095,8 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
         const QString binDir = QDir::toNativeSeparators(QFileInfo(cli).absolutePath());
         env.insert(QStringLiteral("PATH"), binDir + QLatin1Char(';') + env.value(QStringLiteral("PATH")));
     }
+    // SECC 脚本外层会 pause 等按键。设了这个变量就直接烧录，页面不用等那一下。
+    env.insert(QStringLiteral("H5F4_INNER"), QStringLiteral("1"));
     QString stageError;
     QString bootLog;
     QString secureLog;
@@ -1026,11 +1120,7 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
     m_process->setProcessEnvironment(env);
     m_process->setWorkingDirectory(QFileInfo(script).absolutePath());
     m_process->setProcessChannelMode(QProcess::MergedChannels);
-    connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
-        // 管道里是 PowerShell 的 CLIXML，不往日志框写。只把数据读走，避免管道塞满。
-        if (m_process)
-            m_process->readAllStandardOutput();
-    });
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &ProgramDownloadWidget::showProcessOutput);
     const bool chainDa = row->chainDa;
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, [this, chainDa](int code, QProcess::ExitStatus status) {
@@ -1346,6 +1436,134 @@ void ProgramDownloadWidget::generateDaObk()
     dialog.exec();
 }
 
+void ProgramDownloadWidget::inspectPackage()
+{
+    if (!m_inspectDialog)
+        m_inspectDialog = new PackageInspectDialog(this);
+    if (m_inspectDialog->isMinimized())
+        m_inspectDialog->showNormal();
+    else
+        m_inspectDialog->show();
+    m_inspectDialog->raise();
+    m_inspectDialog->activateWindow();
+}
+
+void ProgramDownloadWidget::runH5f4Factory()
+{
+    runFactoryReset(tr("H5F4 factory settings"), QStringLiteral("STM32H5F4_Reset.bat"));
+}
+
+void ProgramDownloadWidget::runH573Factory()
+{
+    runFactoryReset(tr("H573 factory settings"), QStringLiteral("STM32H573_Reset.bat"));
+}
+
+void ProgramDownloadWidget::runFactoryReset(const QString &title, const QString &scriptName)
+{
+    if (m_process)
+        return;
+    const QString script = factoryResetScript(scriptName);
+    if (script.isEmpty()) {
+        const QString message = tr("Cannot find script: %1").arg(scriptName);
+        appendLog(message + QLatin1Char('\n'));
+        showRunStatus(message, false);
+        QMessageBox::warning(this, title, message);
+        return;
+    }
+    m_factoryScript = script;
+    m_factoryCli.clear();
+    const QString cubeText = m_cubeProg->text().trimmed();
+    if (!cubeText.isEmpty()) {
+        const QString cli = resolvedScriptPath(cubeText);
+        if (!QFileInfo::exists(cli)) {
+            const QString message = tr("Cannot find CubeProgrammer: %1").arg(cubeText);
+            appendLog(message + QLatin1Char('\n'));
+            showRunStatus(message, false);
+            QMessageBox::warning(this, title, message);
+            return;
+        }
+        m_factoryCli = cli;
+    }
+    m_factoryRun = 0;
+    m_factoryPasses = 2;
+    m_runTitle = title;
+    m_boxTitle = m_runTitle;
+    m_runStartedMs = QDateTime::currentMSecsSinceEpoch();
+    m_scriptFailed = false;
+    m_failStep.clear();
+    m_factoryFailed = false;
+    m_scriptLogFile.clear();
+    if (m_logPoll)
+        m_logPoll->stop();
+    startFactoryPass();
+}
+
+void ProgramDownloadWidget::startFactoryPass()
+{
+    if (m_process || m_factoryScript.isEmpty())
+        return;
+    ++m_factoryRun;
+    m_sendEnter = true;
+    m_statusLabel->setText(tr("%1 running").arg(m_runTitle));
+    m_statusLabel->setStyleSheet(QStringLiteral("QLabel { color: #e65100; }"));
+    appendLog(tr("%1 pass %2 of %3").arg(m_runTitle).arg(m_factoryRun).arg(m_factoryPasses) + QLatin1Char('\n'));
+    appendLog(tr("Script started: %1").arg(QDir::toNativeSeparators(m_factoryScript)) + QLatin1Char('\n'));
+
+    m_process = new QProcess(this);
+    m_process->setWorkingDirectory(QFileInfo(m_factoryScript).absolutePath());
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &ProgramDownloadWidget::showProcessOutput);
+    connect(m_process, &QProcess::started, this, [this]() {
+        if (!m_process || !m_sendEnter)
+            return;
+        m_process->write("\r\n");
+    });
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this](int code, QProcess::ExitStatus status) {
+                QProcess *process = m_process;
+                m_process = nullptr;
+                const bool passOk = !m_scriptFailed && status != QProcess::CrashExit && code == 0;
+                const QString message = passOk
+                    ? tr("Script finished.")
+                    : tr("Script finished with code %1").arg(code);
+                appendLog(message + QLatin1Char('\n'));
+                if (!passOk)
+                    m_factoryFailed = true;
+                if (process)
+                    process->deleteLater();
+                if (m_factoryRun < m_factoryPasses) {
+                    m_scriptFailed = false;
+                    m_failStep.clear();
+                    startFactoryPass();
+                    return;
+                }
+                setDownloadRunning(false);
+                const QString done = m_factoryFailed ? tr("Script failed: %1").arg(m_runTitle) : tr("Script finished.");
+                showRunStatus(done, !m_factoryFailed);
+                if (m_factoryFailed)
+                    QMessageBox::warning(this, m_boxTitle, done);
+            });
+    connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart || !m_process)
+            return;
+        QProcess *process = m_process;
+        m_process = nullptr;
+        process->disconnect(this);
+        setDownloadRunning(false);
+        const QString message = tr("Cannot start script: %1").arg(m_factoryScript);
+        appendLog(message + QLatin1Char('\n'));
+        showRunStatus(message, false);
+        QMessageBox::warning(this, m_boxTitle, message);
+        process->deleteLater();
+    });
+    setDownloadRunning(true);
+    QStringList args;
+    args << QStringLiteral("/c") << QDir::toNativeSeparators(m_factoryScript);
+    if (!m_factoryCli.isEmpty())
+        args << QDir::toNativeSeparators(m_factoryCli);
+    m_process->start(QStringLiteral("cmd.exe"), args);
+}
+
 void ProgramDownloadWidget::packSecureFirmware()
 {
     const QString relative = QStringLiteral("sign_kit/tfm_s_signed.bin");
@@ -1410,7 +1628,7 @@ void ProgramDownloadWidget::loadSettings()
     if (!savedKey.isEmpty())
         showPath(m_key, savedKey);
     else
-        showPath(m_key, daFile(QStringLiteral("ROT_Provisioning/DA/Keys/key_1_root_pub.pem")));
+        showPath(m_key, factoryDaFile(QStringLiteral("da-root-ca.pub.pem")));
     const bool leaf = settings.value(QStringLiteral("g0DaLevel"), QStringLiteral("leaf")).toString()
             != QLatin1String("intermediate");
     m_leaf->blockSignals(true);
@@ -1430,7 +1648,7 @@ void ProgramDownloadWidget::loadSettings()
     const QString filter = settings.value(QStringLiteral("productFilter"), QStringLiteral("all")).toString();
     int filterIndex = m_productFilter->count() - 1;
     if (filter != QLatin1String("all")) {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < kProductCount; ++i) {
             if (m_products[i].name == filter) {
                 filterIndex = i;
                 break;
@@ -1470,7 +1688,7 @@ void ProgramDownloadWidget::saveSettings() const
     settings.setValue(QStringLiteral("g0DaCert"), storedScriptPath(m_cert->text()));
     QString filter = QStringLiteral("all");
     const int filterIndex = m_productFilter->currentIndex();
-    if (filterIndex >= 0 && filterIndex < 4)
+    if (filterIndex >= 0 && filterIndex < kProductCount)
         filter = m_products[filterIndex].name;
     settings.setValue(QStringLiteral("productFilter"), filter);
     settings.setValue(QStringLiteral("featureExtend"), m_featureExtend->isChecked());
@@ -1484,6 +1702,9 @@ void ProgramDownloadWidget::retranslateUi()
     m_changeCube->setText(tr("Change Path"));
     m_defaultCube->setText(tr("Use Default"));
     m_genObk->setText(tr("Generate DA OBK"));
+    m_inspectPackage->setText(tr("Inspect package"));
+    m_h573Factory->setText(tr("H573 factory settings"));
+    m_h5f4Factory->setText(tr("H5F4 factory settings"));
     m_packS->setText(tr("Pack S upgrade firmware"));
     m_packNs->setText(tr("Pack NS upgrade firmware"));
     m_unpackS->setText(tr("Unpack S upgrade firmware"));

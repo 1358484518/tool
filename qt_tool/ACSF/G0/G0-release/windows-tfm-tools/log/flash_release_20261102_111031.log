@@ -1,0 +1,1112 @@
+==== 2026-11-02 11:10:33 ====
+log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-release\windows-tfm-tools\log\flash_release_20261102_111031.log
+
+Image: release
+Dir:   C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\tmp\
+Mode:  all
+
+[ok]   BL2 markers match release
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] STM32H5F4, write protection is WRPSG11
+
+[2] Regression. This mass-erases the device.
+    SECBOOTADD=0xC0100 boots BL2 at 0x0C010000
+------------------------------------------------------------
+PRODUCT_STATE=0xED  TZEN=0xB4
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x40022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x400220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x40022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x400221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x400221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.92V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+ 50%
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:02.637
+Remove bank1 protection and erase all
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: wrpsg11, value: 0xFFFFFFFF, was not modified.
+Warning: Option Byte: wrpsg12, value: 0xFFFFFFFF, was not modified.
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:01.336
+
+Mass erase ... 
+
+Mass erase successfully achieved
+Remove bank2 protection and erase all
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: wrpsg21, value: 0xFFFFFFFF, was not modified.
+Warning: Option Byte: wrpsg22, value: 0xFFFFFFFF, was not modified.
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:01.338
+
+Mass erase ... 
+
+Mass erase successfully achieved
+Remove HDP
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: hdp1_end, value: 0x0, was not modified.
+Warning: Option Byte: hdp2_end, value: 0x0, was not modified.
+
+Warning: Option Bytes are unchanged, Data won't be downloaded
+Time elapsed during option Bytes configuration: 00:00:00.022
+SECBOOTADD=0xC0100
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+Warning: Option Byte: hdp1_end, value: 0x0, was not modified.
+Warning: Option Byte: hdp1_strt, value: 0x1, was not modified.
+Warning: Option Byte: hdp2_end, value: 0x0, was not modified.
+Warning: Option Byte: hdp2_strt, value: 0x1, was not modified.
+Warning: Option Byte: swap_bank, value: 0x0, was not modified.
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+ 50%
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x50022050 
+  Size          : 8 Bytes
+
+ 0%
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x50022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x50022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x50022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x50022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x500220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x500220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x500220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Address       : 0x500220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x50022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x500221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x500221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x500221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x500221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Error: Expected value for Option Byte "secbootadd": 0xC0100, found: 0xC0000
+Error: Expected value for Option Byte "sram2_ecc": 0x0, found: 0x1
+Error: Expected value for Option Byte "sram2_rst": 0x0, found: 0x1
+Error: Option Byte Programming failed Or modified by application after OB_LAUNCH
+
+Time elapsed during option Bytes configuration: 00:00:01.306
+[FAIL] Option-byte regression failed.
+
+============================================================
+ Failed: regression
+ log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-release\windows-tfm-tools\log\flash_release_20261102_111031.log
+============================================================
+
+请按任意键继续. . . 

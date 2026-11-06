@@ -107,4 +107,32 @@ private:
     QPushButton *m_unpack = nullptr;              // 解包并写入输出路径
 };
 
+class QListWidget;
+class QTableWidget;
+
+// 只读对比多个固件：FWMP 打包头，以及内存里的 MCUboot 签名信息。不写回原文件。
+class PackageInspectDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit PackageInspectDialog(QWidget *parent = nullptr);
+
+protected:
+    void changeEvent(QEvent *event) override;
+
+private:
+    void retranslateUi();
+    void addFiles();     // 多选加入列表，不立刻解析
+    void removeFiles();  // 从列表去掉选中的文件
+    void compare();      // 重新只读打开列表里的文件，刷新对比
+
+    QListWidget *m_files = nullptr;
+    QPushButton *m_add = nullptr;
+    QPushButton *m_remove = nullptr;
+    QPushButton *m_compare = nullptr;
+    QTableWidget *m_table = nullptr;
+    QLabel *m_note = nullptr;
+};
+
 #endif // FWMPPACK_H

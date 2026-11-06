@@ -1,0 +1,36 @@
+==== 2026-11-02 11:00:30 ====
+log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-release\windows-tfm-tools\log\flash_release_20261102_110028.log
+
+Image: release
+Dir:   C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\tmp\
+Mode:  all
+
+[ok]   BL2 markers match release
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Treat as H573, write protection is WRPSGn1
+
+[2] Regression. This mass-erases the device.
+    SECBOOTADD=0xC0100 boots BL2 at 0x0C010000
+------------------------------------------------------------
+PRODUCT_STATE=0xED  TZEN=0xB4
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+Error: Unable to get core ID
+Error: Cannot connect to access port 1!  If you are trying to connect to a device with TrustZone enabled please try to connect with HotPlug mode.  If you are trying to connect to a device which supports Debug Authentication with certificate or password, please open your device using it.
+[FAIL] Option-byte regression failed.
+
+============================================================
+ Failed: regression
+ log: C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\ACSF\G0\G0-release\windows-tfm-tools\log\flash_release_20261102_110028.log
+============================================================
+
+请按任意键继续. . . 

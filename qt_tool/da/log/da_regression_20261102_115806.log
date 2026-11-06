@@ -1,0 +1,491 @@
+log: da regression
+
+Private key: C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\DA-FACTORY-zephyr\leaf.key.pem
+Certificate: C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\DA-FACTORY-zephyr\cert_leaf_chain.b64
+
+[1] Locate STM32_Programmer_CLI
+[ok]   STM32_Programmer_CLI
+
+[info] Close debug if it is open
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: target ID.......................:0x47a
+discovery: SoC ID..........................:0x00000000_30313331_32355107_002F0036
+discovery: SDA version.....................:1.1.0
+discovery: Vendor ID.......................:STMicroelectronics
+discovery: PSA lifecycle...................:ST_LIFECYCLE_PROVISIONING
+discovery: PSA auth version................:1.0
+discovery: ST HDPL1 status.................:0xffffffff
+discovery: ST HDPL2 status.................:0xffffffff
+discovery: ST HDPL3 status.................:0xffffffff
+discovery: Token Formats...................:0x200
+discovery: Certificate Formats.............:0x201
+discovery: cryptosystems...................:Ecdsa-P256 SHA256
+discovery: ST provisioning integrity status:0xf5f5f5f5
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+discovery: permission if authorized...........:(b/12) ==> To TZ Regression
+discovery: permission if authorized...........:(c/6) ==> Level 3 Intrusive Debug
+discovery: permission if authorized...........:(d/5) ==> Level 2 Intrusive Debug
+discovery: permission if authorized...........:(e/4) ==> Level 1 Intrusive Debug
+discovery: permission if authorized...........:(f/2) ==> Level 3 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(g/1) ==> Level 2 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(h/0) ==> Level 1 Intrusive Non Secure Debug
+To select multiple permission/actions:
+    Using numerical values: List the needed bit numbers, separated by commas without spaces.
+    Using symbolic letters: List the needed letters by concatenating them without separators.
+
+Debug Authentication: Discovery Success
+response_packet_lock
+[info] Product state: PROVISIONING
+[info] Auth: CERTIFICATE
+[info] Certificate regression
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Permission request submitted : a 
+
+Key file path submitted : C:\Users\13584\AppData\Local\Temp\da_regression_key.pem 
+
+Certificate file path submitted : C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\DA-FACTORY-zephyr\cert_leaf_chain.b64 
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+discovery: permission if authorized...........:(b/12) ==> To TZ Regression
+discovery: permission if authorized...........:(c/6) ==> Level 3 Intrusive Debug
+discovery: permission if authorized...........:(d/5) ==> Level 2 Intrusive Debug
+discovery: permission if authorized...........:(e/4) ==> Level 1 Intrusive Debug
+discovery: permission if authorized...........:(f/2) ==> Level 3 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(g/1) ==> Level 2 Intrusive Non Secure Debug
+discovery: permission if authorized...........:(h/0) ==> Level 1 Intrusive Non Secure Debug
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+[00%]	discovery command
+[10%]	sending discovery command
+[20%]	receiving discovery
+[40%]	loading credentials
+
+C:\Users\13584\AppData\Local\Temp\da_regression_key.pem
+
+C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\DA-FACTORY-zephyr\cert_leaf_chain.b64
+[50%]	sending challenge request
+[60%]	receiving challenge
+Error: 
+Debug Authentication Failed
+response_packet_lock
+response_packet_lock
+response_packet_lock
+Timeout while receiving response...
+[info] PROVISIONING and certificate regression failed. Password recovery.
+[info] Set TZEN=0xC3 and write the password OBK
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+Hard reset is performed
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x40022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x400220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x40022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x400221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x400221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+
+PROGRAMMING OPTION BYTES AREA ...
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北
+
+
+
+Reconnecting...
+Reconnected !
+
+
+
+
+Reconnecting...
+Reconnected !
+
+
+UPLOADING OPTION BYTES DATA ...
+
+  Bank          : 0x00
+  Address       : 0x40022050 
+  Size          : 8 Bytes
+
+ 50%北北北北北北北北北北北北北北北北北北北北北北北北北 0%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x01
+  Address       : 0x40022070 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x02
+  Address       : 0x40022080 
+  Size          : 16 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x03
+  Address       : 0x40022090 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x04
+  Address       : 0x40022098 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x05
+  Address       : 0x400220e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x06
+  Address       : 0x400220e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x07
+  Address       : 0x400220f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x08
+  Address       : 0x400220f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x09
+  Address       : 0x40022198 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0a
+  Address       : 0x400221e0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0b
+  Address       : 0x400221e8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0c
+  Address       : 0x400221f0 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+  Bank          : 0x0d
+  Address       : 0x400221f8 
+  Size          : 8 Bytes
+
+北北北北北北北北北北北北北北北北北北北北北北北北北 50%圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%
+
+OPTION BYTE PROGRAMMING VERIFICATION:
+
+Option Bytes successfully programmed
+Time elapsed during option Bytes configuration: 00:00:03.603
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+Hard reset is performed
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.91V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Device name : STM32H5F4xJ/H5F5xJ/H5E4xJ/H5E5xJ
+NVM size  : 4 MBytes
+Device type : MCU
+Device CPU  : Cortex-M33
+BL Version  : 0xF0
+SFSP Version: v1.1.0
+Debug in Low Power mode enabled
+
+
+
+Reconnecting...
+ST-LINK SN  : 39FF6D065042323421552343
+ST-LINK FW  : V2J47S7
+Board       : --
+Voltage     : 0.90V
+SWD freq    : 4000 KHz
+Connect mode: Hot Plug
+Reset mode  : Software reset
+Device ID   : 0x47A
+Revision ID : Rev Z
+Secure Data Provisioning Start. OBK Input file : C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\da\DA_ConfigWithPassword.obk
+圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹圹 100%OBKey Provisioned successfully
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+Permission request submitted : a 
+
+Key file path submitted : C:\Users\13584\AppData\Local\Temp\da_regression_key.pem 
+
+Certificate file path submitted : C:\Users\13584\Desktop\stm32h5xx\qt_tmxpublic\DA-FACTORY-zephyr\cert_leaf_chain.b64 
+
+Password file path submitted : C:\Users\13584\Desktop\stm32h5xx\tool\qt_tool\da\password.bin 
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+discovery: permission if authorized...........:(a/14) ==> Full Regression
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   671 : open       : Communication with the target established successfully
+
+[00%]	discovery command
+[10%]	sending discovery command
+[20%]	receiving discovery
+[40%]	loading credentials
+[50%]	sending challenge request
+[60%]	receiving challenge
+SDMAuthenticate               :  1453 : client     : Found 1 certificates
+
+[80%]	sending ST password
+[90%]	receiving response
+[100%]	authentication successful
+SDMAuthenticate               :  1539 : client     : Authentication successful
+
+
+Debug Authentication Success
+response_packet_lock
+response_packet_lock
+response_packet_lock
+response_packet_lock
+[info] Discovery
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.22.0                  
+      -------------------------------------------------------------------
+
+
+Start Debug Authentication Sequence
+
+Open SDM Lib
+SDMOpen                       :   723 : open       : SDM API v1.0
+
+SDMOpen                       :   724 : open       : SDM Library version v1.3.0
+
+open_comms                    :   607 : open       : Asserting target reset
+
+open_comms                    :   615 : open       : Writing magic number
+
+open_comms                    :   636 : open       : De-asserting target reset
+
+open_comms                    :   657 : open       : No response from the target
+
+open_comms                    :   658 : open       : The target is unable to boot on RSS_DA or is in OPEN mode
+
+open_comms                    :   659 : open       : Failed to open communication with the target
+
+Error: 
+Debug Authentication: Discovery Failed
+[FAIL] Product state after password regression is UNKNOWN

@@ -3,6 +3,7 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
 #include <QFileDialog>
@@ -71,15 +72,21 @@ bool SettingsWidget::showFirmware() const
     return m_showFirmware->isChecked();
 }
 
-QString SettingsWidget::logFilePath(const QString &fileName)
+QString SettingsWidget::logDirectory()
 {
     QSettings settings;
     settings.beginGroup(QStringLiteral("App"));
-    const QString dir = settings.value(QStringLiteral("logDir")).toString();
+    QString dir = settings.value(QStringLiteral("logDir")).toString().trimmed();
     settings.endGroup();
-    if (dir.isEmpty() || !QDir(dir).exists())
-        return fileName;
-    return QDir(dir).filePath(fileName);
+    if (dir.isEmpty())
+        dir = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("log"));
+    QDir().mkpath(dir);
+    return QDir(dir).absolutePath();
+}
+
+QString SettingsWidget::logFilePath(const QString &fileName)
+{
+    return QDir(logDirectory()).filePath(fileName);
 }
 
 QString SettingsWidget::firmwareFilePath(const QString &fileName)
@@ -302,7 +309,8 @@ void SettingsWidget::retranslateUi()
     m_languageCombo->setItemText(0, tr("English"));
     m_languageCombo->setItemText(1, tr("Chinese"));
     m_logDirLabel->setText(tr("Log Directory:"));
-    m_logDirEdit->setPlaceholderText(tr("Current directory"));
+    m_logDirEdit->setPlaceholderText(QDir::toNativeSeparators(
+        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("log"))));
     m_browseBtn->setText(tr("Browse"));
     m_firmwareDirLabel->setText(tr("Firmware Directory:"));
     m_firmwareDirEdit->setPlaceholderText(tr("Downloads"));

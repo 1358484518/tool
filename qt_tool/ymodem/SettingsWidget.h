@@ -32,6 +32,7 @@ signals:
     void tabVisibilityChanged();  // 串口、网络、FTP 页的显示勾选变了
 
 public:
+    static QString logDirectory();                             // 日志目录。设置为空时用程序目录下的 log，没有就创建
     static QString logFilePath(const QString &fileName);       // 保存日志对话框的起始路径
     static QString firmwareFilePath(const QString &fileName);  // 保存固件对话框的起始路径
 
@@ -55,7 +56,7 @@ private:
     QLabel *m_firmwareDirLabel = nullptr;      // 固件目录
     QComboBox *m_startupCombo = nullptr;       // 启动时显示哪一页
     QComboBox *m_languageCombo = nullptr;      // en 或 zh_CN
-    QLineEdit *m_logDirEdit = nullptr;         // 保存日志的默认目录，空表示当前目录
+    QLineEdit *m_logDirEdit = nullptr;         // 保存日志的默认目录，空表示程序目录下的 log
     QLineEdit *m_firmwareDirEdit = nullptr;    // 保存固件的默认目录，空表示系统下载目录
     QPushButton *m_browseBtn = nullptr;        // 选择日志目录
     QPushButton *m_firmwareBrowseBtn = nullptr;  // 选择固件目录

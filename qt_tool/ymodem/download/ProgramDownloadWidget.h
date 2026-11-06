@@ -17,13 +17,14 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
+class PackageInspectDialog;
 class QPushButton;
 class QRadioButton;
 class QTimer;
 class QVBoxLayout;
 
 /**
- * 程序下载页。编程器路径、生成 DA OBK，以及 G0、RAT、RD0047、SECC 四个抽屉。
+ * 程序下载页。编程器路径、生成 DA OBK，以及 G0、RAT、RD0047、RD0050、EAW、SECC 六个抽屉。
  * 路径框可以手输，也可以点按钮选。文件在程序目录或 ACSF 里就存相对路径。
  * G0 的下载会启动对应 bat。页面上填了 STM32_Programmer_CLI 时，把它的目录加到 PATH。
  * 脚本仍先找自己写的三个目录；那些目录没有时，才用到这条 PATH。
@@ -34,7 +35,7 @@ class ProgramDownloadWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit ProgramDownloadWidget(QWidget *parent = nullptr);  // 建编程器路径、生成 OBK 和四个产品抽屉
+    explicit ProgramDownloadWidget(QWidget *parent = nullptr);  // 建编程器路径、生成 OBK 和六个产品抽屉
     ~ProgramDownloadWidget() override;                          // 记下编程器路径和各行路径
 
 protected:
@@ -70,7 +71,7 @@ private:
     };
 
     struct ProductPane {
-        QString name;                         // 抽屉标题：G0、RAT、RD0047、SECC
+        QString name;                         // 抽屉标题：G0、RAT、RD0047、RD0050、EAW、SECC
         QPushButton *header = nullptr;       // 点击展开或收起
         QWidget *body = nullptr;             // 展开后的三行
         ImageRow test;
@@ -78,13 +79,18 @@ private:
         ImageRow release;
     };
 
-    void setupUi();             // 编程器、生成 OBK，再是四个产品抽屉和 DA 抽屉
+    void setupUi();             // 编程器、生成 OBK，再是六个产品抽屉和 DA 抽屉
     void retranslateUi();       // 按当前语言重写本页控件文字
     void loadSettings();        // 读路径；没存过的行用 ACSF 缺省文件
     void saveSettings() const;  // 程序目录、工具目录、ACSF 内的路径存相对路径
     void chooseCubeProg();      // 选择 STM32_Programmer_CLI.exe
     void useDefaultCube();      // 清空编程器路径，恢复脚本原来的查找
     void generateDaObk();       // 打开对话框，由根公钥生成 DA obk
+    void inspectPackage();      // 打开独立窗口，只读解析打包和签名信息
+    void runH5f4Factory();      // 连续跑两次 H5F4 出厂设置脚本，输出进日志
+    void runH573Factory();      // 连续跑两次 H573 出厂设置脚本，输出进日志
+    void runFactoryReset(const QString &title, const QString &scriptName);  // 找 bat，然后连续跑两次
+    void startFactoryPass();    // 启动下一次出厂设置。脚本结尾的 pause 用回车放行
     void packSecureFirmware();     // 打开对话框，把安全侧 bin 打成 FWMP
     void packNonSecureFirmware();  // 打开对话框，把非安全侧 bin 打成 FWMP
     void unpackSecureFirmware();      // 打开对话框，解开安全侧 FWMP
@@ -93,7 +99,7 @@ private:
                           const QString &folder, const QString &script);  // 填缺省路径和设置键
     void buildImageRow(ImageRow *row, QWidget *parent);  // 往抽屉里加一行
     QWidget *addDrawer(QVBoxLayout *host, QPushButton **headerOut, const QString &title, bool open);  // 抽屉头和内容，各自展开
-    void eachRow(const std::function<void(ImageRow *)> &fn);  // 四个产品的测试、调试、发布
+    void eachRow(const std::function<void(ImageRow *)> &fn);  // 每个产品的测试、调试、发布
     void refreshDrawers();        // 按展开状态重写抽屉标题
     void applyProductFilter();    // 按产品下拉框显示一个抽屉，或全部显示
     void applyFeatureExtend(bool shown);  // 功能扩展未勾选时藏起后面的按钮和 DA 抽屉
@@ -111,24 +117,30 @@ private:
     void setDownloadRunning(bool running);  // 有脚本在跑时停用三个下载按钮
     void appendLog(const QString &text);    // 追加到日志框，并写入日志文件。框自己丢掉超过 2000 行的旧内容
     void writeOutputLog(const QString &text);  // 脚本输出落盘。当前文件达到 1MB 后换一个新文件
-    QString outputLogDir() const;              // 设置里的日志目录，没有就用程序目录
+    QString outputLogDir() const;              // 程序日志目录。设置为空时用程序目录下的 log
     void showRunStatus(const QString &result, bool ok);  // 页底状态：这次下载的结果和用时
     QString formatElapsed(qint64 ms) const;  // 不到一分钟用秒，否则用分和秒
     void pollScriptLog();                   // 把脚本 log 目录里这次新文件的新内容追加到日志框
+    void showProcessOutput();               // 脚本没有日志文件时，把标准输出显示出来，这样能看到烧录进度
     QLabel *m_cubeLabel = nullptr;         // 「STM32CubeProgrammer」
     QLineEdit *m_cubeProg = nullptr;       // STM32_Programmer_CLI.exe，可手输；空表示脚本自己找
     QPushButton *m_changeCube = nullptr;   // 选择编程器程序
     QPushButton *m_defaultCube = nullptr;  // 清空编程器路径
     QPushButton *m_genObk = nullptr;       // 打开生成 DA obk 的对话框
+    QPushButton *m_inspectPackage = nullptr;  // 只读解析固件包和签名
+    QPushButton *m_h573Factory = nullptr;     // 连续跑两次 H573 出厂设置脚本
+    QPushButton *m_h5f4Factory = nullptr;     // H5F4 出厂设置，功能稍后接上
+    PackageInspectDialog *m_inspectDialog = nullptr;  // 独立窗口，关主窗口时一起关掉
     QPushButton *m_packS = nullptr;        // 安全侧升级固件打包
     QPushButton *m_packNs = nullptr;       // 非安全侧升级固件打包
     QPushButton *m_unpackS = nullptr;      // 安全侧升级固件解包
     QPushButton *m_unpackNs = nullptr;     // 非安全侧升级固件解包
     QLabel *m_productLabel = nullptr;      // 「产品选择」
-    QComboBox *m_productFilter = nullptr;  // 产品抽屉：G0、RAT、RD0047、SECC，最后一项全部显示
+    QComboBox *m_productFilter = nullptr;  // 产品抽屉，最后一项是全部显示
     QCheckBox *m_featureExtend = nullptr;  // 功能扩展。未勾选时藏起后面的按钮和 DA 抽屉
     QWidget *m_featureTools = nullptr;     // 功能扩展后面的按钮，跟着勾选显示
-    ProductPane m_products[4];             // G0、RAT、RD0047、SECC
+    enum { kProductCount = 6 };
+    ProductPane m_products[kProductCount];  // G0、RAT、RD0047、RD0050、EAW、SECC
     QLabel *m_daTitle = nullptr;           // DA 标题，一直显示
     QWidget *m_daBody = nullptr;           // DA 内容，一直显示
     QLabel *m_keyLabel = nullptr;          // 「公钥」
@@ -161,6 +173,11 @@ private:
     qint64 m_runStartedMs = 0;             // 这次点击下载的时间，用来认出新日志
     bool m_scriptFailed = false;           // log 里出现 Failed 或 [FAIL]。bat 结尾的 pause 会把退出码清成 0
     QString m_failStep;                    // log 里 Failed: 后面的步骤名
+    QString m_factoryScript;               // 出厂设置 bat。优先程序目录，其次打包目录
+    QString m_factoryCli;                  // 页面上指定的 STM32_Programmer_CLI.exe，空则由脚本自己找
+    int m_factoryRun = 0;                  // 当前是第几次
+    int m_factoryPasses = 0;               // 这次要点几次
+    bool m_factoryFailed = false;          // 两次里有一次失败
 };
 
 #endif // PROGRAMDOWNLOADWIDGET_H

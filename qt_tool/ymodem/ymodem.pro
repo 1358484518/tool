@@ -3,7 +3,9 @@ QT       += core gui serialport network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-VERSION = 2.18
+VERSION = 2.20
+# 链接用的文件名必须是英文。中文或空格会让 Windows 的资源规则生成失败。
+TARGET = TMX_$$VERSION
 # 传给 C++ 的是带引号的字符串宏，main 里用 QLatin1String(APP_VERSION) 取
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 # 程序下载页的脚本根目录，qmake 时按源码位置写死。斜杠避免进宏后被当成转义。
@@ -116,4 +118,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 win32 {
     LIBS += -lws2_32 -lmswsock
+    # 链接完成后另存一份中文名。名字在脚本里用字符码拼出，避免 Makefile 编码出错。
+    QMAKE_POST_LINK += $$quote(C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -ExecutionPolicy Bypass -File $$shell_path($$PWD/name_exe.ps1) $(DESTDIR_TARGET) $$VERSION)
 }
