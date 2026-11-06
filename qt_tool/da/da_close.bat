@@ -4,6 +4,7 @@ rem Usage: da_close.bat <public.pem> [obk]
 rem The Qt page passes an OBK it already built. Without that file the script calls gen_da_obk.py.
 rem Open: enter PROVISIONING, write OBK, then SECBOOTADD + BOOT_UBE + CLOSED.
 rem Already PROVISIONING or PROVISIONED: skip 0x17 and finish the close.
+rem Product state is read with HotPlug and a software reset. debugauth is not used, so NRST is not required while the chip is still Open.
 rem Does not erase flash and does not call provisioning.bat.
 if /i "%~1"=="__RUN__" goto :run
 setlocal EnableExtensions
@@ -55,7 +56,7 @@ if /i not "!AUTH!"=="CERTIFICATE" (
     exit /b 1
 )
 
-set "HP=-c port=SWD speed=fast ap=1 mode=Hotplug"
+set "HP=-c port=SWD speed=fast ap=1 mode=HOTPLUG reset=SWrst"
 if /i "!PRODUCT!"=="OPEN" (
     echo [info] Product state is Open. Set PRODUCT_STATE=0x17
     STM32_Programmer_CLI !HP! -ob PRODUCT_STATE=0x17
@@ -106,12 +107,22 @@ if errorlevel 1 (
 )
 
 echo [info] SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72
-STM32_Programmer_CLI !HP! -ob SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72
-echo [info] The debug port drops when the product state becomes CLOSED. The command result is ignored.
+set "CLOSELOG=%TEMP%\da_close_ob.txt"
+STM32_Programmer_CLI !HP! -ob SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72 > "!CLOSELOG!" 2>&1
+type "!CLOSELOG!"
+echo [info] The debug port drops when the product state becomes CLOSED.
 call :discover
 if /i "!PRODUCT!"=="CLOSED" (
     echo [ok] CLOSED
     exit /b 0
+)
+findstr /i /c:"failed to reconnect after reset" /c:"Unable to reconnect after setting the Option Bytes" "!CLOSELOG!" >nul
+if not errorlevel 1 (
+    if /i "!PRODUCT!"=="UNKNOWN" (
+        echo [ok] CLOSED
+        echo [info] Debug port dropped after the close command. Readback needs NRST.
+        exit /b 0
+    )
 )
 echo [FAIL] Product state after close is !PRODUCT!
 exit /b 1
@@ -140,21 +151,17 @@ exit /b 0
 
 :discover
 set "PRODUCT=UNKNOWN"
+set "AUTH=UNKNOWN"
 set "DISC=%TEMP%\da_product_state.txt"
 echo [info] Discovery
-STM32_Programmer_CLI -c port=SWD debugauth=2 > "%DISC%" 2>&1
+STM32_Programmer_CLI -q -c port=SWD mode=HOTPLUG reset=SWrst speed=fast -ob displ > "%DISC%" 2>&1
 type "%DISC%"
-set "AUTH=UNKNOWN"
-set "ALINE="
-for /f "usebackq delims=" %%L in (`findstr /i /c:"cryptosystems" "%DISC%"`) do set "ALINE=%%L"
-if defined ALINE (
-    echo !ALINE! | findstr /i /c:"ST Password" >nul
-    if not errorlevel 1 set "AUTH=PASSWORD"
-    echo !ALINE! | findstr /i /c:"Certificate" /c:"ECDSA" >nul
-    if not errorlevel 1 set "AUTH=CERTIFICATE"
-)
+findstr /i /c:"Trust zone enabled" "%DISC%" >nul
+if not errorlevel 1 set "AUTH=CERTIFICATE"
+findstr /i /c:"Trust zone disabled" "%DISC%" >nul
+if not errorlevel 1 set "AUTH=PASSWORD"
 set "PLINE="
-for /f "usebackq delims=" %%L in (`findstr /i /c:"Product state" /c:"PSA lifecycle" "%DISC%"`) do set "PLINE=%%L"
+for /f "usebackq delims=" %%L in (`findstr /i /c:"PRODUCT_STATE:" "%DISC%"`) do set "PLINE=%%L"
 if not defined PLINE exit /b 0
 echo !PLINE! | findstr /i /c:"LOCKED" /c:"0x5C" >nul
 if not errorlevel 1 (

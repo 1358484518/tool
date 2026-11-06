@@ -534,7 +534,9 @@ void ProgramDownloadWidget::setupUi()
     tools->addWidget(m_unpackNs);
     addRule();
     tools->addWidget(m_genObk);
+    addRule();
     tools->addWidget(m_inspectPackage);
+    addRule();
     tools->addWidget(m_h573Factory);
     tools->addWidget(m_h5f4Factory);
     m_featureTools->setVisible(false);
