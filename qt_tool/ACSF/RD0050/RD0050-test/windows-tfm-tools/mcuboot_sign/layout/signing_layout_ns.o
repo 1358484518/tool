@@ -1,0 +1,34 @@
+# 0 "/workspace/trusted-firmware-m/build_s/build-spe/bl2/ext/mcuboot/signing_layout_ns.c"
+# 1 "/workspace/trusted-firmware-m/build_s/build-spe//"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "/workspace/trusted-firmware-m/platform/include/cmsis_override.h" 1
+# 0 "<command-line>" 2
+# 1 "/workspace/trusted-firmware-m/build_s/build-spe/bl2/ext/mcuboot/signing_layout_ns.c"
+
+
+
+
+
+
+# 1 "/workspace/trusted-firmware-m/platform/ext/target/stm/stm32h573i_dk/include/region_defs.h" 1
+# 19 "/workspace/trusted-firmware-m/platform/ext/target/stm/stm32h573i_dk/include/region_defs.h"
+# 1 "/workspace/trusted-firmware-m/platform/ext/target/stm/stm32h573i_dk/include/flash_layout.h" 1
+# 20 "/workspace/trusted-firmware-m/platform/ext/target/stm/stm32h573i_dk/include/region_defs.h" 2
+# 8 "/workspace/trusted-firmware-m/build_s/build-spe/bl2/ext/mcuboot/signing_layout_ns.c" 2
+
+
+
+enum image_attributes {
+    RE_SECURE_IMAGE_OFFSET = (0x0),
+    RE_SECURE_IMAGE_MAX_SIZE = (0x80000),
+    RE_NON_SECURE_IMAGE_OFFSET = ((0x0) + (0x80000)),
+    RE_NON_SECURE_IMAGE_MAX_SIZE = (0x100000),
+
+
+
+    RE_SIGN_BIN_SIZE = ((0x100000)),
+
+
+
+};

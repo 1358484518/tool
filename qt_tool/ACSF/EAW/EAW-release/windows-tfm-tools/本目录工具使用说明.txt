@@ -1,0 +1,61 @@
+本目录是 Win10 烧录包。H573 和 H5F4 用同一套地址。镜像按编译类型放在子目录里，不要再放在本目录根下。
+
+目录：
+  test\          ./buildtfm.sh test 复制来的测试版
+  prod\          ./buildtfm.sh prod 复制来的正式版
+  release\       ./buildtfm.sh release 复制来的发布版
+  flash_stm32h573.bat          烧 test 或 prod
+  flash_stm32h573_release.bat  只烧 release
+
+每个类型目录里用到的文件：
+  bl2.hex               有这份就烧这份。地址在文件内，并带 OTP 区
+  bl2.bin               没有 hex 时烧这份，地址 0x0C00E000
+  tfm_s_signed.bin      S  512 KB，0x0C044000
+  tfm_ns_signed.bin     NS 1 MB，0x0C100000（Bank2）
+
+不要烧拼接的 tfm_s_ns_signed。S 和 NS 中间有空隙。
+
+一.使用
+  1. 安装 STM32CubeProgrammer。脚本按顺序查找：
+     D:\ST\STM32CubeProgrammer\bin
+     C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin
+     PATH 里的 STM32_Programmer_CLI.exe
+  2. 插上 ST-LINK。Linux 上先 ./buildtfm.sh test、prod 或 release，
+     脚本会把 hex/bin 复制进本目录对应的子文件夹。再把本目录拷到 Windows。
+  3. 测试版或正式版：
+       flash_stm32h573.bat
+       flash_stm32h573.bat test
+       flash_stm32h573.bat prod download
+       flash_stm32h573.bat test regression
+     无参数时输入 1 选 test，2 选 prod。
+     all 是默认：先回归（全片擦除）再烧录，然后写
+       SECWM2=[127,0]
+       H573 写 WRPSGn1=0xFFFFFFE3，H5F4 写 WRPSG11=0xFFFFFFE3
+       HDP1=[0,19]
+     烧录前把 SECBOOT_LOCK 写成 0xC3。不写 PRODUCT_STATE=0x72。
+     不写目录时，test 读本目录 test\，prod 读本目录 prod\。
+     要改用别的目录，把目录放在参数里，或写成 --dir。BL2 有 hex 或 bin 其中一份即可，两份都有时烧 hex。另外要有
+     tfm_s_signed.bin、tfm_ns_signed.bin。
+       flash_stm32h573.bat test D:\bins
+       flash_stm32h573.bat prod --dir D:\bins
+  4. 发布版只能用：
+       flash_stm32h573_release.bat
+       flash_stm32h573_release.bat download
+       flash_stm32h573_release.bat regression
+       flash_stm32h573_release.bat --dir D:\bins
+     默认只读 release\，给了目录就从那个目录读同样的文件名。
+     镜像写完后多写 SECBOOT_LOCK=0xB4。
+     不写 PRODUCT_STATE。板子仍是 Open 时，发布版 BL2 会复位。SWD 还在。
+     再烧 test 或 prod 时，flash_stm32h573.bat 会把 SECBOOT_LOCK 写回 0xC3。
+  5. 多把 ST-LINK 时，序列号放在最后：
+       flash_stm32h573.bat test <序列号>
+       flash_stm32h573_release.bat <序列号>
+  6. 烧录用 HotPlug，AP=1。烧完不复位，以便接着烧 OBK。
+  7. 日志写到本目录 log\。
+  8. 串口 115200 8N1。签名为 EC-P256。
+
+二.和 Linux 脚本的关系
+  flash_stm32h573.bat 对应 ./linux-tfm-tool/flash_stm32h573.sh。
+  flash_stm32h573_release.bat 对应 ./linux-tfm-tool/flash_stm32h573_release.sh。
+  不给目录时，两边都从自己目录下的 test、prod、release 文件夹读镜像，不读 build_s。
+  给了目录或 --dir 时，测试版、正式版和发布版都从那个目录读同样的文件名。
