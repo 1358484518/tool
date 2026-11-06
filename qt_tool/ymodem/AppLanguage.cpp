@@ -132,7 +132,7 @@ public:
             {"Cannot find boot: %1", "找不到 Boot: %1"},
             {"Boot Files (*.hex *.bin);;All Files (*)", "Boot 文件 (*.hex *.bin);;所有文件 (*)"},
             {"Generate DA OBK", "生成 DA OBK"},
-            {"Inspect package", "程序包解析"},
+            {"Inspect package", "固件签名解析"},
             {"H573 factory settings", "H573出厂设置"},
             {"H5F4 factory settings", "H5F4出厂设置"},
             {"Sign firmware", "固件签名"},

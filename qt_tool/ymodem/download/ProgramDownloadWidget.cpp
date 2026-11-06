@@ -538,12 +538,11 @@ void ProgramDownloadWidget::setupUi()
     addRule();
     tools->addWidget(m_genObk);
     addRule();
-    tools->addWidget(m_inspectPackage);
-    addRule();
     tools->addWidget(m_h573Factory);
     tools->addWidget(m_h5f4Factory);
     addRule();
     tools->addWidget(m_signFirmware);
+    tools->addWidget(m_inspectPackage);
     m_featureTools->setVisible(false);
     obkRow->addWidget(m_featureTools);
     obkRow->addStretch();
