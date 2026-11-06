@@ -35,7 +35,7 @@ if errorlevel 1 goto :fail
 :watermark
 rem Bank2 水印一旦被收成空安全区，硬件就不允许再加大。TrustZone 关闭时这项不参与保护。
 echo.
-echo 尝试恢复 Bank2 水印 SECWM2...
+echo 先打开 TrustZone 写两块水印，再关回 TrustZone...
 call :write_secwm2
 if errorlevel 1 goto :wm_keep
 
@@ -58,10 +58,10 @@ echo.
 echo 完成。Bank2 水印无法退回出厂编码。
 goto :end
 
-rem 写出厂选项字节，不包含 SECWM2，也不写 SECBOOT_LOCK。
+rem 写出厂选项字节，不含水印，也不写 SECBOOT_LOCK。
 rem SECBOOT_LOCK 在 TrustZone 关闭时读出为 0，命令行不接受 SECBOOT_LOCK=0x0。
 :write_factory
-"%CLI%" -c port=SWD mode=UR -ob PRODUCT_STATE=0xED BOR_LEV=0x0 BORH_EN=0x0 IO_VDD_HSLV=0x0 IO_VDDIO2_HSLV=0x0 IWDG_STOP=0x1 IWDG_STDBY=0x1 IWDG_SW=0x1 BOOT_UBE=0xB4 SWAP_BANK=0x0 NRST_STOP=0x1 NRST_STDBY=0x1 TZEN=0xC3 USBPD_DIS=0x1 SRAM2_ECC=0x1 SRAM3_ECC=0x1 BKPRAM_ECC=0x1 SRAM2_RST=0x1 SRAM1_3_4_5_RST=0x1 NSBOOTADD=0x80000 NSBOOT_LOCK=0xC3 SECBOOTADD=0x0 LOCKBL=0x0 WRPSG12=0xFFFFFFFF WRPSG11=0xFFFFFFFF WRPSG22=0xFFFFFFFF WRPSG21=0xFFFFFFFF SECWM1_STRT=0x0 SECWM1_END=0xFF EDATA1_EN=0x0 EDATA1_STRT=0x0 EDATA2_EN=0x0 EDATA2_STRT=0x0 HDP1_STRT=0x1 HDP1_END=0x0 HDP2_STRT=0x1 HDP2_END=0x0
+"%CLI%" -c port=SWD mode=UR -ob PRODUCT_STATE=0xED BOR_LEV=0x0 BORH_EN=0x0 IO_VDD_HSLV=0x0 IO_VDDIO2_HSLV=0x0 IWDG_STOP=0x1 IWDG_STDBY=0x1 IWDG_SW=0x1 BOOT_UBE=0xB4 SWAP_BANK=0x0 NRST_STOP=0x1 NRST_STDBY=0x1 TZEN=0xC3 USBPD_DIS=0x1 SRAM2_ECC=0x1 SRAM3_ECC=0x1 BKPRAM_ECC=0x1 SRAM2_RST=0x1 SRAM1_3_4_5_RST=0x1 NSBOOTADD=0x80000 NSBOOT_LOCK=0xC3 SECBOOTADD=0x0 LOCKBL=0x0 WRPSG12=0xFFFFFFFF WRPSG11=0xFFFFFFFF WRPSG22=0xFFFFFFFF WRPSG21=0xFFFFFFFF EDATA1_EN=0x0 EDATA1_STRT=0x0 EDATA2_EN=0x0 EDATA2_STRT=0x0 HDP1_STRT=0x1 HDP1_END=0x0 HDP2_STRT=0x1 HDP2_END=0x0
 if errorlevel 1 exit /b 1
 exit /b 0
 
@@ -78,11 +78,19 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 exit /b 0
 
-rem 单独写 Bank2 水印。失败时由调用处决定是否继续。
+rem TrustZone 关闭时读水印会得到 STRT=0x7 END=0x0，和出厂值对不上。
+rem 先打开 TrustZone 再写水印，写完关回去。失败也要把 TrustZone 关回。
 :write_secwm2
-"%CLI%" -c port=SWD mode=UR -ob SECWM2_STRT=0x0 SECWM2_END=0xFF
+"%CLI%" -c port=SWD mode=UR -ob TZEN=0xB4
+if errorlevel 1 exit /b 1
+"%CLI%" -c port=SWD mode=UR -ob SECWM1_STRT=0x0 SECWM1_END=0xFF SECWM2_STRT=0x0 SECWM2_END=0xFF
+if errorlevel 1 goto :secwm_restore_tzen
+"%CLI%" -c port=SWD mode=UR -ob TZEN=0xC3
 if errorlevel 1 exit /b 1
 exit /b 0
+:secwm_restore_tzen
+"%CLI%" -c port=SWD mode=UR -ob TZEN=0xC3
+exit /b 1
 
 rem 回读全部选项字节，方便和默认 json 对照。
 :read_ob
