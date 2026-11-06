@@ -17,7 +17,6 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
-class FirmwareSignDialog;
 class FirmwareRestoreDialog;
 class SignPackDialog;
 class PackageInspectDialog;
@@ -92,15 +91,10 @@ private:
     void inspectPackage();      // 打开独立窗口，只读解析打包和签名信息
     void restoreFirmware();     // 打开独立窗口，解包或去掉签名后写出新文件
     void signAndPack();         // 打开独立窗口，签名或签名后再打 FWMP
-    void signFirmware();        // 打开独立窗口，按产品做开发签名或远程签名
     void runH5f4Factory();      // 连续跑两次 H5F4 出厂设置脚本，输出进日志
     void runH573Factory();      // 连续跑两次 H573 出厂设置脚本，输出进日志
     void runFactoryReset(const QString &title, const QString &scriptName);  // 找 bat，然后连续跑两次
     void startFactoryPass();    // 启动下一次出厂设置。脚本结尾的 pause 用回车放行
-    void packSecureFirmware();     // 打开对话框，把安全侧 bin 打成 FWMP
-    void packNonSecureFirmware();  // 打开对话框，把非安全侧 bin 打成 FWMP
-    void unpackSecureFirmware();      // 打开对话框，解开安全侧 FWMP
-    void unpackNonSecureFirmware();   // 打开对话框，解开非安全侧 FWMP
     void configureProduct(ProductPane *pane, const QString &name, const QString &prefix,
                           const QString &folder, const QString &script);  // 填缺省路径和设置键
     void buildImageRow(ImageRow *row, QWidget *parent);  // 往抽屉里加一行
@@ -140,13 +134,7 @@ private:
     SignPackDialog *m_signPackDialog = nullptr;
     QPushButton *m_h573Factory = nullptr;     // 连续跑两次 H573 出厂设置脚本
     QPushButton *m_h5f4Factory = nullptr;     // H5F4 出厂设置，功能稍后接上
-    QPushButton *m_signFirmware = nullptr;    // 打开固件签名窗口
     PackageInspectDialog *m_inspectDialog = nullptr;  // 独立窗口，关主窗口时一起关掉
-    FirmwareSignDialog *m_signDialog = nullptr;       // 独立窗口，关主窗口时一起关掉
-    QPushButton *m_packS = nullptr;        // 安全侧升级固件打包
-    QPushButton *m_packNs = nullptr;       // 非安全侧升级固件打包
-    QPushButton *m_unpackS = nullptr;      // 安全侧升级固件解包
-    QPushButton *m_unpackNs = nullptr;     // 非安全侧升级固件解包
     QLabel *m_productLabel = nullptr;      // 「产品选择」
     QComboBox *m_productFilter = nullptr;  // 产品抽屉，最后一项是全部显示
     QCheckBox *m_featureExtend = nullptr;  // 功能扩展。未勾选时藏起后面的按钮和 DA 抽屉

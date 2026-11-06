@@ -1,7 +1,6 @@
 #include "ProgramDownloadWidget.h"
 
 #include "DaObk.h"
-#include "FirmwareSignDialog.h"
 #include "FwmpPack.h"
 #include "SettingsWidget.h"
 
@@ -452,13 +451,8 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
     connect(m_inspectPackage, &QPushButton::clicked, this, &ProgramDownloadWidget::inspectPackage);
     connect(m_restoreFirmware, &QPushButton::clicked, this, &ProgramDownloadWidget::restoreFirmware);
     connect(m_signPack, &QPushButton::clicked, this, &ProgramDownloadWidget::signAndPack);
-    connect(m_signFirmware, &QPushButton::clicked, this, &ProgramDownloadWidget::signFirmware);
     connect(m_h573Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH573Factory);
     connect(m_h5f4Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH5f4Factory);
-    connect(m_packS, &QPushButton::clicked, this, &ProgramDownloadWidget::packSecureFirmware);
-    connect(m_packNs, &QPushButton::clicked, this, &ProgramDownloadWidget::packNonSecureFirmware);
-    connect(m_unpackS, &QPushButton::clicked, this, &ProgramDownloadWidget::unpackSecureFirmware);
-    connect(m_unpackNs, &QPushButton::clicked, this, &ProgramDownloadWidget::unpackNonSecureFirmware);
     connect(m_productFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         applyProductFilter();
         saveSettings();
@@ -507,11 +501,6 @@ void ProgramDownloadWidget::setupUi()
     m_signPack = new QPushButton(this);
     m_h573Factory = new QPushButton(this);
     m_h5f4Factory = new QPushButton(this);
-    m_signFirmware = new QPushButton(this);
-    m_packS = new QPushButton(this);
-    m_packNs = new QPushButton(this);
-    m_unpackS = new QPushButton(this);
-    m_unpackNs = new QPushButton(this);
     m_productLabel = new QLabel(this);
     m_productFilter = new QComboBox(this);
     m_productFilter->setSizeAdjustPolicy(QComboBox::AdjustToContents);
@@ -534,18 +523,11 @@ void ProgramDownloadWidget::setupUi()
     obkRow->addWidget(leadRule);
     obkRow->addWidget(m_featureExtend);
     addRule();
-    tools->addWidget(m_packS);
-    tools->addWidget(m_unpackS);
-    addRule();
-    tools->addWidget(m_packNs);
-    tools->addWidget(m_unpackNs);
-    addRule();
     tools->addWidget(m_genObk);
     addRule();
     tools->addWidget(m_h573Factory);
     tools->addWidget(m_h5f4Factory);
     addRule();
-    tools->addWidget(m_signFirmware);
     tools->addWidget(m_inspectPackage);
     tools->addWidget(m_restoreFirmware);
     tools->addWidget(m_signPack);
@@ -1020,9 +1002,6 @@ void ProgramDownloadWidget::setDownloadRunning(bool running)
     eachRow([running](ImageRow *row) { row->download->setEnabled(!running); });
     m_h573Factory->setEnabled(!running);
     m_h5f4Factory->setEnabled(!running);
-    m_signFirmware->setEnabled(!running);
-    if (m_signDialog)
-        m_signDialog->setDownloadBusy(running);
     if (m_signPackDialog)
         m_signPackDialog->setDownloadBusy(running);
     m_key->setEnabled(!running);
@@ -1488,33 +1467,13 @@ void ProgramDownloadWidget::signAndPack()
                 setDownloadRunning(false);
         });
     }
-    m_signPackDialog->setDownloadBusy(m_process != nullptr || !m_signFirmware->isEnabled());
+    m_signPackDialog->setDownloadBusy(m_process != nullptr);
     if (m_signPackDialog->isMinimized())
         m_signPackDialog->showNormal();
     else
         m_signPackDialog->show();
     m_signPackDialog->raise();
     m_signPackDialog->activateWindow();
-}
-
-void ProgramDownloadWidget::signFirmware()
-{
-    if (!m_signDialog) {
-        m_signDialog = new FirmwareSignDialog(this);
-        connect(m_signDialog, &FirmwareSignDialog::signingChanged, this, [this](bool running) {
-            if (running)
-                setDownloadRunning(true);
-            else if (!m_process)
-                setDownloadRunning(false);
-        });
-    }
-    m_signDialog->setDownloadBusy(m_process != nullptr);
-    if (m_signDialog->isMinimized())
-        m_signDialog->showNormal();
-    else
-        m_signDialog->show();
-    m_signDialog->raise();
-    m_signDialog->activateWindow();
 }
 
 void ProgramDownloadWidget::runH5f4Factory()
@@ -1633,50 +1592,6 @@ void ProgramDownloadWidget::startFactoryPass()
     m_process->start(QStringLiteral("cmd.exe"), args);
 }
 
-void ProgramDownloadWidget::packSecureFirmware()
-{
-    const QString relative = QStringLiteral("sign_kit/tfm_s_signed.bin");
-    QString bin = existingFile(acsfParent(), relative);
-    if (bin.isEmpty() && !acsfParent().isEmpty())
-        bin = QDir(acsfParent()).filePath(relative);
-    FwmpPackDialog dialog(FwmpPackDialog::Side::Secure, bin, this);
-    connect(&dialog, &FwmpPackDialog::logged, this, [this](const QString &text) { appendLog(text); });
-    dialog.exec();
-}
-
-void ProgramDownloadWidget::packNonSecureFirmware()
-{
-    const QString relative = QStringLiteral("sign_kit/tfm_ns_signed.bin");
-    QString bin = existingFile(acsfParent(), relative);
-    if (bin.isEmpty() && !acsfParent().isEmpty())
-        bin = QDir(acsfParent()).filePath(relative);
-    FwmpPackDialog dialog(FwmpPackDialog::Side::NonSecure, bin, this);
-    connect(&dialog, &FwmpPackDialog::logged, this, [this](const QString &text) { appendLog(text); });
-    dialog.exec();
-}
-
-void ProgramDownloadWidget::unpackSecureFirmware()
-{
-    const QString relative = QStringLiteral("sign_kit/tfm_s_signed.fwmp");
-    QString fwmp = existingFile(acsfParent(), relative);
-    if (fwmp.isEmpty() && !acsfParent().isEmpty())
-        fwmp = QDir(acsfParent()).filePath(relative);
-    FwmpUnpackDialog dialog(FwmpUnpackDialog::Side::Secure, fwmp, this);
-    connect(&dialog, &FwmpUnpackDialog::logged, this, [this](const QString &text) { appendLog(text); });
-    dialog.exec();
-}
-
-void ProgramDownloadWidget::unpackNonSecureFirmware()
-{
-    const QString relative = QStringLiteral("sign_kit/tfm_ns_signed.fwmp");
-    QString fwmp = existingFile(acsfParent(), relative);
-    if (fwmp.isEmpty() && !acsfParent().isEmpty())
-        fwmp = QDir(acsfParent()).filePath(relative);
-    FwmpUnpackDialog dialog(FwmpUnpackDialog::Side::NonSecure, fwmp, this);
-    connect(&dialog, &FwmpUnpackDialog::logged, this, [this](const QString &text) { appendLog(text); });
-    dialog.exec();
-}
-
 void ProgramDownloadWidget::loadSettings()
 {
     QSettings settings;
@@ -1776,11 +1691,6 @@ void ProgramDownloadWidget::retranslateUi()
     m_signPack->setText(tr("Sign and pack"));
     m_h573Factory->setText(tr("H573 factory settings"));
     m_h5f4Factory->setText(tr("H5F4 factory settings"));
-    m_signFirmware->setText(tr("Sign firmware"));
-    m_packS->setText(tr("Pack S upgrade firmware"));
-    m_packNs->setText(tr("Pack NS upgrade firmware"));
-    m_unpackS->setText(tr("Unpack S upgrade firmware"));
-    m_unpackNs->setText(tr("Unpack NS upgrade firmware"));
     m_productLabel->setText(tr("Product selection:"));
     m_featureExtend->setText(tr("Feature extension"));
     const int filter = m_productFilter->currentIndex();

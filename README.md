@@ -43,13 +43,13 @@ da\
 
 ### 下载页怎么用
 
-G0、RAT、RD0047、RD0050、EAW、SECC 各是一个抽屉。上面可以按产品筛选。功能扩展默认关闭，不勾时只显示发布程序的应用程序和下载。勾上之后才看到测试、调试，以及打包、出厂设置、固件签名、固件签名解析、固件还原、签名打包。
+G0、RAT、RD0047、RD0050、EAW、SECC 各是一个抽屉。上面可以按产品筛选。功能扩展默认关闭，不勾时只显示发布程序的应用程序和下载。勾上之后才看到测试、调试，以及出厂设置、固件签名解析、固件还原、签名打包。
 
 每行选 Boot（只能是 `.hex`）、安全程序、应用程序（`.bin` 或打包的 `.fwmp`），再点下载。
 
 G0、RAT、RD0047、RD0050、EAW 用各自目录里的 `flash_stm32h573.bat`、`flash_stm32h573_release.bat`。SECC 用 `flash_stm32h5f4.bat`、`flash_stm32h5f4_release.bat`。
 
-这一周的下载页、出厂设置和固件签名见 [`qt_tool/README.md`](qt_tool/README.md)。
+这一周的下载页、出厂设置和签名打包见 [`qt_tool/README.md`](qt_tool/README.md)。
 
 DA 栏固定在抽屉下面，一直显示，不跟着抽屉收起。
 

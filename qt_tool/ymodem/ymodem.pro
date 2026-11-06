@@ -43,7 +43,6 @@ SOURCES += \
     firmware/FirmwarePackWidget.cpp \
     download/ProgramDownloadWidget.cpp \
     download/DaObk.cpp \
-    download/FirmwareSignDialog.cpp \
     download/FwmpPack.cpp \
     ftp/FtpCommand.cpp \
     ftp/DataConnection.cpp \
@@ -86,7 +85,6 @@ HEADERS += \
     firmware/FirmwarePackWidget.h \
     download/ProgramDownloadWidget.h \
     download/DaObk.h \
-    download/FirmwareSignDialog.h \
     download/FwmpPack.h \
     ftp/FtpCommand.h \
     ftp/DataConnection.h \
