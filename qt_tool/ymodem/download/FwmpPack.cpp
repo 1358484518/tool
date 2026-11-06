@@ -2,6 +2,9 @@
 
 #include "SettingsWidget.h"
 
+#include <QButtonGroup>
+#include <QComboBox>
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDataStream>
 #include <QDir>
@@ -12,6 +15,11 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPlainTextEdit>
+#include <QProcess>
+#include <QRadioButton>
+#include <QRegularExpression>
+#include <QTextCursor>
 #include <QAbstractItemView>
 #include <QBrush>
 #include <QColor>
@@ -1033,6 +1041,91 @@ QString columnTitle(const QString &path, const QStringList &paths)
     return info.fileName();
 }
 
+struct RestoreParts {
+    QByteArray unpacked;
+    bool packed = false;
+    QString fatalError;
+    QByteArray raw;
+    bool haveRaw = false;
+    QString rawError;
+};
+
+RestoreParts splitRestore(const QString &path)
+{
+    RestoreParts parts;
+    QFile input(path);
+    if (!input.open(QIODevice::ReadOnly)) {
+        parts.fatalError = QObject::tr("Cannot read");
+        return parts;
+    }
+    const QByteArray file = input.readAll();
+    input.close();
+    const bool hexName = path.endsWith(QLatin1String(".hex"), Qt::CaseInsensitive);
+    const QByteArray trimmed = file.trimmed();
+    const bool looksHex = !trimmed.isEmpty() && trimmed.at(0) == ':';
+    const QByteArray bytes = loadImageBytes(path, file);
+    if ((hexName || looksHex) && bytes.isEmpty()) {
+        parts.fatalError = QObject::tr("Hex could not be decoded.");
+        return parts;
+    }
+    QByteArray image = bytes;
+    if (bytes.size() >= 4 && bytes.startsWith("FWMP")) {
+        quint8 version = 0;
+        quint16 headerSize = 0;
+        quint32 payloadSize = 0;
+        const bool headerRead = bytes.size() >= 64
+            && readU8(bytes, 4, &version)
+            && readU16(bytes, 5, &headerSize)
+            && readU32(bytes, 20, &payloadSize);
+        const QByteArray storedHash = bytes.mid(24, 32);
+        const bool lengthOk = headerRead && version == 1 && headerSize == 64 && storedHash.size() == 32
+            && quint64(headerSize) + payloadSize == quint64(bytes.size());
+        if (!lengthOk) {
+            parts.fatalError = QObject::tr("Invalid header");
+            return parts;
+        }
+        image = bytes.mid(int(headerSize), int(payloadSize));
+        if (QCryptographicHash::hash(image, QCryptographicHash::Sha256) != storedHash) {
+            parts.fatalError = QObject::tr("FWMP SHA-256 does not match");
+            return parts;
+        }
+        parts.packed = true;
+        parts.unpacked = image;
+    }
+    const ImageInfo info = parseMcuBoot(image);
+    if (!info.magicOk) {
+        parts.rawError = QObject::tr("Not signed");
+        return parts;
+    }
+    const quint64 end = quint64(info.headerSize) + info.imageSize;
+    if (info.headerSize < 32 || end > quint64(image.size())) {
+        parts.rawError = QObject::tr("Image size exceeds the file.");
+        return parts;
+    }
+    parts.raw = image.mid(int(info.headerSize), int(info.imageSize));
+    parts.haveRaw = true;
+    return parts;
+}
+
+bool writeBinTo(const QString &source, const QString &out, const QByteArray &bytes, QString *written, QString *error)
+{
+    if (QFileInfo(out).absoluteFilePath().compare(QFileInfo(source).absoluteFilePath(), Qt::CaseInsensitive) == 0) {
+        if (error)
+            *error = QObject::tr("Cannot write BIN: %1").arg(QDir::toNativeSeparators(out));
+        return false;
+    }
+    QFile output(out);
+    if (!output.open(QIODevice::WriteOnly) || output.write(bytes) != bytes.size()) {
+        if (error)
+            *error = QObject::tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(out), output.errorString());
+        return false;
+    }
+    output.close();
+    if (written)
+        *written = QDir::toNativeSeparators(QFileInfo(out).absoluteFilePath());
+    return true;
+}
+
 } // namespace
 
 PackageInspectDialog::PackageInspectDialog(QWidget *parent)
@@ -1199,4 +1292,1045 @@ void PackageInspectDialog::compare()
         }
     }
     m_note->setText(tr("Read only. The file was not modified."));
+}
+
+FirmwareRestoreDialog::FirmwareRestoreDialog(QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowFlags(Qt::Window
+                   | Qt::WindowTitleHint
+                   | Qt::WindowSystemMenuHint
+                   | Qt::WindowMinimizeButtonHint
+                   | Qt::WindowMaximizeButtonHint
+                   | Qt::WindowCloseButtonHint);
+    resize(720, 560);
+    auto *layout = new QVBoxLayout(this);
+    auto *fileRow = new QHBoxLayout();
+    m_choose = new QPushButton(this);
+    m_path = new QLabel(this);
+    m_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_path->setWordWrap(true);
+    fileRow->addWidget(m_choose);
+    fileRow->addWidget(m_path, 1);
+    layout->addLayout(fileRow);
+
+    m_table = new QTableWidget(this);
+    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_table->setSelectionMode(QAbstractItemView::NoSelection);
+    m_table->setWordWrap(false);
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    layout->addWidget(m_table, 1);
+
+    auto addOutRow = [this, layout](QLabel **label, QLineEdit **edit, QPushButton **browse) {
+        auto *row = new QHBoxLayout();
+        *label = new QLabel(this);
+        *edit = new QLineEdit(this);
+        *browse = new QPushButton(this);
+        row->addWidget(*label);
+        row->addWidget(*edit, 1);
+        row->addWidget(*browse);
+        layout->addLayout(row);
+    };
+    addOutRow(&m_unpackedOutLabel, &m_unpackedOut, &m_unpackedBrowse);
+    addOutRow(&m_unsignedOutLabel, &m_unsignedOut, &m_unsignedBrowse);
+
+    auto *actions = new QHBoxLayout();
+    m_unpacked = new QPushButton(this);
+    m_unsigned = new QPushButton(this);
+    actions->addWidget(m_unpacked);
+    actions->addWidget(m_unsigned);
+    actions->addStretch();
+    layout->addLayout(actions);
+
+    m_status = new QLabel(this);
+    m_status->setWordWrap(true);
+    layout->addWidget(m_status);
+
+    connect(m_choose, &QPushButton::clicked, this, &FirmwareRestoreDialog::chooseFile);
+    connect(m_unpackedBrowse, &QPushButton::clicked, this, &FirmwareRestoreDialog::browseUnpacked);
+    connect(m_unsignedBrowse, &QPushButton::clicked, this, &FirmwareRestoreDialog::browseUnsigned);
+    connect(m_unpacked, &QPushButton::clicked, this, &FirmwareRestoreDialog::writeUnpacked);
+    connect(m_unsigned, &QPushButton::clicked, this, &FirmwareRestoreDialog::writeUnsigned);
+    retranslateUi();
+}
+
+void FirmwareRestoreDialog::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        retranslateUi();
+    QDialog::changeEvent(event);
+}
+
+void FirmwareRestoreDialog::retranslateUi()
+{
+    setWindowTitle(tr("Restore firmware"));
+    m_choose->setText(tr("Select firmware"));
+    m_unpackedOutLabel->setText(tr("Unpacked output:"));
+    m_unsignedOutLabel->setText(tr("Unsigned output:"));
+    m_unpackedBrowse->setText(tr("Select path"));
+    m_unsignedBrowse->setText(tr("Select path"));
+    m_unpacked->setText(tr("Output unpacked firmware"));
+    m_unsigned->setText(tr("Output unsigned firmware"));
+    if (m_file.isEmpty())
+        m_status->setText(tr("Select a firmware file."));
+    else
+        refresh();
+}
+
+void FirmwareRestoreDialog::chooseFile()
+{
+    QString start = m_file.isEmpty()
+        ? QFileInfo(SettingsWidget::firmwareFilePath(QStringLiteral("firmware.bin"))).absolutePath()
+        : QFileInfo(m_file).absolutePath();
+    const QString file = QFileDialog::getOpenFileName(
+        this, tr("Restore firmware"), start,
+        tr("Firmware (*.bin *.fwmp *.hex);;All files (*)"));
+    if (file.isEmpty())
+        return;
+    m_file = QDir::toNativeSeparators(file);
+    m_path->setText(m_file);
+    fillOutputPaths();
+    refresh();
+}
+
+void FirmwareRestoreDialog::fillOutputPaths()
+{
+    if (m_file.isEmpty())
+        return;
+    m_unpackedOut->setText(fileBeside(m_file, QStringLiteral("_unpacked.bin")));
+    m_unsignedOut->setText(fileBeside(m_file, QStringLiteral("_unsigned.bin")));
+}
+
+void FirmwareRestoreDialog::browseUnpacked()
+{
+    QString suggested = m_unpackedOut->text().trimmed();
+    if (suggested.isEmpty() && !m_file.isEmpty())
+        suggested = fileBeside(m_file, QStringLiteral("_unpacked.bin"));
+    const QString chosen = askSavePath(suggested);
+    if (!chosen.isEmpty())
+        m_unpackedOut->setText(chosen);
+}
+
+void FirmwareRestoreDialog::browseUnsigned()
+{
+    QString suggested = m_unsignedOut->text().trimmed();
+    if (suggested.isEmpty() && !m_file.isEmpty())
+        suggested = fileBeside(m_file, QStringLiteral("_unsigned.bin"));
+    const QString chosen = askSavePath(suggested);
+    if (!chosen.isEmpty())
+        m_unsignedOut->setText(chosen);
+}
+
+void FirmwareRestoreDialog::refresh()
+{
+    if (m_file.isEmpty()) {
+        m_table->clear();
+        m_table->setRowCount(0);
+        m_table->setColumnCount(0);
+        m_status->setText(tr("Select a firmware file."));
+        return;
+    }
+    const PackageReport report = inspectOne(m_file);
+    m_table->clear();
+    m_table->setColumnCount(1);
+    m_table->setRowCount(RowCount);
+    m_table->setHorizontalHeaderLabels(QStringList() << report.title);
+    const QColor sectionColor(236, 239, 241);
+    for (int row = 0; row < RowCount; ++row) {
+        auto *name = new QTableWidgetItem(compareRowName(row));
+        name->setFlags(Qt::ItemIsEnabled);
+        auto *value = new QTableWidgetItem(compareRowIsSection(row) ? QString() : compareRowValue(report, row));
+        value->setFlags(Qt::ItemIsEnabled);
+        if (compareRowIsSection(row)) {
+            QFont font = name->font();
+            font.setBold(true);
+            name->setFont(font);
+            name->setBackground(QBrush(sectionColor));
+            value->setBackground(QBrush(sectionColor));
+        }
+        m_table->setVerticalHeaderItem(row, name);
+        m_table->setItem(row, 0, value);
+    }
+    m_status->setText(tr("Read only. The file was not modified."));
+}
+
+QString FirmwareRestoreDialog::askSavePath(const QString &suggested)
+{
+    const QFileInfo info(QDir::fromNativeSeparators(suggested));
+    QFileDialog dialog(this, tr("Restore firmware"), info.absolutePath(),
+                       tr("BIN Files (*.bin);;All Files (*)"));
+    dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setDefaultSuffix(QStringLiteral("bin"));
+    if (!info.fileName().isEmpty())
+        dialog.selectFile(info.fileName());
+    if (dialog.exec() != QDialog::Accepted)
+        return QString();
+    const QStringList files = dialog.selectedFiles();
+    return files.isEmpty() ? QString() : QDir::toNativeSeparators(files.first());
+}
+
+void FirmwareRestoreDialog::writeUnpacked()
+{
+    if (m_file.isEmpty()) {
+        m_status->setText(tr("Select a firmware file."));
+        return;
+    }
+    refresh();
+    const RestoreParts parts = splitRestore(m_file);
+    if (!parts.fatalError.isEmpty()) {
+        m_status->setText(parts.fatalError);
+        QMessageBox::warning(this, tr("Restore firmware"), parts.fatalError);
+        return;
+    }
+    if (!parts.packed) {
+        const QString message = tr("Firmware is not packed.");
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    const QString chosen = m_unpackedOut->text().trimmed();
+    if (chosen.isEmpty()) {
+        const QString message = tr("Select an output path.");
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    QString written;
+    QString error;
+    if (!writeBinTo(m_file, chosen, parts.unpacked, &written, &error)) {
+        m_status->setText(error);
+        QMessageBox::warning(this, tr("Restore firmware"), error);
+        return;
+    }
+    const QString message = tr("Wrote %1").arg(written);
+    m_status->setText(message);
+    QMessageBox::information(this, tr("Restore firmware"), message);
+}
+
+void FirmwareRestoreDialog::writeUnsigned()
+{
+    if (m_file.isEmpty()) {
+        m_status->setText(tr("Select a firmware file."));
+        return;
+    }
+    refresh();
+    const RestoreParts parts = splitRestore(m_file);
+    if (!parts.fatalError.isEmpty()) {
+        m_status->setText(parts.fatalError);
+        QMessageBox::warning(this, tr("Restore firmware"), parts.fatalError);
+        return;
+    }
+    const QString unpackedPath = m_unpackedOut->text().trimmed();
+    const QString unsignedPath = m_unsignedOut->text().trimmed();
+    if (parts.packed && unpackedPath.isEmpty()) {
+        const QString message = tr("Select an output path.");
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    if (parts.haveRaw && unsignedPath.isEmpty()) {
+        const QString message = tr("Select an output path.");
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    if (parts.packed && parts.haveRaw
+        && QFileInfo(unpackedPath).absoluteFilePath().compare(QFileInfo(unsignedPath).absoluteFilePath(), Qt::CaseInsensitive) == 0) {
+        const QString message = tr("Cannot write BIN: %1").arg(unsignedPath);
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    QString unpackedWritten;
+    if (parts.packed) {
+        QString error;
+        if (!writeBinTo(m_file, unpackedPath, parts.unpacked, &unpackedWritten, &error)) {
+            m_status->setText(error);
+            QMessageBox::warning(this, tr("Restore firmware"), error);
+            return;
+        }
+    }
+    if (!parts.haveRaw) {
+        const QString reason = parts.rawError.isEmpty() ? tr("Not signed") : parts.rawError;
+        QString message = reason;
+        if (!unpackedWritten.isEmpty())
+            message = tr("Wrote %1").arg(unpackedWritten) + QLatin1Char('\n') + reason;
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    const QString chosen = unsignedPath;
+    if (!unpackedWritten.isEmpty()
+        && QFileInfo(chosen).absoluteFilePath().compare(QFileInfo(unpackedWritten).absoluteFilePath(), Qt::CaseInsensitive) == 0) {
+        const QString message = tr("Cannot write BIN: %1").arg(chosen);
+        m_status->setText(tr("Wrote %1").arg(unpackedWritten) + QLatin1Char('\n') + message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    QString written;
+    QString error;
+    if (!writeBinTo(m_file, chosen, parts.raw, &written, &error)) {
+        QString message = error;
+        if (!unpackedWritten.isEmpty())
+            message = tr("Wrote %1").arg(unpackedWritten) + QLatin1Char('\n') + error;
+        m_status->setText(message);
+        QMessageBox::warning(this, tr("Restore firmware"), message);
+        return;
+    }
+    QString message = tr("Wrote %1").arg(written);
+    if (!unpackedWritten.isEmpty())
+        message = tr("Wrote %1").arg(unpackedWritten) + QLatin1Char('\n') + message;
+    m_status->setText(message);
+    QMessageBox::information(this, tr("Restore firmware"), message);
+}
+
+namespace {
+
+struct SignProduct {
+    const char *name;
+    bool h573;
+    const char *devProfile;
+    const char *prodProfile;
+};
+
+const SignProduct kSignProducts[] = {
+    {"G0", true, "DEV-CCU", "G0-V2G"},
+    {"RAT", true, "DEV-CCU", "RAT-V2G"},
+    {"RD0047", true, "DEV-CCU", "RD0047-V2G"},
+    {"RD0050", true, "DEV-CCU", "RD0047-V2G"},
+    {"EAW", true, "DEV-CCU", "RD0047-V2G"},
+    {"SECC", false, "DEV-SECC", "SECC-AC-1"},
+};
+
+QString signAppDir()
+{
+    return QDir(QCoreApplication::applicationDirPath()).absolutePath();
+}
+
+QString signAcsfParent()
+{
+    const QString inside = QStringLiteral("G0/G0-test/windows-tfm-tools/flash_stm32h573.bat");
+    const QString marker = QStringLiteral("ACSF/") + inside;
+    if (QFileInfo::exists(QDir(signAppDir()).absoluteFilePath(marker)))
+        return signAppDir();
+#ifdef ACSF_DIR
+    const QString compiled = QDir::cleanPath(QString::fromUtf8(ACSF_DIR));
+    if (QFileInfo::exists(QDir(compiled).filePath(inside)))
+        return QFileInfo(compiled).dir().absolutePath();
+#endif
+    return QString();
+}
+
+QString kitWithSignBat(const QString &root)
+{
+    if (root.isEmpty())
+        return QString();
+    const QString bat = QDir(root).filePath(QStringLiteral("sign_kit/sign.bat"));
+    return QFileInfo::exists(bat) ? QFileInfo(bat).absolutePath() : QString();
+}
+
+QString signConfigValue(const QString &filePath, const QString &key)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly))
+        return QString();
+    const QStringList lines = QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'));
+    for (QString line : lines) {
+        line = line.trimmed();
+        if (line.isEmpty() || line.startsWith(QLatin1Char('#')))
+            continue;
+        const int eq = line.indexOf(QLatin1Char('='));
+        if (eq <= 0)
+            continue;
+        if (line.left(eq).trimmed().compare(key, Qt::CaseInsensitive) != 0)
+            continue;
+        QString value = line.mid(eq + 1).trimmed();
+        const int hash = value.indexOf(QLatin1Char('#'));
+        if (hash >= 0)
+            value = value.left(hash).trimmed();
+        return value;
+    }
+    return QString();
+}
+
+bool signVersionOk(const QString &version)
+{
+    return QRegularExpression(QStringLiteral("^\\d+\\.\\d+\\.\\d+(?:\\+\\d+)?$")).match(version).hasMatch();
+}
+
+QString signKitDirectory()
+{
+    const QString beside = kitWithSignBat(signAppDir());
+    if (!beside.isEmpty())
+        return beside;
+    const QString packaged = kitWithSignBat(signAcsfParent());
+    if (!packaged.isEmpty())
+        return packaged;
+    const QString fallback = QStringLiteral("C:/Users/13584/Desktop/stm32h5xx/tool/qt_tool/sign_kit/sign.bat");
+    return QFileInfo::exists(fallback) ? QFileInfo(fallback).absolutePath() : QString();
+}
+
+enum class SignPackKind {
+    Unreadable,
+    BadHex,
+    InvalidPack,
+    Packed,
+    Signed,
+    Unsigned
+};
+
+struct SignPackImage {
+    SignPackKind kind = SignPackKind::Unreadable;
+    QByteArray bytes;
+    bool fileIsBin = false;
+};
+
+SignPackImage classifySignPack(const QString &path)
+{
+    SignPackImage image;
+    QFile input(path);
+    if (!input.open(QIODevice::ReadOnly))
+        return image;
+    const QByteArray file = input.readAll();
+    input.close();
+    const bool hexName = path.endsWith(QLatin1String(".hex"), Qt::CaseInsensitive);
+    const QByteArray trimmed = file.trimmed();
+    const bool looksHex = !trimmed.isEmpty() && trimmed.at(0) == ':';
+    const QByteArray bytes = loadImageBytes(path, file);
+    if ((hexName || looksHex) && bytes.isEmpty()) {
+        image.kind = SignPackKind::BadHex;
+        return image;
+    }
+    image.fileIsBin = !hexName && !looksHex;
+    if (bytes.size() >= 4 && bytes.startsWith("FWMP")) {
+        quint8 version = 0;
+        quint16 headerSize = 0;
+        quint32 payloadSize = 0;
+        const bool headerRead = bytes.size() >= 64
+            && readU8(bytes, 4, &version)
+            && readU16(bytes, 5, &headerSize)
+            && readU32(bytes, 20, &payloadSize);
+        const QByteArray storedHash = bytes.mid(24, 32);
+        const bool lengthOk = headerRead && version == 1 && headerSize == 64 && storedHash.size() == 32
+            && quint64(headerSize) + payloadSize == quint64(bytes.size());
+        if (!lengthOk) {
+            image.kind = SignPackKind::InvalidPack;
+            return image;
+        }
+        const QByteArray payload = bytes.mid(int(headerSize), int(payloadSize));
+        if (QCryptographicHash::hash(payload, QCryptographicHash::Sha256) != storedHash) {
+            image.kind = SignPackKind::InvalidPack;
+            return image;
+        }
+        image.kind = SignPackKind::Packed;
+        image.bytes = payload;
+        return image;
+    }
+    image.bytes = bytes;
+    image.kind = parseMcuBoot(bytes).magicOk ? SignPackKind::Signed : SignPackKind::Unsigned;
+    return image;
+}
+
+bool sameFile(const QString &left, const QString &right)
+{
+    return QFileInfo(left).absoluteFilePath().compare(QFileInfo(right).absoluteFilePath(), Qt::CaseInsensitive) == 0;
+}
+
+bool moveToPath(const QString &from, const QString &to, QString *error)
+{
+    if (sameFile(from, to))
+        return true;
+    if (QFile::exists(to))
+        QFile::remove(to);
+    if (QFile::rename(from, to))
+        return true;
+    if (!QFile::copy(from, to)) {
+        if (error)
+            *error = QObject::tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(to), QFile(to).errorString());
+        return false;
+    }
+    QFile::remove(from);
+    return true;
+}
+
+} // namespace
+
+SignPackDialog::SignPackDialog(QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowFlags(Qt::Window
+                   | Qt::WindowTitleHint
+                   | Qt::WindowSystemMenuHint
+                   | Qt::WindowMinimizeButtonHint
+                   | Qt::WindowMaximizeButtonHint
+                   | Qt::WindowCloseButtonHint);
+    resize(860, 720);
+    auto *layout = new QVBoxLayout(this);
+
+    auto *productRow = new QHBoxLayout();
+    auto *productLabel = new QLabel(this);
+    productLabel->setObjectName(QStringLiteral("productLabel"));
+    m_product = new QComboBox(this);
+    for (const SignProduct &product : kSignProducts)
+        m_product->addItem(QString::fromLatin1(product.name));
+    productRow->addWidget(productLabel);
+    productRow->addWidget(m_product);
+    productRow->addStretch();
+    layout->addLayout(productRow);
+
+    m_profile = new QLabel(this);
+    m_profile->setWordWrap(true);
+    layout->addWidget(m_profile);
+
+    auto *versionRow = new QHBoxLayout();
+    m_versionSLabel = new QLabel(this);
+    m_versionS = new QLineEdit(this);
+    m_versionS->setMaximumWidth(120);
+    m_versionNLabel = new QLabel(this);
+    m_versionN = new QLineEdit(this);
+    m_versionN->setMaximumWidth(120);
+    versionRow->addWidget(m_versionSLabel);
+    versionRow->addWidget(m_versionS);
+    versionRow->addWidget(m_versionNLabel);
+    versionRow->addWidget(m_versionN);
+    versionRow->addStretch();
+    layout->addLayout(versionRow);
+
+    auto *optionRow = new QHBoxLayout();
+    auto *sideLabel = new QLabel(this);
+    sideLabel->setObjectName(QStringLiteral("sideLabel"));
+    m_sideS = new QRadioButton(QStringLiteral("S"), this);
+    m_sideN = new QRadioButton(QStringLiteral("NS"), this);
+    auto *sideGroup = new QButtonGroup(this);
+    sideGroup->addButton(m_sideS);
+    sideGroup->addButton(m_sideN);
+    m_sideS->setChecked(true);
+    m_dev = new QRadioButton(this);
+    m_remote = new QRadioButton(this);
+    auto *modeGroup = new QButtonGroup(this);
+    modeGroup->addButton(m_dev);
+    modeGroup->addButton(m_remote);
+    m_dev->setChecked(true);
+    optionRow->addWidget(sideLabel);
+    optionRow->addWidget(m_sideS);
+    optionRow->addWidget(m_sideN);
+    optionRow->addSpacing(16);
+    optionRow->addWidget(m_dev);
+    optionRow->addWidget(m_remote);
+    optionRow->addStretch();
+    layout->addLayout(optionRow);
+
+    auto *fileRow = new QHBoxLayout();
+    m_choose = new QPushButton(this);
+    m_path = new QLabel(this);
+    m_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_path->setWordWrap(true);
+    fileRow->addWidget(m_choose);
+    fileRow->addWidget(m_path, 1);
+    layout->addLayout(fileRow);
+
+    m_table = new QTableWidget(this);
+    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_table->setSelectionMode(QAbstractItemView::NoSelection);
+    m_table->setWordWrap(false);
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    layout->addWidget(m_table, 1);
+
+    auto addOutRow = [this, layout](QLabel **label, QLineEdit **edit, QPushButton **browse) {
+        auto *row = new QHBoxLayout();
+        *label = new QLabel(this);
+        *edit = new QLineEdit(this);
+        *browse = new QPushButton(this);
+        row->addWidget(*label);
+        row->addWidget(*edit, 1);
+        row->addWidget(*browse);
+        layout->addLayout(row);
+    };
+    addOutRow(&m_signedOutLabel, &m_signedOut, &m_signedBrowse);
+    addOutRow(&m_fwmpOutLabel, &m_fwmpEdit, &m_fwmpBrowse);
+
+    auto *actions = new QHBoxLayout();
+    m_signed = new QPushButton(this);
+    m_packed = new QPushButton(this);
+    actions->addWidget(m_signed);
+    actions->addWidget(m_packed);
+    actions->addStretch();
+    layout->addLayout(actions);
+
+    m_log = new QPlainTextEdit(this);
+    m_log->setReadOnly(true);
+    m_log->setMaximumBlockCount(2000);
+    layout->addWidget(m_log, 1);
+
+    m_status = new QLabel(this);
+    m_status->setWordWrap(true);
+    layout->addWidget(m_status);
+
+    connect(m_product, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        updateProfileText();
+        loadStoredVersions();
+    });
+    connect(m_choose, &QPushButton::clicked, this, &SignPackDialog::chooseFile);
+    connect(m_signedBrowse, &QPushButton::clicked, this, &SignPackDialog::browseSigned);
+    connect(m_fwmpBrowse, &QPushButton::clicked, this, &SignPackDialog::browsePackage);
+    connect(m_signed, &QPushButton::clicked, this, &SignPackDialog::outputSigned);
+    connect(m_packed, &QPushButton::clicked, this, &SignPackDialog::outputPacked);
+    retranslateUi();
+    loadStoredVersions();
+}
+
+void SignPackDialog::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        retranslateUi();
+    QDialog::changeEvent(event);
+}
+
+void SignPackDialog::setDownloadBusy(bool busy)
+{
+    m_downloadBusy = busy;
+    updateButtons();
+}
+
+void SignPackDialog::updateButtons()
+{
+    const bool enable = !m_downloadBusy && !m_signing;
+    m_signed->setEnabled(enable);
+    m_packed->setEnabled(enable);
+}
+
+void SignPackDialog::retranslateUi()
+{
+    setWindowTitle(tr("Sign and pack"));
+    findChild<QLabel *>(QStringLiteral("productLabel"))->setText(tr("Product selection:"));
+    findChild<QLabel *>(QStringLiteral("sideLabel"))->setText(tr("Side:"));
+    m_versionSLabel->setText(tr("S version:"));
+    m_versionNLabel->setText(tr("NS version:"));
+    m_dev->setText(tr("Development sign"));
+    m_remote->setText(tr("Remote sign"));
+    m_choose->setText(tr("Select firmware"));
+    m_signedOutLabel->setText(tr("Signed output:"));
+    m_fwmpOutLabel->setText(tr("Package output:"));
+    m_signedBrowse->setText(tr("Select path"));
+    m_fwmpBrowse->setText(tr("Select path"));
+    m_signed->setText(tr("Output signed firmware"));
+    m_packed->setText(tr("Output signed package"));
+    updateProfileText();
+    if (m_file.isEmpty())
+        m_status->setText(tr("Select a firmware file."));
+    else
+        refresh();
+}
+
+void SignPackDialog::updateProfileText()
+{
+    const int index = m_product->currentIndex();
+    if (index < 0 || index >= int(sizeof(kSignProducts) / sizeof(kSignProducts[0])))
+        return;
+    const SignProduct &product = kSignProducts[index];
+    const QString slotText = product.h573
+        ? tr("H573 slots S 0x0C044000, NS 0x0C100000")
+        : tr("H5F4 slots S 0x0C078000, NS 0x0C0F8000");
+    m_profile->setText(tr("Development profile %1, remote profile %2. %3")
+                           .arg(QString::fromLatin1(product.devProfile),
+                                QString::fromLatin1(product.prodProfile),
+                                slotText));
+}
+
+void SignPackDialog::loadStoredVersions()
+{
+    const int index = m_product->currentIndex();
+    if (index < 0 || index >= int(sizeof(kSignProducts) / sizeof(kSignProducts[0])))
+        return;
+    const QString kit = signKitDirectory();
+    const QString chip = kSignProducts[index].h573 ? QStringLiteral("h573") : QStringLiteral("h5f4");
+    const QString configPath = QDir(kit).filePath(QStringLiteral("config.") + chip);
+    const QString secure = signConfigValue(configPath, QStringLiteral("MCUBOOT_IMAGE_VERSION_S"));
+    const QString app = signConfigValue(configPath, QStringLiteral("MCUBOOT_IMAGE_VERSION_NS"));
+    m_versionS->setText(secure);
+    m_versionN->setText(app);
+    if (secure.isEmpty() || app.isEmpty())
+        m_status->setText(tr("Cannot read signing version from %1").arg(QDir::toNativeSeparators(configPath)));
+    else if (!m_signing && m_file.isEmpty())
+        m_status->setText(tr("Select a firmware file."));
+}
+
+void SignPackDialog::chooseFile()
+{
+    const QString start = m_file.isEmpty()
+        ? QFileInfo(SettingsWidget::firmwareFilePath(QStringLiteral("firmware.bin"))).absolutePath()
+        : QFileInfo(m_file).absolutePath();
+    const QString file = QFileDialog::getOpenFileName(
+        this, tr("Sign and pack"), start,
+        tr("Firmware (*.bin *.hex);;All files (*)"));
+    if (file.isEmpty())
+        return;
+    m_file = QDir::toNativeSeparators(file);
+    m_path->setText(m_file);
+    fillOutputPaths();
+    refresh();
+}
+
+void SignPackDialog::fillOutputPaths()
+{
+    if (m_file.isEmpty())
+        return;
+    m_signedOut->setText(fileBeside(m_file, QStringLiteral("_signed.bin")));
+    m_fwmpEdit->setText(fileBeside(m_file, QStringLiteral(".fwmp")));
+}
+
+void SignPackDialog::browseSigned()
+{
+    QString suggested = m_signedOut->text().trimmed();
+    if (suggested.isEmpty() && !m_file.isEmpty())
+        suggested = fileBeside(m_file, QStringLiteral("_signed.bin"));
+    const QString chosen = askSavePath(suggested, tr("BIN Files (*.bin);;All Files (*)"), QStringLiteral("bin"));
+    if (!chosen.isEmpty())
+        m_signedOut->setText(chosen);
+}
+
+void SignPackDialog::browsePackage()
+{
+    QString suggested = m_fwmpEdit->text().trimmed();
+    if (suggested.isEmpty() && !m_file.isEmpty())
+        suggested = fileBeside(m_file, QStringLiteral(".fwmp"));
+    const QString chosen = askSavePath(suggested, tr("FWMP Files (*.fwmp);;All Files (*)"), QStringLiteral("fwmp"));
+    if (!chosen.isEmpty())
+        m_fwmpEdit->setText(chosen);
+}
+
+void SignPackDialog::refresh()
+{
+    if (m_file.isEmpty()) {
+        m_table->clear();
+        m_table->setRowCount(0);
+        m_table->setColumnCount(0);
+        m_status->setText(tr("Select a firmware file."));
+        return;
+    }
+    const PackageReport report = inspectOne(m_file);
+    m_table->clear();
+    m_table->setColumnCount(1);
+    m_table->setRowCount(RowCount);
+    m_table->setHorizontalHeaderLabels(QStringList() << report.title);
+    const QColor sectionColor(236, 239, 241);
+    for (int row = 0; row < RowCount; ++row) {
+        auto *name = new QTableWidgetItem(compareRowName(row));
+        name->setFlags(Qt::ItemIsEnabled);
+        auto *value = new QTableWidgetItem(compareRowIsSection(row) ? QString() : compareRowValue(report, row));
+        value->setFlags(Qt::ItemIsEnabled);
+        if (compareRowIsSection(row)) {
+            QFont font = name->font();
+            font.setBold(true);
+            name->setFont(font);
+            name->setBackground(QBrush(sectionColor));
+            value->setBackground(QBrush(sectionColor));
+        }
+        m_table->setVerticalHeaderItem(row, name);
+        m_table->setItem(row, 0, value);
+    }
+    m_status->setText(tr("Read only. The file was not modified."));
+}
+
+void SignPackDialog::outputSigned()
+{
+    begin(false);
+}
+
+void SignPackDialog::outputPacked()
+{
+    begin(true);
+}
+
+void SignPackDialog::begin(bool packAfter)
+{
+    if (m_signing || m_downloadBusy)
+        return;
+    if (m_file.isEmpty()) {
+        m_status->setText(tr("Select a firmware file."));
+        return;
+    }
+    m_imageType = m_sideS->isChecked() ? 1 : 0;
+    refresh();
+    const SignPackImage image = classifySignPack(m_file);
+    if (image.kind == SignPackKind::Unreadable) {
+        showResult(false, tr("Cannot read"));
+        return;
+    }
+    if (image.kind == SignPackKind::BadHex) {
+        showResult(false, tr("Hex could not be decoded."));
+        return;
+    }
+    if (image.kind == SignPackKind::InvalidPack) {
+        showResult(false, tr("Invalid header"));
+        return;
+    }
+    if (image.kind == SignPackKind::Packed) {
+        showResult(false, tr("Packed"));
+        return;
+    }
+    if (image.kind == SignPackKind::Signed) {
+        if (!packAfter) {
+            showResult(false, tr("Signed"));
+            return;
+        }
+        const QString chosen = m_fwmpEdit->text().trimmed();
+        if (chosen.isEmpty()) {
+            showResult(false, tr("Select an output path."));
+            return;
+        }
+        QString message;
+        if (!writePackedFile(image.bytes, chosen, &message))
+            showResult(false, message);
+        else
+            showResult(true, message);
+        return;
+    }
+    startSign(image.bytes, image.fileIsBin, packAfter);
+}
+
+void SignPackDialog::startSign(const QByteArray &bytes, bool fileIsBin, bool packAfter)
+{
+    const int index = m_product->currentIndex();
+    if (index < 0 || index >= int(sizeof(kSignProducts) / sizeof(kSignProducts[0])))
+        return;
+    const SignProduct &product = kSignProducts[index];
+    const QString version = (m_sideS->isChecked() ? m_versionS : m_versionN)->text().trimmed();
+    if (!version.isEmpty() && !signVersionOk(version)) {
+        showResult(false, tr("Version must look like 2.3.1."));
+        return;
+    }
+    m_kit = signKitDirectory();
+    if (m_kit.isEmpty()) {
+        const QString message = tr("Cannot find sign kit: %1").arg(QStringLiteral("sign_kit"));
+        appendLog(message + QLatin1Char('\n'));
+        showResult(false, message);
+        return;
+    }
+
+    m_finalSigned = m_signedOut->text().trimmed();
+    if (m_finalSigned.isEmpty()) {
+        showResult(false, tr("Select an output path."));
+        return;
+    }
+    if (sameFile(m_finalSigned, m_file)) {
+        showResult(false, tr("Cannot write BIN: %1").arg(m_finalSigned));
+        return;
+    }
+    m_fwmpOut.clear();
+    if (packAfter) {
+        m_fwmpOut = m_fwmpEdit->text().trimmed();
+        if (m_fwmpOut.isEmpty()) {
+            showResult(false, tr("Select an output path."));
+            return;
+        }
+        if (sameFile(m_fwmpOut, m_file) || sameFile(m_fwmpOut, m_finalSigned)) {
+            showResult(false, tr("Cannot write FWMP: %1").arg(m_fwmpOut));
+            return;
+        }
+    }
+
+    m_tempInput.clear();
+    m_signInput = m_file;
+    if (!fileIsBin) {
+        const QString temp = fileBeside(m_file, QStringLiteral(".signpack-in.bin"));
+        QFile out(temp);
+        if (!out.open(QIODevice::WriteOnly) || out.write(bytes) != bytes.size()) {
+            showResult(false, tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(temp), out.errorString()));
+            return;
+        }
+        out.close();
+        m_tempInput = temp;
+        m_signInput = temp;
+    }
+    m_expectedSigned = fileBeside(m_signInput, QStringLiteral("_signed.bin"));
+    m_imageType = m_sideS->isChecked() ? 1 : 0;
+    m_packAfter = packAfter;
+    m_production = m_remote->isChecked();
+    m_chip = product.h573 ? QStringLiteral("h573") : QStringLiteral("h5f4");
+    m_profileName = QString::fromLatin1(m_production ? product.prodProfile : product.devProfile);
+
+    const QString bat = QDir(m_kit).filePath(QStringLiteral("sign.bat"));
+    const QString kind = m_sideS->isChecked() ? QStringLiteral("s") : QStringLiteral("ns");
+    const QString input = QDir::toNativeSeparators(m_signInput);
+    m_process = new QProcess(this);
+    m_process->setWorkingDirectory(m_kit);
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
+        if (!m_process)
+            return;
+        const QString text = QString::fromLocal8Bit(m_process->readAllStandardOutput());
+        if (!text.isEmpty())
+            appendLog(text);
+    });
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this](int code, QProcess::ExitStatus status) {
+                if (!m_process || !m_signing)
+                    return;
+                const QString tail = QString::fromLocal8Bit(m_process->readAllStandardOutput());
+                if (!tail.isEmpty())
+                    appendLog(tail);
+                QProcess *process = m_process;
+                m_process = nullptr;
+                process->deleteLater();
+                const bool ok = status != QProcess::CrashExit && code == 0;
+                if (!ok) {
+                    if (!sameFile(m_expectedSigned, m_finalSigned))
+                        QFile::remove(m_expectedSigned);
+                    finishSign(false, tr("Signing failed, exit code %1").arg(code));
+                    return;
+                }
+                if (!QFileInfo::exists(m_expectedSigned)) {
+                    finishSign(false, tr("Cannot find file: %1").arg(m_expectedSigned));
+                    return;
+                }
+                QString moveError;
+                if (!moveToPath(m_expectedSigned, m_finalSigned, &moveError)) {
+                    finishSign(false, moveError);
+                    return;
+                }
+                const QString signedPath = QDir::toNativeSeparators(QFileInfo(m_finalSigned).absoluteFilePath());
+                if (!m_packAfter) {
+                    finishSign(true, tr("Wrote %1").arg(signedPath));
+                    return;
+                }
+                QFile signedFile(signedPath);
+                if (!signedFile.open(QIODevice::ReadOnly)) {
+                    finishSign(false, tr("Wrote %1").arg(signedPath) + QLatin1Char('\n') + tr("Cannot read"));
+                    return;
+                }
+                const QByteArray payload = signedFile.readAll();
+                signedFile.close();
+                QString packMessage;
+                if (!writePackedFile(payload, m_fwmpOut, &packMessage)) {
+                    finishSign(false, tr("Wrote %1").arg(signedPath) + QLatin1Char('\n') + packMessage);
+                    return;
+                }
+                finishSign(true, tr("Wrote %1").arg(signedPath) + QLatin1Char('\n') + packMessage);
+            });
+    connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart || !m_process)
+            return;
+        QProcess *process = m_process;
+        m_process = nullptr;
+        process->disconnect(this);
+        process->deleteLater();
+        if (!sameFile(m_expectedSigned, m_finalSigned))
+            QFile::remove(m_expectedSigned);
+        finishSign(false, tr("Cannot start script: %1").arg(QDir(m_kit).filePath(QStringLiteral("sign.bat"))));
+    });
+
+    QStringList args;
+    args << QStringLiteral("/c")
+         << QDir::toNativeSeparators(bat)
+         << QStringLiteral("--chip")
+         << m_chip
+         << (m_production ? QStringLiteral("--prod") : QStringLiteral("--dev"))
+         << QStringLiteral("--profile")
+         << m_profileName;
+    if (!version.isEmpty())
+        args << QStringLiteral("--version") << version;
+    args << kind << input;
+    QStringList shown;
+    for (int i = 1; i < args.size(); ++i) {
+        const QString arg = args.at(i);
+        if (arg.contains(QLatin1Char(' ')) || arg.contains(QLatin1Char('\t')))
+            shown << QLatin1Char('"') + arg + QLatin1Char('"');
+        else
+            shown << arg;
+    }
+    appendLog(tr("Sign kit: %1").arg(QDir::toNativeSeparators(m_kit)) + QLatin1Char('\n'));
+    appendLog(tr("Signing %1 %2").arg(kind.toUpper(), input) + QLatin1Char('\n'));
+    appendLog(shown.join(QLatin1Char(' ')) + QLatin1Char('\n'));
+    m_signing = true;
+    updateButtons();
+    m_status->setText(tr("Signing %1").arg(QString::fromLatin1(product.name)));
+    emit signingChanged(true);
+    m_process->start(QStringLiteral("cmd.exe"), args);
+}
+
+void SignPackDialog::finishSign(bool ok, const QString &message)
+{
+    dropTemp();
+    m_signing = false;
+    updateButtons();
+    emit signingChanged(false);
+    showResult(ok, message);
+}
+
+QString SignPackDialog::askSavePath(const QString &suggested, const QString &filter, const QString &suffix)
+{
+    const QFileInfo info(QDir::fromNativeSeparators(suggested));
+    QFileDialog dialog(this, tr("Sign and pack"), info.absolutePath(), filter);
+    dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setDefaultSuffix(suffix);
+    if (!info.fileName().isEmpty())
+        dialog.selectFile(info.fileName());
+    if (dialog.exec() != QDialog::Accepted)
+        return QString();
+    const QStringList files = dialog.selectedFiles();
+    return files.isEmpty() ? QString() : QDir::toNativeSeparators(files.first());
+}
+
+bool SignPackDialog::writePackedFile(const QByteArray &signedBytes, const QString &out, QString *message)
+{
+    if (out.isEmpty() || sameFile(out, m_file)) {
+        if (message)
+            *message = tr("Cannot write FWMP: %1").arg(out);
+        return false;
+    }
+    const QByteArray header = fwmpHeader(signedBytes, m_imageType, m_imageType);
+    if (header.size() != 64) {
+        if (message)
+            *message = tr("Invalid header");
+        return false;
+    }
+    QFile output(out);
+    if (!output.open(QIODevice::WriteOnly) || output.write(header) != header.size()
+        || output.write(signedBytes) != signedBytes.size()) {
+        if (message)
+            *message = tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(out), output.errorString());
+        return false;
+    }
+    output.close();
+    const QString written = QDir::toNativeSeparators(QFileInfo(out).absoluteFilePath());
+    QString text = tr("Wrote %1").arg(written);
+    const QString sizeWarning = firmwareSizeWarning(m_imageType, signedBytes.size());
+    if (!sizeWarning.isEmpty())
+        text = sizeWarning + QLatin1Char('\n') + text;
+    if (message)
+        *message = text;
+    return true;
+}
+
+void SignPackDialog::showResult(bool ok, const QString &message)
+{
+    refresh();
+    m_status->setText(message);
+    appendLog(message + QLatin1Char('\n'));
+    if (ok)
+        QMessageBox::information(this, tr("Sign and pack"), message);
+    else
+        QMessageBox::warning(this, tr("Sign and pack"), message);
+}
+
+void SignPackDialog::appendLog(const QString &text)
+{
+    m_log->moveCursor(QTextCursor::End);
+    m_log->insertPlainText(text);
+    m_log->moveCursor(QTextCursor::End);
+}
+
+void SignPackDialog::dropTemp()
+{
+    if (m_tempInput.isEmpty())
+        return;
+    QFile::remove(m_tempInput);
+    m_tempInput.clear();
 }

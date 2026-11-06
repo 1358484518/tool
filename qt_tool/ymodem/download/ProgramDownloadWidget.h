@@ -18,6 +18,8 @@ class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
 class FirmwareSignDialog;
+class FirmwareRestoreDialog;
+class SignPackDialog;
 class PackageInspectDialog;
 class QPushButton;
 class QRadioButton;
@@ -88,6 +90,8 @@ private:
     void useDefaultCube();      // 清空编程器路径，恢复脚本原来的查找
     void generateDaObk();       // 打开对话框，由根公钥生成 DA obk
     void inspectPackage();      // 打开独立窗口，只读解析打包和签名信息
+    void restoreFirmware();     // 打开独立窗口，解包或去掉签名后写出新文件
+    void signAndPack();         // 打开独立窗口，签名或签名后再打 FWMP
     void signFirmware();        // 打开独立窗口，按产品做开发签名或远程签名
     void runH5f4Factory();      // 连续跑两次 H5F4 出厂设置脚本，输出进日志
     void runH573Factory();      // 连续跑两次 H573 出厂设置脚本，输出进日志
@@ -130,6 +134,10 @@ private:
     QPushButton *m_defaultCube = nullptr;  // 清空编程器路径
     QPushButton *m_genObk = nullptr;       // 打开生成 DA obk 的对话框
     QPushButton *m_inspectPackage = nullptr;  // 只读解析固件包和签名
+    QPushButton *m_restoreFirmware = nullptr; // 解包或去掉签名，写出新文件
+    FirmwareRestoreDialog *m_restoreDialog = nullptr;
+    QPushButton *m_signPack = nullptr;        // 签名，或签名后再打包
+    SignPackDialog *m_signPackDialog = nullptr;
     QPushButton *m_h573Factory = nullptr;     // 连续跑两次 H573 出厂设置脚本
     QPushButton *m_h5f4Factory = nullptr;     // H5F4 出厂设置，功能稍后接上
     QPushButton *m_signFirmware = nullptr;    // 打开固件签名窗口
