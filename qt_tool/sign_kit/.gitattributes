@@ -1,0 +1,3 @@
+# cmd.exe needs CRLF. LF-only .bat files break CubeIDE post-build and double-click.
+*.bat text eol=crlf
+*.cmd text eol=crlf

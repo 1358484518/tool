@@ -1,0 +1,168 @@
+【STM32H5F4 独立签名工具 sign_kit 使用说明】
+适用分支：feat/tfm-sign-server（及后续合入的主线）
+算法：EC-P256
+签名私钥：托管在**公司内网的签名服务**上；本工具包内**不再存放任何私钥**，只持公钥。
+
+一、这是什么
+  独立签名工具：给未签名的 S / NS 固件 .bin 加上 MCUboot 头和签名，
+  生成可烧录的 *_signed.bin。不依赖完整 TF-M 工程编译。
+
+  两种签名模式：
+    remote（默认，推荐）：本地完成镜像头/TLV/对齐/填充组装，只把 32 字节 SHA-256
+                          摘要发到内网签名服务换取 DER 签名；**私钥不出服务端**。
+    local （兼容/回退）  ：沿用本地私钥签名（需自备私钥，仅灰度或应急使用）。
+
+二、目录内容
+  sign.sh / sign.bat     签名脚本（Linux / Windows）
+  remote.conf            远程签名配置（**随仓库提交**：服务地址、配置档映射、CA 路径）
+                         注意：令牌绝不写进这里
+  keys/<key_id>.pem      各密钥的**公钥**（一个 key_id 一个文件），例如
+                           DEV-CCU-SPE.pem  Secure（S / SPE）公钥
+                           DEV-CCU-NS.pem   Non-Secure（NS）公钥
+  layout/                与当前 SPE 配套的 signing_layout_*.o
+  config                 版本号、security counter、MCUboot 选项
+  scripts/               imgtool、包装脚本 wrapper.py、远程签名 remote_sign.py
+  scripts/fetch_pubkeys.py  从签名服务导出公钥（新增密钥时用）
+  requirements.txt       Python 依赖
+
+三、首次准备
+  1) 安装 Python 3（≥3.10）。Debian/Ubuntu 还需让系统提供 python3 -m venv：
+       sudo apt install -y python3-venv
+     注意：Ubuntu 24.04 起（含 26.04）系统 Python 默认不装 pip，且受 PEP 668 保护，
+     **不要**执行 python3 -m pip install -r requirements.txt —— 会报 No module named pip，
+     即使装上 pip 也会被拒绝装到系统环境。依赖一律装在本目录的 .venv 内。
+  2) 安装依赖：不需要手动装。首次运行 sign.sh / sign.bat 会自动在本目录创建独立 .venv
+     并按 requirements.txt 安装；不要混用仓库根目录 TF-M 的 .venv（cryptography ABI 不同）。
+     如需手动预装（等价，便于排查）：
+       Linux/macOS:  python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+       Windows:      py -3 -m venv .venv && .venv\Scripts\python.exe -m pip install -r requirements.txt
+     依赖自检：.venv/bin/python -c "import click, cryptography, cbor2, intelhex"
+     若本机同时用于 TF-M 编译（buildtfm.sh），另需 cmake ≥3.21、ninja、arm-none-eabi-gcc ≥12.2。
+  3) 配置服务地址（二选一）：
+       export TFM_SIGN_SERVER_URL='https://<内网主机>:8443'      # 推荐，各人本地设置
+       或在 remote.conf 里填写 SIGN_SERVER_URL=...
+  4) 获取令牌（向密钥管理员申请；**不要写进仓库**）：
+       export TFM_SIGN_TOKEN='<令牌>'                            # 或
+       echo '<令牌>' > ~/.tfm_sign_token && chmod 600 ~/.tfm_sign_token
+  5) 内网自签/公司 CA 证书：在 remote.conf 的 CA_BUNDLE 填 CA 路径（禁止关闭证书校验）。
+
+四、怎么签名
+  1) 把未签名 bin 拷到本目录（或给出路径）
+  2) 执行：
+       ./sign.sh tfm_ns.bin                      # 文件名含 ns → 按 NS 签，用默认配置档
+       ./sign.sh sapp.bin                        # 含 sapp / tfm_s / _s.bin → 按 S 签
+       ./sign.sh --profile DEV-CCU sapp.bin      # 指定配置档（推荐显式指定）
+       ./sign.sh --key-id OCPP-FW-CCU app.bin    # 临时直接指定 key_id
+       ./sign.sh ns  app.bin                     # 文件名看不出类型时显式指定
+     Windows 用 sign.bat，参数相同；也可把 bin 拖到 sign.bat 上。
+  3) 输出位置：默认写在输入 bin 旁边（<输入名>_signed.bin）；
+     若在 remote.conf 里写 OUT_DIR=kit，则写回本 sign_kit 目录（CubeIDE 工程沿用该约定）：
+       tfm_ns_signed.bin / sapp_signed.bin
+
+  远程签名会打印实际使用的 key_id 与公钥指纹，便于核对。
+
+
+【两种签名：默认本地开发密钥；正式出包用 sign_prod】
+  · 平时（默认）：sign.bat <bin>  —— 用仓库内 keys\\dev\\<key_id>.pem（DEV 开发密钥）本地签名，
+    不联网、不需要令牌；服务器没开也不会中断开发（CubeIDE post-build 走的就是这条路径）。
+  · 临时远程：sign.bat --remote <bin>  —— 走内网签名服务，需要令牌。
+  · 正式出包：sign_prod.bat <bin>  —— 强制远程、使用 remote.conf 的 PROD_PROFILE，拒绝 --local；
+    正式私钥只在服务端，缺令牌/服务不可达时直接失败（不会退回开发密钥）。
+  · --dev 与 --local 等价（显式指定本地开发密钥签名）。
+  · 安全边界：keys\\dev\\ 只放 DEV 开发密钥；正式私钥永不落地。
+
+【开发私钥与构建期密钥（2026-09 起随仓库提交）】
+  · sign_kit\\keys\\dev\\DEV-CCU-{SPE,NS}.pem  —— 本地开发签名的私钥（DEV 密钥，团队共用）。
+  · 各工程 spe\\api_ns\\image_signing\\keys\\image_{s,ns}_signing_private_key.pem  —— 同一套 DEV 密钥，
+    用于离线重编 SPE/NS（CMake set_and_check 与 imgtool 本地签名路径）。
+  · 正式密钥（G0-V2G-*、SECC-AC-1-* 等）只在服务端 /var/lib/tfm-sign/keys，本地永不落地。
+五、配置档（profile）—— 关键概念
+  remote.conf 里用 `PROFILE_<名称>_SPE` / `PROFILE_<名称>_NS` 把"镜像角色"显式映射到 key_id：
+    PROFILE_DEV-CCU_SPE=DEV-CCU-SPE
+    PROFILE_DEV-CCU_NS=DEV-CCU-NS
+    PROFILE_OCPP-FW-CCU_SPE=OCPP-FW-CCU      # 非规范命名同样支持
+    PROFILE_OCPP-FW-CCU_NS=OCPP-FW-CCU       # 同一把密钥可用于两侧
+
+  规则：
+    1) 用 `--profile <名称>` 选择；缺省用 DEFAULT_PROFILE
+    2) 必须同时提供 SPE 与 NS 两条，缺任一条**直接报错**
+    3) **不会**按 "<名称>-SPE" 自动推断 key_id —— 这是刻意的，防止签错密钥
+    4) key_id 是不透明标识符，服务端不解析命名含义（"-SPE/-NS"只是建议约定）
+
+六、密钥管理（重要）
+
+  6.1 安全模型
+    签名私钥保存在内网签名服务上（口令加密存储），密钥对在**外部受控环境生成**；
+    服务端只提供"导入"通道，不生成密钥。本工具包与整个工程内**只有公钥**。
+    签名前客户端会把本地公钥指纹与服务端返回的 pubkey_sha256 比对，
+    不一致立即中止 —— 这是避免"签出板上无法启动的镜像"的关键防线。
+
+  6.2 新增/更换一把密钥（三处同步，缺一不可）
+    1) 服务端导入（由密钥管理员在服务器上执行）：
+         python tools/import_key.py --key-id <KEY_ID> --tier dev|prod --in <私钥.pem>
+       导入后会打印 pubkey_sha256 与公钥 PEM。
+    2) 把公钥提交到本工具包（人工 review 后提交）：
+         python3 scripts/fetch_pubkeys.py --key-id <KEY_ID>
+       → 生成 keys/<KEY_ID>.pem（公钥非敏感，应当入库）
+    3) 在 remote.conf 中补上配置档映射：
+         PROFILE_<项目>_SPE=<KEY_ID>
+         PROFILE_<项目>_NS=<KEY_ID>
+    漏掉第 2/3 步时，签名会直接报"缺少公钥"或"配置档缺少映射"并退出（预期行为）。
+
+  6.3 密钥与板上 BL2 / OTP ROTPK 的关系
+    板上 BL2 内嵌/信任的公钥指纹（OTP ROTPK）必须与签名密钥一致，否则会出现
+      Image in the primary slot is not valid
+    只改签名侧、不重编重烧 BL2 与 OTP 是不行的。
+    本分支**沿用现有 DEV-CCU 密钥**，因此 BL2 使用的公钥与 ROTPK 均未变化，
+    已烧录板卡无需重刷（但仍需重烧本次编译出的 BL2 + S + NS）。
+
+  6.4 私钥去向（已完成云端化）
+    原 keys/image_s_signing_private_key.pem、keys/image_ns_signing_private_key.pem
+    已**从工作区删除、并从版本控制移除**——工程内不再保留任何明文私钥，
+    签名私钥只存在于内网签名服务（口令加密）。
+    离线归档（含 SHA256 清单）：C:\work\PLC\CCU-SECC-1\priv-backup-20260925\
+    仅在需要 --local 应急出包、或旧 api_ns 预构建树单独重编时，才从归档取回对应文件。
+    注意：私钥仍存在于 git 历史中；如需彻底清除，请轮换密钥并重刷 BL2/OTP（或重写历史）。
+
+七、烧录地址（STM32H5F4，与 windows-tfm-tools / flash 脚本一致）
+  S  主槽：0x0C078000   签完约 512 KB
+  NS 主槽：0x0C0F8000   签完约 1024 KB
+  S  副槽（升级）：0x0C200000
+  NS 副槽（升级）：0x0C280000
+  不要使用 H573 的 0x0C088000 等地址。
+  Windows 可把签好的镜像放进 windows-tfm-tools 后双击 tfm_update.bat。
+  Linux 可用仓库根目录 ./flash_stm32h5f4.sh。
+
+八、更换 SPE 布局后
+  若重编 SPE 改了槽大小/MCUboot 选项，请从
+    trusted-firmware-m/build_s/api_ns/image_signing/layout_files/
+  拷贝新的 signing_layout_s.o / signing_layout_ns.o 到本目录 layout/，
+  并核对本目录 config 中的版本与选项。
+
+九、验证（不要用字节比对）
+  ECDSA 每次签名都使用随机参数，同一摘要的签名结果**每次不同，都有效**。
+  验收请用公钥验签 + 板上实际启动：
+    PYTHONPATH=scripts .venv/bin/python -m imgtool.main verify -k keys/<KEY_ID>.pem <signed.bin>
+    # 预期：Image was correctly validated
+    # 必须用本目录 venv 且用 -m 形式：直接跑 scripts/imgtool/main.py 会报 ModuleNotFoundError: imgtool
+  Linux 侧完整验证步骤见仓库 docs/remote-sign-verification.md。
+
+十、与 CubeIDE / makefile 工程内 sign_kit 的关系
+  仓库里还有：
+    tfmcubeideproject/STM32CubeIDE/sign_kit/
+    tfmmakeproject/sign_kit/
+  这两处副本**本次未改造**，仍使用本地私钥；后续阶段会复用同一套远程签名方案。
+  换密钥时请注意三处 keys/ 的一致性。
+
+十一、常见问题
+  - 未找到签名令牌：见第三节第 4 步；令牌不要写进仓库或脚本。
+  - 无法连接签名服务：确认已连公司网络/VPN、地址端口正确、CA_BUNDLE 指向内部 CA。
+  - 公钥指纹不一致：本地公钥与服务端私钥不是同一把（或密钥被轮换）。**必须停下核对**，
+    否则板上会验签失败。
+  - forbidden：令牌白名单不含该 key_id，请管理员补授权（gen_token.py）。
+  - signing_unavailable：服务端密钥未加载，请管理员查看 /v1/health。
+  - 签名成功但板子不启动（primary slot invalid）：签名密钥与板上 BL2/OTP ROTPK 不一致，
+    参见 6.3 与 6.2 核对。
+  - cryptography / imgtool 报错：删除本目录 .venv 后重跑（会自动重建并装依赖）；不要用系统 pip 装。
+  - No module named pip / externally-managed-environment：见第三节第 1 步（系统 Python 受 PEP 668 保护）。
+  - 槽溢出：未签名镜像过大，检查 layout 与槽大小（S 512KB / NS 1024KB）。

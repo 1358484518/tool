@@ -12,7 +12,7 @@
 
 DA 是芯片封板之后的调试认证。发布程序烧进去之后，再做一次 DA 认证，产品状态变成 CLOSED，普通 SWD 调试口就关了。以后要重新烧程序，必须先拿私钥和证书链做回归，把芯片打开回到 Open。
 
-测试程序、调试程序只烧录，不跑 DA。发布程序的烧录脚本把 TrustZone 打开，启动地址写成 `0xC0100`，产品状态留在 Open。烧完发布程序后，再在下载页点「DA 认证」。
+测试程序、调试程序只烧录，不跑 DA。发布程序的烧录脚本把 TrustZone 打开，启动地址写成 `0xC0100`，产品状态留在 Open。发布烧录成功后，下载页用公钥生成 OBK，再自动做 DA 认证。页面上仍可以单独点「DA 认证」。
 
 ### 文件放哪
 
@@ -43,9 +43,13 @@ da\
 
 ### 下载页怎么用
 
-G0、RAT、RD0047、SECC 各是一个抽屉，可以同时展开。每个抽屉三行：测试、调试、发布。每行选 Boot（只能是 `.hex`）、安全程序、应用程序（`.bin` 或打包的 `.fwmp`），再点下载。
+G0、RAT、RD0047、RD0050、EAW、SECC 各是一个抽屉。上面可以按产品筛选。功能扩展默认关闭，不勾时只显示发布程序的应用程序和下载。勾上之后才看到测试、调试，以及打包、解析、出厂设置、固件签名。
 
-RAT、RD0047 和 G0 用各自目录里的 `flash_stm32h573.bat`、`flash_stm32h573_release.bat`。SECC 用 `flash_stm32h5f4.bat`、`flash_stm32h5f4_release.bat`。
+每行选 Boot（只能是 `.hex`）、安全程序、应用程序（`.bin` 或打包的 `.fwmp`），再点下载。
+
+G0、RAT、RD0047、RD0050、EAW 用各自目录里的 `flash_stm32h573.bat`、`flash_stm32h573_release.bat`。SECC 用 `flash_stm32h5f4.bat`、`flash_stm32h5f4_release.bat`。
+
+这一周的下载页、出厂设置和固件签名见 [`qt_tool/README.md`](qt_tool/README.md)。
 
 DA 栏固定在抽屉下面，一直显示，不跟着抽屉收起。
 

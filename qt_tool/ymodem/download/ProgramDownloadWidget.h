@@ -17,6 +17,7 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
+class FirmwareSignDialog;
 class PackageInspectDialog;
 class QPushButton;
 class QRadioButton;
@@ -87,6 +88,7 @@ private:
     void useDefaultCube();      // 清空编程器路径，恢复脚本原来的查找
     void generateDaObk();       // 打开对话框，由根公钥生成 DA obk
     void inspectPackage();      // 打开独立窗口，只读解析打包和签名信息
+    void signFirmware();        // 打开独立窗口，按产品做开发签名或远程签名
     void runH5f4Factory();      // 连续跑两次 H5F4 出厂设置脚本，输出进日志
     void runH573Factory();      // 连续跑两次 H573 出厂设置脚本，输出进日志
     void runFactoryReset(const QString &title, const QString &scriptName);  // 找 bat，然后连续跑两次
@@ -130,7 +132,9 @@ private:
     QPushButton *m_inspectPackage = nullptr;  // 只读解析固件包和签名
     QPushButton *m_h573Factory = nullptr;     // 连续跑两次 H573 出厂设置脚本
     QPushButton *m_h5f4Factory = nullptr;     // H5F4 出厂设置，功能稍后接上
+    QPushButton *m_signFirmware = nullptr;    // 打开固件签名窗口
     PackageInspectDialog *m_inspectDialog = nullptr;  // 独立窗口，关主窗口时一起关掉
+    FirmwareSignDialog *m_signDialog = nullptr;       // 独立窗口，关主窗口时一起关掉
     QPushButton *m_packS = nullptr;        // 安全侧升级固件打包
     QPushButton *m_packNs = nullptr;       // 非安全侧升级固件打包
     QPushButton *m_unpackS = nullptr;      // 安全侧升级固件解包

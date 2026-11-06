@@ -1,6 +1,7 @@
 #include "ProgramDownloadWidget.h"
 
 #include "DaObk.h"
+#include "FirmwareSignDialog.h"
 #include "FwmpPack.h"
 #include "SettingsWidget.h"
 
@@ -449,6 +450,7 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
     });
     connect(m_genObk, &QPushButton::clicked, this, &ProgramDownloadWidget::generateDaObk);
     connect(m_inspectPackage, &QPushButton::clicked, this, &ProgramDownloadWidget::inspectPackage);
+    connect(m_signFirmware, &QPushButton::clicked, this, &ProgramDownloadWidget::signFirmware);
     connect(m_h573Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH573Factory);
     connect(m_h5f4Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH5f4Factory);
     connect(m_packS, &QPushButton::clicked, this, &ProgramDownloadWidget::packSecureFirmware);
@@ -501,6 +503,7 @@ void ProgramDownloadWidget::setupUi()
     m_inspectPackage = new QPushButton(this);
     m_h573Factory = new QPushButton(this);
     m_h5f4Factory = new QPushButton(this);
+    m_signFirmware = new QPushButton(this);
     m_packS = new QPushButton(this);
     m_packNs = new QPushButton(this);
     m_unpackS = new QPushButton(this);
@@ -539,6 +542,8 @@ void ProgramDownloadWidget::setupUi()
     addRule();
     tools->addWidget(m_h573Factory);
     tools->addWidget(m_h5f4Factory);
+    addRule();
+    tools->addWidget(m_signFirmware);
     m_featureTools->setVisible(false);
     obkRow->addWidget(m_featureTools);
     obkRow->addStretch();
@@ -1010,6 +1015,9 @@ void ProgramDownloadWidget::setDownloadRunning(bool running)
     eachRow([running](ImageRow *row) { row->download->setEnabled(!running); });
     m_h573Factory->setEnabled(!running);
     m_h5f4Factory->setEnabled(!running);
+    m_signFirmware->setEnabled(!running);
+    if (m_signDialog)
+        m_signDialog->setDownloadBusy(running);
     m_key->setEnabled(!running);
     m_chooseKey->setEnabled(!running);
     m_daClose->setEnabled(!running);
@@ -1450,6 +1458,26 @@ void ProgramDownloadWidget::inspectPackage()
     m_inspectDialog->activateWindow();
 }
 
+void ProgramDownloadWidget::signFirmware()
+{
+    if (!m_signDialog) {
+        m_signDialog = new FirmwareSignDialog(this);
+        connect(m_signDialog, &FirmwareSignDialog::signingChanged, this, [this](bool running) {
+            if (running)
+                setDownloadRunning(true);
+            else if (!m_process)
+                setDownloadRunning(false);
+        });
+    }
+    m_signDialog->setDownloadBusy(m_process != nullptr);
+    if (m_signDialog->isMinimized())
+        m_signDialog->showNormal();
+    else
+        m_signDialog->show();
+    m_signDialog->raise();
+    m_signDialog->activateWindow();
+}
+
 void ProgramDownloadWidget::runH5f4Factory()
 {
     runFactoryReset(tr("H5F4 factory settings"), QStringLiteral("STM32H5F4_Reset.bat"));
@@ -1707,6 +1735,7 @@ void ProgramDownloadWidget::retranslateUi()
     m_inspectPackage->setText(tr("Inspect package"));
     m_h573Factory->setText(tr("H573 factory settings"));
     m_h5f4Factory->setText(tr("H5F4 factory settings"));
+    m_signFirmware->setText(tr("Sign firmware"));
     m_packS->setText(tr("Pack S upgrade firmware"));
     m_packNs->setText(tr("Pack NS upgrade firmware"));
     m_unpackS->setText(tr("Unpack S upgrade firmware"));

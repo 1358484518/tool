@@ -1,17 +1,93 @@
 # TMX 调试助手（Qt5）
 
-基于 Qt5 的串口 / 网络调试工具，集成 YModem 文件发送。
+基于 Qt5 的串口 / 网络调试工具，集成 YModem 文件发送。当前版本 **2.20**。编译套件是 Qt 5.14.2 MinGW 64-bit。
 
 **思路、流程、类和线程怎么管**：见 [`ymodem/README.md`](ymodem/README.md)。
+
+DA 认证的步骤、权限和回归口令见仓库根目录 [`README.md`](../README.md)。
+
+## 最近更新（2026-10-31 至 2026-11-06）
+
+### 下载页
+
+六个产品：G0、RAT、RD0047、RD0050、EAW、SECC。上面可以按产品筛选，也可以全部显示。
+
+G0、RAT、RD0047、RD0050、EAW 走 H573 烧录脚本 `flash_stm32h573.bat` / `flash_stm32h573_release.bat`。SECC 走 H5F4 的 `flash_stm32h5f4.bat` / `flash_stm32h5f4_release.bat`。
+
+每个产品三行：测试、调试、发布。功能扩展默认不勾。不勾时只留下发布程序的应用程序和下载。测试、调试，以及打包、解析、出厂设置、固件签名，都要勾上功能扩展才出现。
+
+exe 旁边有 `ACSF` 时，烧录脚本和镜像用这一层。旁边没有，才用编译时记下的源码目录。`da` 和 `ACSF` 同级。
+
+页面上填了 STM32CubeProgrammer 时，出厂设置把这个程序传给脚本。烧录仍是把编程器目录加到 PATH 前面；脚本自己的固定目录里已经有编程器时，还是用那个。
+
+设置页可以隐藏串口、网络、FTP、evlink 页签，默认都不显示。
+
+### 发布程序和 DA
+
+测试、调试只烧录，不封板。发布烧录成功后，页面自动做 DA 认证。
+
+认证前先用页面上的公钥在内存里生成 OBK，权限 `0x00005077`，加密标志 1。生成失败就不烧。烧录成功后把 OBK 写到临时文件，再交给 `da/da_close.bat`。单独的「生成 DA OBK」按钮不在这条链上。
+
+H5F4 回归后，发现结果报 OPEN 就记为打开。H573 仍要读到生命周期 OPEN。
+
+回归用的私钥先复制到临时文件再交给编程器。编程器读完 `key=` 会删掉那个文件，删的是临时副本。
+
+`da_close.bat` 已改成认证时不必再接复位线。不写 LOCKED。
+
+### 出厂设置
+
+功能扩展里有「H573出厂设置」和「H5F4出厂设置」。点一下连续跑两次对应脚本，输出进下载页日志。脚本结尾的 pause 由程序送回车放行。
+
+脚本名是 `STM32H573_Reset.bat`、`STM32H5F4_Reset.bat`。查找顺序：exe 旁边，再是和 `ACSF` 同级的目录，最后是 `qt_tmxpublic` 里的那一份。仓库里的底稿在 `stm32h573复位选项字节`、`stm32h5f4复位选项字节`。两个脚本都是 GBK，不要另存成 UTF-8。
+
+产品状态保持 Open。H5F4 脚本里复位失败的分支已经收过。
+
+### 打包和程序包解析
+
+功能扩展里可以给 S、NS 打 FWMP，也可以解开。
+
+「程序包解析」打开独立窗口，可以最大化。先选文件，选中后自动对比；「更新」会重新读文件。hex 先在内存里转成 bin，再看打包头和 MCUboot 签名。未打包显示未打包，未签名显示未签名。多份放在一张表里，不一样的行高亮。只读，不改原文件，也不调用 sign_kit。
+
+### 固件签名
+
+「固件签名」打开独立窗口，可以最大化。上面选产品，窗口从 `config.h573` 或 `config.h5f4` 读出当前的 S、NS 版本并填进输入框。可以改这一次要用的版本，不写回配置文件。下面选未签名的 S、NS bin。只填一侧就只签那一侧。
+
+两个按钮：
+
+- 开发签名：`sign.bat --dev --profile <开发档>`，用工具目录里的开发私钥，不联网。
+- 远程签名：`sign.bat --prod --profile <正式档>`，强制走内网签名服务。令牌用 `TFM_SIGN_TOKEN` 或用户目录下的 `.tfm_sign_token`，不写进程序。
+
+产物是原 bin 旁边的 `*_signed.bin`。下载进行时，签名按钮停住。签名也不占用编程器。
+
+| 产品 | 芯片参数 | 开发档 | 正式档 |
+|------|----------|--------|--------|
+| G0 | `--chip h573` | DEV-CCU | G0-V2G |
+| RAT | `--chip h573` | DEV-CCU | RAT-V2G |
+| RD0047 | `--chip h573` | DEV-CCU | RD0047-V2G |
+| RD0050 | `--chip h573` | DEV-CCU | RD0047-V2G |
+| EAW | `--chip h573` | DEV-CCU | RD0047-V2G |
+| SECC | `--chip h5f4` | DEV-SECC | SECC-AC-1 |
+
+六个产品共用本目录的 `sign_kit`。脚本、imgtool 和 `keys` 是一套。槽位和版本不共用：`config.h573`、`layout\h573` 是 S `0x0C044000`、NS `0x0C100000`，版本 `2.3.1`；`config.h5f4`、`layout\h5f4` 是 S `0x0C078000`、NS `0x0C0F8000`，版本 `2.3.0`。程序调用时带 `--chip`。
+
+程序先找 exe 旁边的 `sign_kit`，再找和 `ACSF` 同级的目录，最后用 `qt_tool\sign_kit`。
+
+远程签名用的公钥都在 `sign_kit\keys`：`G0-V2G`、`RAT-V2G`、`RD0047-V2G`、`SECC-AC-1` 的 SPE 和 NS。
+
+服务器上新有一把正式密钥时，在实际调用的那份 `remote.conf` 里加上 `PROFILE_<档名>_SPE` 和 `PROFILE_<档名>_NS`，并放上 `keys\<key_id>.pem`。档名和上表一致就不用改程序。换新档名或新加产品，要同时改窗口里的产品表。
+
+### 日志
+
+烧录、DA、出厂设置的输出写入日志文件。一个文件超过 1MB 就换新文件。页面日志框最多留 2000 行。底部状态写这次成功还是失败，以及用时。
 
 ## 目录
 
 ```
-ymodem/
-├── main.cpp / TMX_TOOL.* / tmx_tool.ui   主窗口
-├── serial/                               串口助手、YModem
-├── network/                              网络助手（TCP/UDP）
-├── common/                               串口与网络共用工具
-├── image/  miscfile/                     资源
+ymodem/                          Qt 工程
+├── main.cpp / TMX_TOOL.*        主窗口
+├── serial/                      串口助手、YModem
+├── network/                     网络助手
+├── download/                    程序下载、签名窗口
 └── ymodem.pro
+sign_kit/                        六个产品共用的签名工具
 ```

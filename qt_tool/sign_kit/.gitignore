@@ -1,0 +1,8 @@
+*.bin
+*.hex
+*.axf
+*.elf
+*.map
+__pycache__/
+*.pyc
+.venv/
