@@ -1590,6 +1590,35 @@ void ProgramDownloadWidget::runFactoryReset(const QString &title, const QString 
 {
     if (m_process)
         return;
+    const bool h5f4 = scriptName == QLatin1String("STM32H5F4_Reset.bat");
+    const QString hintKey = h5f4 ? QStringLiteral("hideH5f4FactoryResetHint")
+                                 : QStringLiteral("hideFactoryResetHint");
+    QString hint = tr("Connect the chip and debugger reset lines before reset.").toHtmlEscaped();
+    if (h5f4) {
+        hint += QLatin1String("<br><span style=\"color:#ff0000; font-weight:700;\">")
+            + tr("Power cycle is required.").toHtmlEscaped()
+            + QLatin1String("</span>");
+    }
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("ProgramDownload"));
+    if (!settings.value(hintKey).toBool()) {
+        QMessageBox box(QMessageBox::Information, title, hint,
+                        QMessageBox::Ok | QMessageBox::Cancel, this);
+        if (h5f4)
+            box.setTextFormat(Qt::RichText);
+        box.setDefaultButton(QMessageBox::Cancel);
+        if (QAbstractButton *ok = box.button(QMessageBox::Ok))
+            ok->setText(tr("OK"));
+        if (QAbstractButton *cancel = box.button(QMessageBox::Cancel))
+            cancel->setText(tr("Cancel"));
+        auto *again = new QCheckBox(tr("Do not show this again."), &box);
+        box.setCheckBox(again);
+        const int choice = box.exec();
+        if (again->isChecked())
+            settings.setValue(hintKey, true);
+        if (choice != QMessageBox::Ok)
+            return;
+    }
     const QString script = factoryResetScript(scriptName);
     if (script.isEmpty()) {
         const QString message = tr("Cannot find script: %1").arg(scriptName);
