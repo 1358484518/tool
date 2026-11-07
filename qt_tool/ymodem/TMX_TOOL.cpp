@@ -60,9 +60,7 @@ TMX_TOOL::TMX_TOOL(QWidget *parent)
                        ? tr("TMX Debug Assistant")
                        : tr("TMX Debug Assistant %1").arg(ver));
     setWindowIcon(QIcon(QStringLiteral(":/image/tmx.png")));
-    initSerialBackend();
     initUi();
-    initYmodemBridge();
 }
 
 TMX_TOOL::~TMX_TOOL()
@@ -104,117 +102,13 @@ void TMX_TOOL::initSerialBackend()
 
 void TMX_TOOL::initUi()
 {
-    m_serial_ui = new SerialAssistant(this);
-    m_net_ui = new NetAssistWidget(this);
-    m_ftp_ui = new FtpWidget(this);
-    m_settings_ui = new SettingsWidget(this);
-    m_firmware_ui = new FirmwareWidget(this);
     m_program_ui = new ProgramDownloadWidget(this);
-
-    m_tool_tab = new QTabWidget(this);
-    // 页签条拉到整行宽，再按个数把空位均分。形状用系统默认的方形。
-    m_tool_tab->setStyle(new FullWidthTabStyle(m_tool_tab));
-    m_tool_tab->tabBar()->setExpanding(true);
-    m_tool_tab->addTab(m_serial_ui, tr("Serial"));
-    m_tool_tab->addTab(m_net_ui, tr("Network"));
-    m_tool_tab->addTab(m_ftp_ui, tr("FTP / TFTP"));
-    m_tool_tab->addTab(m_firmware_ui, tr("Firmware"));
-
-    m_tool_tab->addTab(m_program_ui, tr("Program Download"));
-    m_tool_tab->addTab(m_settings_ui, tr("Settings"));
-    connect(m_settings_ui, &SettingsWidget::tabVisibilityChanged, this, [this]() {
-        QTimer::singleShot(0, this, &TMX_TOOL::applyTabVisibility);
-    });
-    applyTabVisibility();
-    // 启动页序号是固定的：0 串口、1 网络、2 FTP、3 固件、4 程序下载、5 设置。
-    // 藏起来的页不在页签栏里。固件页要等登录，未登录时先停在别的页。
-    QWidget *startPage = pageForLogical(m_settings_ui->startupTab());
-    int startIndex = m_tool_tab->indexOf(startPage);
-    if (startIndex < 0 || m_tool_tab->widget(startIndex) == m_firmware_ui)
-        startIndex = firstOpenTab();
-    m_tool_tab->setCurrentIndex(startIndex);
-    m_returnTab = m_tool_tab->currentIndex();
-    connect(m_tool_tab, &QTabWidget::currentChanged, this, &TMX_TOOL::onTabChanged);
-    connect(m_firmware_ui, &FirmwareWidget::gateLoginFinished, this, &TMX_TOOL::onGateLoginFinished);
-
 
     auto *layout = new QHBoxLayout;
     layout->setContentsMargins(6, 6, 6, 6);
-    layout->addWidget(m_tool_tab);
+    layout->addWidget(m_program_ui);
     setLayout(layout);
     setMinimumSize(1000, 850);
-
-    connect(m_serial_ui, &SerialAssistant::openPortRequested, this, [this]() {
-        SerialManager::SerialConfig config;
-        config.portName = m_serial_ui->selectedPortName();
-        config.baudRate = m_serial_ui->selectedBaudRate();
-        config.dataBits = m_serial_ui->selectedDataBits();
-        config.parity = m_serial_ui->selectedParity();
-        config.stopBits = m_serial_ui->selectedStopBits();
-        config.flowControl = m_serial_ui->selectedFlowControl();
-        config.autoReconnect = m_serial_ui->autoReconnectEnabled();
-        config.reconnectIntervalMs = m_serial_ui->reconnectInterval();
-        config.readBufferTimeoutMs = 16;
-        emit serialOpenRequested(config);
-    });
-    connect(this, &TMX_TOOL::serialOpenRequested,
-            m_serial_operate, &SerialManager::openWithConfig, Qt::QueuedConnection);
-
-    connect(m_serial_ui, &SerialAssistant::closePortRequested,
-            m_serial_operate, &SerialManager::close, Qt::QueuedConnection);
-    connect(m_serial_ui, &SerialAssistant::sendDataRequested,
-            m_serial_operate, &SerialManager::sendBinary, Qt::QueuedConnection);
-    connect(m_serial_ui, &SerialAssistant::dtrToggled,
-            m_serial_operate, &SerialManager::setDtr, Qt::QueuedConnection);
-    connect(m_serial_ui, &SerialAssistant::rtsToggled,
-            m_serial_operate, &SerialManager::setRts, Qt::QueuedConnection);
-
-    connect(m_serial_ui, &SerialAssistant::saveLogRequested, this, [this]() {
-        const QString fileName = QFileDialog::getSaveFileName(
-            this, tr("Save Log"),
-            SettingsWidget::logFilePath(QStringLiteral("seriallog.txt")),
-            tr("Text Files (*.txt);;All Files (*)"));
-        if (fileName.isEmpty())
-            return;
-        QFile file(fileName);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            file.write(m_serial_ui->getReceiveText());
-            file.close();
-            m_serial_ui->showStatusMessage(tr("Log saved to %1").arg(fileName));
-        } else {
-            QMessageBox::warning(this, tr("Error"),
-                                 tr("Failed to save file"));
-        }
-    });
-
-    connect(m_serial_operate, &IoSource::ioDataReceived,
-            m_serial_ui, &SerialAssistant::onIoData, Qt::QueuedConnection);
-    connect(m_serial_operate, &SerialManager::portConnected, this, [this]() {
-        m_serial_ui->setConnectionState(true);
-        m_serial_ui->showStatusMessage(tr("Connected to %1").arg(m_serial_ui->selectedPortName()));
-    });
-    connect(m_serial_operate, &SerialManager::portDisconnected, this, [this](bool manualClose) {
-        m_serial_ui->setConnectionState(false);
-        // 主动关闭已经停掉重连，不能再提示正在重连。
-        if (!manualClose && m_serial_ui->autoReconnectEnabled())
-            m_serial_ui->showStatusMessage(tr("Port lost, reconnecting..."));
-        else
-            m_serial_ui->showStatusMessage(tr("Disconnected"));
-        stopYmodemTransfer();
-    });
-    connect(m_serial_operate, &SerialManager::openResult, this,
-            [this](bool ok, const QString &errorString) {
-        if (ok)
-            return;
-        m_serial_ui->showStatusMessage(tr("Open failed: %1").arg(errorString));
-        QMessageBox::warning(this, tr("Error"),
-                             tr("Failed to open port: %1").arg(errorString));
-    });
-    connect(m_serial_operate, &SerialManager::errorOccurred, this,
-            [this](int, const QString &str) {
-        m_serial_ui->showStatusMessage(tr("Error: %1").arg(str));
-    });
-    m_firmware_ui->trySavedLogin();
 }
 
 bool TMX_TOOL::isGuardedTab(int index) const

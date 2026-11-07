@@ -467,10 +467,8 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
         applyProductFilter();
         saveSettings();
     });
-    connect(m_featureExtend, &QCheckBox::toggled, this, [this](bool checked) {
-        applyFeatureExtend(checked);
-        saveSettings();
-    });
+    m_featureExtend->setChecked(false);
+    m_featureExtend->setEnabled(false);
     connect(m_clearLog, &QPushButton::clicked, m_log, &QPlainTextEdit::clear);
 }
 
@@ -906,7 +904,9 @@ void ProgramDownloadWidget::appendLog(const QString &text)
 
 QString ProgramDownloadWidget::outputLogDir() const
 {
-    return SettingsWidget::logDirectory();
+    const QString dir = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("log"));
+    QDir().mkpath(dir);
+    return QDir(dir).absolutePath();
 }
 
 void ProgramDownloadWidget::writeOutputLog(const QString &text)
@@ -1733,14 +1733,10 @@ void ProgramDownloadWidget::loadSettings()
         if (!installed.isEmpty())
             showPath(m_cubeProg, installed);
     }
-    eachRow([&](ImageRow *row) {
-        showStoredOrDefault(row->boot, settings.value(row->bootKey).toString(), row->defaultBoot);
-        showStoredOrDefault(row->secure, settings.value(row->secureKey).toString(), row->defaultSecure);
-        QString savedApp = settings.value(row->appKey).toString();
-        const QString oldHex = QString(row->defaultApp).replace(QLatin1String(".bin"), QLatin1String(".hex"));
-        if (QDir::fromNativeSeparators(savedApp).endsWith(oldHex))
-            savedApp.clear();
-        showStoredOrDefault(row->app, savedApp, row->defaultApp);
+    eachRow([](ImageRow *row) {
+        row->boot->clear();
+        row->secure->clear();
+        row->app->clear();
     });
     const QString savedKey = settings.value(QStringLiteral("g0ReleaseKey")).toString();
     if (!savedKey.isEmpty())
@@ -1777,11 +1773,9 @@ void ProgramDownloadWidget::loadSettings()
     m_productFilter->setCurrentIndex(filterIndex);
     m_productFilter->blockSignals(false);
     applyProductFilter();
-    const bool extend = settings.value(QStringLiteral("featureExtend"), false).toBool();
-    m_featureExtend->blockSignals(true);
-    m_featureExtend->setChecked(extend);
-    m_featureExtend->blockSignals(false);
-    applyFeatureExtend(extend);
+    m_featureExtend->setChecked(false);
+    m_featureExtend->setEnabled(false);
+    applyFeatureExtend(false);
     settings.endGroup();
     saveSettings();
 }
@@ -1791,14 +1785,6 @@ void ProgramDownloadWidget::saveSettings() const
     QSettings settings;
     settings.beginGroup(QStringLiteral("ProgramDownload"));
     settings.setValue(QStringLiteral("cubeProgPath"), storedScriptPath(m_cubeProg->text()));
-    for (const ProductPane &pane : m_products) {
-        const ImageRow *rows[] = {&pane.test, &pane.debug, &pane.release};
-        for (const ImageRow *row : rows) {
-            settings.setValue(row->bootKey, storedScriptPath(row->boot->text()));
-            settings.setValue(row->secureKey, storedScriptPath(row->secure->text()));
-            settings.setValue(row->appKey, storedScriptPath(row->app->text()));
-        }
-    }
     settings.setValue(QStringLiteral("g0ReleaseKey"), storedScriptPath(m_key->text()));
     settings.setValue(QStringLiteral("g0DaLevel"),
                       m_leaf->isChecked() ? QStringLiteral("leaf") : QStringLiteral("intermediate"));
@@ -1809,7 +1795,6 @@ void ProgramDownloadWidget::saveSettings() const
     if (filterIndex >= 0 && filterIndex < kProductCount)
         filter = m_products[filterIndex].name;
     settings.setValue(QStringLiteral("productFilter"), filter);
-    settings.setValue(QStringLiteral("featureExtend"), m_featureExtend->isChecked());
     settings.endGroup();
 }
 
