@@ -86,7 +86,7 @@ private:
     void loadSettings();        // 读路径；没存过的行用 ACSF 缺省文件
     void saveSettings() const;  // 程序目录、工具目录、ACSF 内的路径存相对路径
     void chooseCubeProg();      // 选择 STM32_Programmer_CLI.exe
-    void useDefaultCube();      // 清空编程器路径，恢复脚本原来的查找
+    void useDefaultCube();      // 有安装版编程器就填上，否则清空，让脚本自己找
     void generateDaObk();       // 打开对话框，由根公钥生成 DA obk
     void inspectPackage();      // 打开独立窗口，只读解析打包和签名信息
     void restoreFirmware();     // 打开独立窗口，解包或去掉签名后写出新文件
@@ -102,11 +102,13 @@ private:
     void eachRow(const std::function<void(ImageRow *)> &fn);  // 每个产品的测试、调试、发布
     void refreshDrawers();        // 按展开状态重写抽屉标题
     void applyProductFilter();    // 按产品下拉框显示一个抽屉，或全部显示
-    void applyFeatureExtend(bool shown);  // 功能扩展未勾选时藏起后面的按钮和 DA 抽屉
-    void buildDaRow(QWidget *parent);  // 公钥和 DA 认证一行，私钥、证书链和回归一行
+    void applyFeatureExtend(bool shown);  // 功能扩展未勾选时藏起后面的按钮；DA 栏只留擦除
+    void buildDaRow(QWidget *parent);  // 擦除一行。勾上功能扩展后换成公钥认证和回归
     void showDaMaterial(bool leaf);  // 按叶子或中间填入缺省私钥和证书链
     void runDaClose();            // 用页面上的公钥做 DA 认证并设为 CLOSED
+    void runErase();              // 用当前回归材料跑 DA 回归，状态写成擦除
     void runDaRegression();       // 用页面上的私钥和证书链回归到 Open
+    void startDaRegression(const QString &title);  // 擦除和回归共用 da_regression.bat
     void runDaScript(const QString &scriptName, const QStringList &scriptArgs, const QString &title);
 
     void chooseImage(QLineEdit *edit, const QString &title, const QString &filter,
@@ -114,6 +116,7 @@ private:
     QString pickExistingFile(QLineEdit *edit, const QString &title, const QString &filter);  // 从输入框当前路径打开文件框
     void showStoredOrDefault(QLineEdit *edit, const QString &saved, const QString &relativeToAcsf);  // 有保存用保存的，否则用 ACSF 缺省
     void runDownload(const ImageRow *row);  // 启动这一行的 bat，并把页面上的编程器目录放进 PATH
+    bool warnRd0047Program(const QString &appText);  // RD0047 测试、调试、发布程序下载前提示。取消则不下载
     void setDownloadRunning(bool running);  // 有脚本在跑时停用三个下载按钮
     void appendLog(const QString &text);    // 追加到日志框，并写入日志文件。框自己丢掉超过 2000 行的旧内容
     void writeOutputLog(const QString &text);  // 脚本输出落盘。当前文件达到 1MB 后换一个新文件
@@ -143,6 +146,10 @@ private:
     ProductPane m_products[kProductCount];  // G0、RAT、RD0047、RD0050、EAW、SECC
     QLabel *m_daTitle = nullptr;           // DA 标题，一直显示
     QWidget *m_daBody = nullptr;           // DA 内容，一直显示
+    QWidget *m_eraseRow = nullptr;         // 擦除按钮和复位线提示。功能扩展勾上后隐藏
+    QPushButton *m_erase = nullptr;        // 调用 DA 回归
+    QLabel *m_eraseHint = nullptr;         // 提示连接复位线
+    QWidget *m_daDetail = nullptr;         // 公钥认证和回归。功能扩展未勾选时隐藏
     QLabel *m_keyLabel = nullptr;          // 「公钥」
     QLineEdit *m_key = nullptr;            // PEM 公钥，用来生成 DA OBK
     QPushButton *m_chooseKey = nullptr;    // 选择公钥
@@ -172,6 +179,7 @@ private:
     qint64 m_scriptLogOffset = 0;          // 已经显示过的文件长度
     qint64 m_runStartedMs = 0;             // 这次点击下载的时间，用来认出新日志
     bool m_scriptFailed = false;           // log 里出现 Failed 或 [FAIL]。bat 结尾的 pause 会把退出码清成 0
+    bool m_noDebugProbe = false;           // log 里出现 No debug probe detected
     QString m_failStep;                    // log 里 Failed: 后面的步骤名
     QString m_factoryScript;               // 出厂设置 bat。优先程序目录，其次打包目录
     QString m_factoryCli;                  // 页面上指定的 STM32_Programmer_CLI.exe，空则由脚本自己找

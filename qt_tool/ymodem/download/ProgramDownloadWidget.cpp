@@ -363,6 +363,15 @@ QString daFile(const QString &relative)  // 生成 OBK 时的缺省公钥和输�
     return resolvedScriptPath(stored);
 }
 
+QString defaultCubeProg()  // 安装版编程器。启动时框是空的，就填这个
+{
+    const QString installed = QStringLiteral(
+        "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe");
+    if (!QFileInfo::exists(installed))
+        return QString();
+    return QDir::toNativeSeparators(installed);
+}
+
 QString factoryDaFile(const QString &name)  // 程序旁边 DA-FACTORY-zephyr 里的出厂密钥
 {
     const QString relative = QStringLiteral("DA-FACTORY-zephyr/") + name;
@@ -433,6 +442,7 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
         showDaMaterial(false);
         saveSettings();
     });
+    connect(m_erase, &QPushButton::clicked, this, &ProgramDownloadWidget::runErase);
     connect(m_regress, &QPushButton::clicked, this, &ProgramDownloadWidget::runDaRegression);
     QLineEdit *daEdits[] = {m_key, m_priv, m_cert};
     for (QLineEdit *edit : daEdits) {
@@ -603,8 +613,6 @@ void ProgramDownloadWidget::setupUi()
     buildDaRow(m_daBody);
     root->addWidget(m_daTitle);
     root->addWidget(m_daBody);
-    m_daTitle->setVisible(false);
-    m_daBody->setVisible(false);
 
     auto *logBar = new QHBoxLayout();
     m_clearLog = new QPushButton(this);
@@ -688,8 +696,10 @@ void ProgramDownloadWidget::eachRow(const std::function<void(ImageRow *)> &fn)
 void ProgramDownloadWidget::applyFeatureExtend(bool shown)
 {
     m_featureTools->setVisible(shown);
-    m_daTitle->setVisible(shown);
-    m_daBody->setVisible(shown);
+    m_daTitle->setVisible(true);
+    m_daBody->setVisible(true);
+    m_eraseRow->setVisible(!shown);
+    m_daDetail->setVisible(shown);
     eachRow([shown](ImageRow *row) {
         if (!row->chainDa) {
             if (row->host)
@@ -780,6 +790,23 @@ void ProgramDownloadWidget::buildImageRow(ImageRow *row, QWidget *parent)
 void ProgramDownloadWidget::buildDaRow(QWidget *parent)
 {
     auto *groupLayout = static_cast<QVBoxLayout *>(parent->layout());
+    m_eraseRow = new QWidget(parent);
+    auto *eraseLine = new QHBoxLayout(m_eraseRow);
+    eraseLine->setContentsMargins(0, 0, 0, 0);
+    eraseLine->setSpacing(8);
+    m_erase = new QPushButton(m_eraseRow);
+    m_eraseHint = new QLabel(m_eraseRow);
+    m_eraseHint->setWordWrap(true);
+    m_eraseHint->setAlignment(Qt::AlignCenter);
+    m_eraseHint->setStyleSheet(QStringLiteral("QLabel { color: #ff0000; font-size: 18px; font-weight: 700; }"));
+    eraseLine->addWidget(m_eraseHint, 1);
+    eraseLine->addWidget(m_erase);
+    groupLayout->addWidget(m_eraseRow);
+
+    m_daDetail = new QWidget(parent);
+    auto *detailLayout = new QVBoxLayout(m_daDetail);
+    detailLayout->setContentsMargins(0, 0, 0, 0);
+    detailLayout->setSpacing(8);
     auto *keyLine = new QHBoxLayout();
     keyLine->setSpacing(8);
     m_keyLabel = new QLabel(parent);
@@ -790,12 +817,12 @@ void ProgramDownloadWidget::buildDaRow(QWidget *parent)
     keyLine->addWidget(m_key, 1);
     keyLine->addWidget(m_chooseKey);
     keyLine->addWidget(m_daClose);
-    groupLayout->addLayout(keyLine);
+    detailLayout->addLayout(keyLine);
 
-    auto *rule = new QFrame(parent);
+    auto *rule = new QFrame(m_daDetail);
     rule->setFrameShape(QFrame::HLine);
     rule->setFrameShadow(QFrame::Sunken);
-    groupLayout->addWidget(rule);
+    detailLayout->addWidget(rule);
 
     auto *regLine = new QHBoxLayout();
     regLine->setSpacing(8);
@@ -821,7 +848,8 @@ void ProgramDownloadWidget::buildDaRow(QWidget *parent)
     regLine->addWidget(m_cert, 1);
     regLine->addWidget(m_chooseCert);
     regLine->addWidget(m_regress);
-    groupLayout->addLayout(regLine);
+    detailLayout->addLayout(regLine);
+    groupLayout->addWidget(m_daDetail);
 }
 
 void ProgramDownloadWidget::showDaMaterial(bool leaf)
@@ -964,6 +992,8 @@ void ProgramDownloadWidget::pollScriptLog()
             m_scriptFailed = true;
         if (trimmed.startsWith(QLatin1String("Failed:")))
             m_failStep = trimmed.mid(int(QStringLiteral("Failed:").size())).trimmed();
+        if (trimmed.contains(QLatin1String("No debug probe detected"), Qt::CaseInsensitive))
+            m_noDebugProbe = true;
     }
     appendLog(text);
 }
@@ -996,6 +1026,8 @@ void ProgramDownloadWidget::showProcessOutput()
             m_scriptFailed = true;
             m_failStep = trimmed.mid(int(QStringLiteral("Failed:").size())).trimmed();
         }
+        if (trimmed.contains(QLatin1String("No debug probe detected"), Qt::CaseInsensitive))
+            m_noDebugProbe = true;
     }
     appendLog(text);
 }
@@ -1017,6 +1049,7 @@ void ProgramDownloadWidget::setDownloadRunning(bool running)
     m_cert->setEnabled(!running);
     m_chooseCert->setEnabled(!running);
     m_regress->setEnabled(!running);
+    m_erase->setEnabled(!running);
 }
 
 void ProgramDownloadWidget::showRunStatus(const QString &result, bool ok)
@@ -1037,9 +1070,56 @@ QString ProgramDownloadWidget::formatElapsed(qint64 ms) const
     return tr("%1 min %2 s").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
 }
 
+bool ProgramDownloadWidget::warnRd0047Program(const QString &appText)
+{
+    struct Hint {
+        const char *path;
+        const char *settingsKey;
+    };
+    const Hint hints[] = {
+        {"C:/Users/13584/Desktop/stm32h5xx/tool/qt_tool/ACSF/RD0047/RD0047-test/windows-tfm-tools/test/tfm_ns_signed.bin",
+         "hideRd0047TestHint"},
+        {"C:/Users/13584/Desktop/stm32h5xx/tool/qt_tool/ACSF/RD0047/RD0047-prod/windows-tfm-tools/prod/tfm_ns_signed.bin",
+         "hideRd0047DebugHint"},
+        {"C:/Users/13584/Desktop/stm32h5xx/tool/qt_tool/ACSF/RD0047/RD0047-release/windows-tfm-tools/release/tfm_ns_signed.bin",
+         "hideRd0047ReleaseHint"},
+    };
+    const QString actual = QDir::fromNativeSeparators(QDir::cleanPath(
+        QFileInfo(resolvedScriptPath(appText)).absoluteFilePath()));
+    const Hint *hit = nullptr;
+    for (const Hint &hint : hints) {
+        const QString expected = QDir::cleanPath(QString::fromLatin1(hint.path));
+        if (actual.compare(expected, Qt::CaseInsensitive) == 0) {
+            hit = &hint;
+            break;
+        }
+    }
+    if (!hit)
+        return true;
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("ProgramDownload"));
+    if (settings.value(QString::fromLatin1(hit->settingsKey)).toBool())
+        return true;
+    QMessageBox box(QMessageBox::Information, tr("Download"), tr("This is a test program."),
+                    QMessageBox::Ok | QMessageBox::Cancel, this);
+    box.setDefaultButton(QMessageBox::Cancel);
+    if (QAbstractButton *ok = box.button(QMessageBox::Ok))
+        ok->setText(tr("OK"));
+    if (QAbstractButton *cancel = box.button(QMessageBox::Cancel))
+        cancel->setText(tr("Cancel"));
+    auto *again = new QCheckBox(tr("Do not show this again."), &box);
+    box.setCheckBox(again);
+    const int choice = box.exec();
+    if (again->isChecked())
+        settings.setValue(QString::fromLatin1(hit->settingsKey), true);
+    return choice == QMessageBox::Ok;
+}
+
 void ProgramDownloadWidget::runDownload(const ImageRow *row)
 {
     if (m_process)
+        return;
+    if (!warnRd0047Program(row->app->text()))
         return;
     m_runTitle = row->title ? row->title->text() : tr("Download");
     m_boxTitle = tr("Download");
@@ -1130,13 +1210,15 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
                 pollScriptLog();
                 removeDownloadTemp();
                 QString message;
-                if (m_scriptFailed)
+                if (m_noDebugProbe)
+                    message = tr("No debug probe detected.");
+                else if (m_scriptFailed)
                     message = tr("Script failed: %1").arg(m_failStep.isEmpty() ? tr("Download") : m_failStep);
                 else if (status == QProcess::CrashExit || code != 0)
                     message = tr("Script finished with code %1").arg(code);
                 else
                     message = tr("Script finished.");
-                const bool ok = !m_scriptFailed && status != QProcess::CrashExit && code == 0;
+                const bool ok = !m_noDebugProbe && !m_scriptFailed && status != QProcess::CrashExit && code == 0;
                 if (process)
                     process->deleteLater();
                 if (ok && chainDa) {
@@ -1176,6 +1258,7 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
     m_scriptLogFile.clear();
     m_scriptLogOffset = 0;
     m_scriptFailed = false;
+    m_noDebugProbe = false;
     m_failStep.clear();
     if (!m_logPoll) {
         m_logPoll = new QTimer(this);
@@ -1241,9 +1324,19 @@ void ProgramDownloadWidget::runDaClose()
                 tr("DA Authentication"));
 }
 
+void ProgramDownloadWidget::runErase()
+{
+    startDaRegression(tr("Erase"));
+}
+
 void ProgramDownloadWidget::runDaRegression()
 {
-    m_runTitle = tr("Run DA Regression");
+    startDaRegression(tr("Run DA Regression"));
+}
+
+void ProgramDownloadWidget::startDaRegression(const QString &title)
+{
+    m_runTitle = title;
     m_runStartedMs = QDateTime::currentMSecsSinceEpoch();
     const QString key = resolvedScriptPath(m_priv->text());
     const QString cert = resolvedScriptPath(m_cert->text());
@@ -1255,12 +1348,12 @@ void ProgramDownloadWidget::runDaRegression()
     if (!message.isEmpty()) {
         appendLog(message + QLatin1Char('\n'));
         showRunStatus(message, false);
-        QMessageBox::warning(this, tr("Run DA Regression"), message);
+        QMessageBox::warning(this, title, message);
         return;
     }
     runDaScript(QStringLiteral("da/da_regression.bat"),
                 QStringList() << QDir::toNativeSeparators(key) << QDir::toNativeSeparators(cert),
-                tr("Run DA Regression"));
+                title);
 }
 
 void ProgramDownloadWidget::runDaScript(const QString &scriptName, const QStringList &scriptArgs,
@@ -1423,7 +1516,11 @@ void ProgramDownloadWidget::chooseCubeProg()
 
 void ProgramDownloadWidget::useDefaultCube()
 {
-    m_cubeProg->clear();
+    const QString installed = defaultCubeProg();
+    if (installed.isEmpty())
+        m_cubeProg->clear();
+    else
+        showPath(m_cubeProg, installed);
     saveSettings();
 }
 
@@ -1602,6 +1699,11 @@ void ProgramDownloadWidget::loadSettings()
     const QString saved = settings.value(QStringLiteral("cubeProgPath")).toString();
     if (!saved.isEmpty())
         showPath(m_cubeProg, saved);
+    else {
+        const QString installed = defaultCubeProg();
+        if (!installed.isEmpty())
+            showPath(m_cubeProg, installed);
+    }
     eachRow([&](ImageRow *row) {
         showStoredOrDefault(row->boot, settings.value(row->bootKey).toString(), row->defaultBoot);
         showStoredOrDefault(row->secure, settings.value(row->secureKey).toString(), row->defaultSecure);
@@ -1689,7 +1791,7 @@ void ProgramDownloadWidget::retranslateUi()
     m_changeCube->setText(tr("Change Path"));
     m_defaultCube->setText(tr("Use Default"));
     m_genObk->setText(tr("Generate DA OBK"));
-    m_inspectPackage->setText(tr("Inspect package"));
+    m_inspectPackage->setText(tr("Inspect signature package"));
     m_restoreFirmware->setText(tr("Restore firmware"));
     m_signPack->setText(tr("Sign and pack"));
     m_h573Factory->setText(tr("H573 factory settings"));
@@ -1715,6 +1817,8 @@ void ProgramDownloadWidget::retranslateUi()
         pane.release.download->setToolTip(tr("This program turns debug off and turns DA authentication on. Erase the program before programming again."));
     }
     m_daTitle->setText(tr("DA"));
+    m_erase->setText(tr("Erase"));
+    m_eraseHint->setText(tr("Connect the reset line before erase."));
     refreshDrawers();
     m_clearLog->setText(tr("Clear Log"));
     m_log->setPlaceholderText(tr("Script output"));
