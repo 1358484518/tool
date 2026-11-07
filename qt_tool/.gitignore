@@ -41,3 +41,8 @@ qrc_*.cpp
 ymodem/ymodem
 qt_tool/ymodem/ymodem
 object_script.*
+
+# 企业微信机器人密钥和已记下的群号，只留在本机
+release/release.local.json
+release/release.state.json
+release/listen.log
