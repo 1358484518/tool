@@ -521,12 +521,15 @@ void ProgramDownloadWidget::setupUi()
     obkRow->addWidget(m_productLabel);
     obkRow->addWidget(m_productFilter);
     obkRow->addWidget(leadRule);
+    obkRow->addWidget(m_h573Factory);
+    obkRow->addWidget(m_h5f4Factory);
+    auto *factoryRule = new QFrame(this);
+    factoryRule->setFrameShape(QFrame::VLine);
+    factoryRule->setFrameShadow(QFrame::Sunken);
+    obkRow->addWidget(factoryRule);
     obkRow->addWidget(m_featureExtend);
     addRule();
     tools->addWidget(m_genObk);
-    addRule();
-    tools->addWidget(m_h573Factory);
-    tools->addWidget(m_h5f4Factory);
     addRule();
     tools->addWidget(m_inspectPackage);
     tools->addWidget(m_restoreFirmware);
