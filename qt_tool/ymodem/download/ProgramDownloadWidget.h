@@ -83,7 +83,7 @@ private:
 
     void setupUi();             // 编程器、生成 OBK，再是六个产品抽屉和 DA 抽屉
     void retranslateUi();       // 按当前语言重写本页控件文字
-    void loadSettings();        // 读路径；没存过的行用 ACSF 缺省文件
+    void loadSettings();        // 编程器等仍读取。Boot、安全程序、应用程序每次启动清空
     void saveSettings() const;  // 程序目录、工具目录、ACSF 内的路径存相对路径
     void chooseCubeProg();      // 选择 STM32_Programmer_CLI.exe
     void useDefaultCube();      // 有安装版编程器就填上，否则清空，让脚本自己找
@@ -120,7 +120,7 @@ private:
     void setDownloadRunning(bool running);  // 有脚本在跑时停用三个下载按钮
     void appendLog(const QString &text);    // 追加到日志框，并写入日志文件。框自己丢掉超过 2000 行的旧内容
     void writeOutputLog(const QString &text);  // 脚本输出落盘。当前文件达到 1MB 后换一个新文件
-    QString outputLogDir() const;              // 程序日志目录。设置为空时用程序目录下的 log
+    QString outputLogDir() const;              // 日志固定在程序目录下的 log
     void showRunStatus(const QString &result, bool ok);  // 页底状态：这次下载的结果和用时
     QString formatElapsed(qint64 ms) const;  // 不到一分钟用秒，否则用分和秒
     void pollScriptLog();                   // 把脚本 log 目录里这次新文件的新内容追加到日志框
@@ -140,7 +140,7 @@ private:
     PackageInspectDialog *m_inspectDialog = nullptr;  // 独立窗口，关主窗口时一起关掉
     QLabel *m_productLabel = nullptr;      // 「产品选择」
     QComboBox *m_productFilter = nullptr;  // 产品抽屉，最后一项是全部显示
-    QCheckBox *m_featureExtend = nullptr;  // 功能扩展。未勾选时藏起后面的按钮和 DA 抽屉
+    QCheckBox *m_featureExtend = nullptr;  // 功能扩展。生产版强制不勾选且不能改
     QWidget *m_featureTools = nullptr;     // 功能扩展后面的按钮，跟着勾选显示
     enum { kProductCount = 6 };
     ProductPane m_products[kProductCount];  // G0、RAT、RD0047、RD0050、EAW、SECC

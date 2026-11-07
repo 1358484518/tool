@@ -16,7 +16,7 @@ int main(int argc, char *argv[])  // 启用高 DPI、登记跨线程类型，然
     QCoreApplication::setApplicationVersion(QLatin1String(APP_VERSION));
 
     QApplication a(argc, argv);
-    AppLanguage::applySaved();
+    AppLanguage::setLanguage(QStringLiteral("zh_CN"));
     qRegisterMetaType<NetProtocol>("NetProtocol");
     qRegisterMetaType<RemoteHost>("RemoteHost");
 
