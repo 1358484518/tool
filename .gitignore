@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+# 企业微信机器人密钥和已记下的群号，只留在本机
+qt_tool/release/release.local.json
+qt_tool/release/release.state.json
+qt_tool/release/listen.log
