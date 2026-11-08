@@ -83,7 +83,7 @@ private:
 
     void setupUi();             // 编程器、生成 OBK，再是六个产品抽屉和 DA 抽屉
     void retranslateUi();       // 按当前语言重写本页控件文字
-    void loadSettings();        // 编程器等仍读取。Boot、安全程序、应用程序每次启动清空
+    void loadSettings();        // Boot 和安全程序按原来的路径。应用程序每次启动清空
     void saveSettings() const;  // 程序目录、工具目录、ACSF 内的路径存相对路径
     void chooseCubeProg();      // 选择 STM32_Programmer_CLI.exe
     void useDefaultCube();      // 有安装版编程器就填上，否则清空，让脚本自己找

@@ -1733,9 +1733,9 @@ void ProgramDownloadWidget::loadSettings()
         if (!installed.isEmpty())
             showPath(m_cubeProg, installed);
     }
-    eachRow([](ImageRow *row) {
-        row->boot->clear();
-        row->secure->clear();
+    eachRow([&](ImageRow *row) {
+        showStoredOrDefault(row->boot, settings.value(row->bootKey).toString(), row->defaultBoot);
+        showStoredOrDefault(row->secure, settings.value(row->secureKey).toString(), row->defaultSecure);
         row->app->clear();
     });
     const QString savedKey = settings.value(QStringLiteral("g0ReleaseKey")).toString();
@@ -1785,6 +1785,13 @@ void ProgramDownloadWidget::saveSettings() const
     QSettings settings;
     settings.beginGroup(QStringLiteral("ProgramDownload"));
     settings.setValue(QStringLiteral("cubeProgPath"), storedScriptPath(m_cubeProg->text()));
+    for (const ProductPane &pane : m_products) {
+        const ImageRow *rows[] = {&pane.test, &pane.debug, &pane.release};
+        for (const ImageRow *row : rows) {
+            settings.setValue(row->bootKey, storedScriptPath(row->boot->text()));
+            settings.setValue(row->secureKey, storedScriptPath(row->secure->text()));
+        }
+    }
     settings.setValue(QStringLiteral("g0ReleaseKey"), storedScriptPath(m_key->text()));
     settings.setValue(QStringLiteral("g0DaLevel"),
                       m_leaf->isChecked() ? QStringLiteral("leaf") : QStringLiteral("intermediate"));
