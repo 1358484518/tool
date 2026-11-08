@@ -129,14 +129,21 @@ function Get-NoteText {
             $section = ''
         } elseif ($line -match '^\s*下载:\s*(.*)$') {
             $download = $Matches[1].Trim()
-            $section = ''
-        } elseif ($line -match '^\s*变更:\s*$') {
+            $section = 'download'
+        } elseif ($line -match '^\s*变更:\s*(.*)$') {
             $section = 'changes'
+            if ($Matches[1].Trim()) { $changes.Add($Matches[1].Trim()) }
         } elseif ($line -match '^\s*说明:\s*(.*)$') {
             $section = 'notes'
             if ($Matches[1].Trim()) { $notes.Add($Matches[1].Trim()) }
-        } elseif ($section -eq 'changes' -and $line -match '^\s*-\s+(.+)$') {
-            $changes.Add($Matches[1].Trim())
+        } elseif ($section -eq 'download' -and -not $download -and $line.Trim()) {
+            $download = $line.Trim()
+            $section = ''
+        } elseif ($section -eq 'changes') {
+            $text = $line.Trim()
+            if (-not $text -or $text -eq '-') { continue }
+            $text = $text -replace '^\-\s*', ''
+            if ($text) { $changes.Add($text) }
         } elseif ($section -eq 'notes' -and $line.Trim()) {
             $notes.Add($line.Trim())
         }
