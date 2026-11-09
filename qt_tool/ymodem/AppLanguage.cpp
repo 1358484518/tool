@@ -28,8 +28,8 @@ public:
         : QTranslator(parent)
     {
         const QPair<const char *, const char *> rows[] = {
-            {"TMX Debug Assistant", "TMX 调试助手"},
-            {"TMX Debug Assistant %1", "TMX 调试助手 %1"},
+            {"TMX Debug Assistant", "地木升调试助手生产版本V2.21"},
+            {"TMX Debug Assistant %1", "地木升调试助手生产版本V2.21"},
             {"Serial", "串口"},
             {"Network", "网络"},
             {"Settings", "设置"},
