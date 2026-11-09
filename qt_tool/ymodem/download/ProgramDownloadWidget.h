@@ -92,6 +92,8 @@ private:
     void restoreFirmware();     // 打开独立窗口，解包或去掉签名后写出新文件
     void signAndPack();         // 打开独立窗口，签名或签名后再打 FWMP
     void runH5f4Factory();      // 连续跑两次 H5F4 出厂设置脚本，输出进日志
+    void runChipReset();        // 先软件复位，再硬件复位。命令写在程序里
+    void startChipResetStep();  // 跑当前这一步复位
     void runH573Factory();      // 连续跑两次 H573 出厂设置脚本，输出进日志
     void runFactoryReset(const QString &title, const QString &scriptName);  // 找 bat，然后连续跑两次
     void startFactoryPass();    // 启动下一次出厂设置。脚本结尾的 pause 用回车放行
@@ -134,7 +136,11 @@ private:
     QPushButton *m_restoreFirmware = nullptr; // 解包或去掉签名，写出新文件
     FirmwareRestoreDialog *m_restoreDialog = nullptr;
     QPushButton *m_signPack = nullptr;        // 签名，或签名后再打包
+    QPushButton *m_chipReset = nullptr;       // 芯片复位，跟在签名打包后面
     SignPackDialog *m_signPackDialog = nullptr;
+    int m_chipResetStep = 0;                  // 0 软件复位，1 硬件复位
+    bool m_chipResetFailed = false;
+    QString m_chipResetCli;
     QPushButton *m_h573Factory = nullptr;     // 连续跑两次 H573 出厂设置脚本
     QPushButton *m_h5f4Factory = nullptr;     // H5F4 出厂设置，功能稍后接上
     PackageInspectDialog *m_inspectDialog = nullptr;  // 独立窗口，关主窗口时一起关掉

@@ -461,6 +461,7 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
     connect(m_inspectPackage, &QPushButton::clicked, this, &ProgramDownloadWidget::inspectPackage);
     connect(m_restoreFirmware, &QPushButton::clicked, this, &ProgramDownloadWidget::restoreFirmware);
     connect(m_signPack, &QPushButton::clicked, this, &ProgramDownloadWidget::signAndPack);
+    connect(m_chipReset, &QPushButton::clicked, this, &ProgramDownloadWidget::runChipReset);
     connect(m_h573Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH573Factory);
     connect(m_h5f4Factory, &QPushButton::clicked, this, &ProgramDownloadWidget::runH5f4Factory);
     connect(m_productFilter, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
@@ -509,6 +510,7 @@ void ProgramDownloadWidget::setupUi()
     m_inspectPackage = new QPushButton(this);
     m_restoreFirmware = new QPushButton(this);
     m_signPack = new QPushButton(this);
+    m_chipReset = new QPushButton(this);
     m_h573Factory = new QPushButton(this);
     m_h5f4Factory = new QPushButton(this);
     m_productLabel = new QLabel(this);
@@ -544,6 +546,8 @@ void ProgramDownloadWidget::setupUi()
     tools->addWidget(m_inspectPackage);
     tools->addWidget(m_restoreFirmware);
     tools->addWidget(m_signPack);
+    addRule();
+    tools->addWidget(m_chipReset);
     m_featureTools->setVisible(false);
     obkRow->addWidget(m_featureTools);
     obkRow->addStretch();
@@ -1037,6 +1041,7 @@ void ProgramDownloadWidget::setDownloadRunning(bool running)
     eachRow([running](ImageRow *row) { row->download->setEnabled(!running); });
     m_h573Factory->setEnabled(!running);
     m_h5f4Factory->setEnabled(!running);
+    m_chipReset->setEnabled(!running);
     if (m_signPackDialog)
         m_signPackDialog->setDownloadBusy(running);
     m_key->setEnabled(!running);
@@ -1576,6 +1581,85 @@ void ProgramDownloadWidget::signAndPack()
     m_signPackDialog->activateWindow();
 }
 
+void ProgramDownloadWidget::runChipReset()
+{
+    if (m_process)
+        return;
+    const QString typed = m_cubeProg->text().trimmed();
+    const QString cli = typed.isEmpty() ? defaultCubeProg() : resolvedScriptPath(typed);
+    if (cli.isEmpty() || !QFileInfo::exists(cli)) {
+        const QString message = tr("Cannot find CubeProgrammer: %1").arg(
+            typed.isEmpty() ? tr("Default programmer search") : typed);
+        appendLog(message + QLatin1Char('\n'));
+        showRunStatus(message, false);
+        QMessageBox::warning(this, tr("Chip reset"), message);
+        return;
+    }
+    m_chipResetCli = cli;
+    m_chipResetStep = 0;
+    m_chipResetFailed = false;
+    m_noDebugProbe = false;
+    m_scriptLogFile.clear();
+    if (m_logPoll)
+        m_logPoll->stop();
+    m_runTitle = tr("Chip reset");
+    m_boxTitle = m_runTitle;
+    m_runStartedMs = QDateTime::currentMSecsSinceEpoch();
+    m_statusLabel->setText(m_runTitle);
+    m_statusLabel->setStyleSheet(QStringLiteral("QLabel { color: #e65100; }"));
+    setDownloadRunning(true);
+    startChipResetStep();
+}
+
+void ProgramDownloadWidget::startChipResetStep()
+{
+    const QString command = m_chipResetStep == 0
+        ? QStringLiteral("-c port=SWD speed=fast ap=1 mode=Hotplug -rst")
+        : QStringLiteral("-c port=SWD speed=fast ap=1 mode=Hotplug -hardRst");
+    appendLog((m_chipResetStep == 0 ? tr("Software reset") : tr("Hardware reset")) + QLatin1Char('\n'));
+    appendLog(QDir::toNativeSeparators(m_chipResetCli) + QLatin1Char(' ') + command + QLatin1Char('\n'));
+    m_process = new QProcess(this);
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &ProgramDownloadWidget::showProcessOutput);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this](int code, QProcess::ExitStatus status) {
+                showProcessOutput();
+                if (status == QProcess::CrashExit || code != 0 || m_noDebugProbe)
+                    m_chipResetFailed = true;
+                QProcess *process = m_process;
+                m_process = nullptr;
+                if (process)
+                    process->deleteLater();
+                if (m_chipResetStep == 0) {
+                    m_chipResetStep = 1;
+                    startChipResetStep();
+                    return;
+                }
+                setDownloadRunning(false);
+                const QString message = m_noDebugProbe
+                    ? tr("No debug probe detected.")
+                    : (m_chipResetFailed ? tr("Chip reset failed.") : tr("Chip reset finished."));
+                appendLog(message + QLatin1Char('\n'));
+                showRunStatus(message, !m_chipResetFailed);
+                if (m_chipResetFailed)
+                    QMessageBox::warning(this, m_boxTitle, message);
+            });
+    connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart || !m_process)
+            return;
+        QProcess *process = m_process;
+        m_process = nullptr;
+        process->disconnect(this);
+        process->deleteLater();
+        setDownloadRunning(false);
+        const QString message = tr("Cannot start script: %1").arg(m_chipResetCli);
+        appendLog(message + QLatin1Char('\n'));
+        showRunStatus(message, false);
+        QMessageBox::warning(this, m_boxTitle, message);
+    });
+    m_process->start(m_chipResetCli, command.split(QLatin1Char(' '), QString::SkipEmptyParts));
+}
+
 void ProgramDownloadWidget::runH5f4Factory()
 {
     runFactoryReset(tr("H5F4 factory settings"), QStringLiteral("STM32H5F4_Reset.bat"));
@@ -1823,6 +1907,7 @@ void ProgramDownloadWidget::retranslateUi()
     m_inspectPackage->setText(tr("Inspect signature package"));
     m_restoreFirmware->setText(tr("Restore firmware"));
     m_signPack->setText(tr("Sign and pack"));
+    m_chipReset->setText(tr("Chip reset"));
     m_h573Factory->setText(tr("H573 factory settings"));
     m_h5f4Factory->setText(tr("H5F4 factory settings"));
     m_productLabel->setText(tr("Product selection:"));
