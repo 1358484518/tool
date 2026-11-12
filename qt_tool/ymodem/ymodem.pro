@@ -3,7 +3,7 @@ QT       += core gui serialport network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-VERSION = 2.21
+VERSION = 2.22
 # 链接用的文件名必须是英文。中文或空格会让 Windows 的资源规则生成失败。
 TARGET = TMX_$$VERSION
 # 传给 C++ 的是带引号的字符串宏，main 里用 QLatin1String(APP_VERSION) 取
