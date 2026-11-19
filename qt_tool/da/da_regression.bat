@@ -1,6 +1,7 @@
 @echo off
 rem Full regression to Open. English only: UTF-8 inside cmd breaks on GBK Windows.
-rem Usage: da_regression.bat <private.pem> <cert_chain.b64>
+rem Usage: da_regression.bat <private.pem> <cert_chain.b64> [password] [SN]
+rem SN is the ST-LINK serial number in hex. Omit it to use the only connected probe.
 rem CLOSED or PROVISIONED: certificate regression, per=a.
 rem PROVISIONING: try the certificate first. If that fails, switch to the example password and regress.
 rem Does not restore SECBOOTADD and does not program an image. User flash is erased.
@@ -23,11 +24,57 @@ setlocal EnableExtensions EnableDelayedExpansion
 echo log: da regression
 echo.
 set "DEVICE=UNKNOWN"
+set "SN="
+set "PRIV="
+set "CERT="
+set "PASS="
+:parse_args
+if "%~1"=="" goto :args_done
+echo %~1| findstr /r /i "^[0-9A-Fa-f][0-9A-Fa-f]*$" >nul
+if not errorlevel 1 (
+    if defined SN (
+        echo [FAIL] ST-LINK serial number given twice.
+        exit /b 1
+    )
+    set "SN=%~1"
+    shift
+    goto :parse_args
+)
+if not defined PRIV (
+    set "PRIV=%~1"
+    shift
+    goto :parse_args
+)
+if not defined CERT (
+    set "CERT=%~1"
+    shift
+    goto :parse_args
+)
+if not defined PASS (
+    set "PASS=%~1"
+    shift
+    goto :parse_args
+)
+echo [FAIL] Unknown argument: %~1
+exit /b 1
 
-set "PRIV=%~1"
-set "CERT=%~2"
-set "PASS=%~3"
+:args_done
 if not defined PASS set "PASS=%~dp0password.bin"
+set "TAG=!SN!"
+if not defined TAG set "TAG=%RANDOM%%RANDOM%"
+set "SNOPT="
+if defined SN set "SNOPT=sn=!SN!"
+if not defined PRIV (
+    echo [FAIL] Private key not found
+    exit /b 1
+)
+if not defined CERT (
+    echo [FAIL] Certificate chain not found
+    exit /b 1
+)
+echo Private key: !PRIV!
+echo Certificate: !CERT!
+if defined SN echo [info] ST-LINK SN=!SN!
 if not exist "!PRIV!" (
     echo [FAIL] Private key not found: !PRIV!
     exit /b 1
@@ -36,15 +83,13 @@ if not exist "!CERT!" (
     echo [FAIL] Certificate chain not found: !CERT!
     exit /b 1
 )
-echo Private key: !PRIV!
-echo Certificate: !CERT!
 echo.
 
 call :find_cli
 if errorlevel 1 exit /b 1
 
 echo [info] Close debug if it is open
-STM32_Programmer_CLI -c port=SWD speed=fast ap=1 mode=Hotplug debugauth=3 >nul 2>&1
+STM32_Programmer_CLI -c port=SWD !SNOPT! speed=fast ap=1 mode=Hotplug debugauth=3 >nul 2>&1
 
 call :discover
 set "STATE=!PRODUCT!"
@@ -69,7 +114,7 @@ if /i "!AUTH!"=="PASSWORD" goto :password_auth
 echo [info] Certificate regression
 call :stage_key
 if errorlevel 1 exit /b 1
-STM32_Programmer_CLI -c port=SWD per=a key="!CLIKEY!" cert="!CERT!" debugauth=1
+STM32_Programmer_CLI -c port=SWD !SNOPT! per=a key="!CLIKEY!" cert="!CERT!" debugauth=1
 set "CERT_RC=!ERRORLEVEL!"
 if exist "!CLIKEY!" del /f /q "!CLIKEY!" >nul 2>&1
 if "!CERT_RC!"=="0" (
@@ -93,7 +138,7 @@ if not exist "!PASS!" (
 )
 if /i "!STATE!"=="PROVISIONING" goto :password_recover
 echo [info] Password regression
-STM32_Programmer_CLI -c port=SWD per=a pwd="!PASS!" debugauth=1
+STM32_Programmer_CLI -c port=SWD !SNOPT! per=a pwd="!PASS!" debugauth=1
 if errorlevel 1 (
     echo [FAIL] Password regression failed
     exit /b 1
@@ -119,8 +164,8 @@ if not exist "!PWK!" (
     echo [FAIL] DA_ConfigWithPassword.obk not found
     exit /b 1
 )
-set "RST=-c port=SWD speed=fast ap=1 mode=Hotplug -hardRst"
-set "HP=-c port=SWD speed=fast ap=1 mode=Hotplug"
+set "RST=-c port=SWD !SNOPT! speed=fast ap=1 mode=Hotplug -hardRst"
+set "HP=-c port=SWD !SNOPT! speed=fast ap=1 mode=Hotplug"
 echo [info] Set TZEN=0xC3 and write the password OBK
 STM32_Programmer_CLI !RST! -ob TZEN=0xC3
 STM32_Programmer_CLI !RST!
@@ -131,7 +176,7 @@ if errorlevel 1 (
 )
 call :stage_key
 if errorlevel 1 exit /b 1
-STM32_Programmer_CLI -c port=SWD per=a key="!CLIKEY!" cert="!CERT!" pwd="!PASS!" debugauth=1
+STM32_Programmer_CLI -c port=SWD !SNOPT! per=a key="!CLIKEY!" cert="!CERT!" pwd="!PASS!" debugauth=1
 set "PWD_RC=!ERRORLEVEL!"
 if exist "!CLIKEY!" del /f /q "!CLIKEY!" >nul 2>&1
 if not "!PWD_RC!"=="0" (
@@ -167,7 +212,7 @@ goto h5f4_retry
 
 :stage_key
 rem CubeProgrammer deletes the pem passed to key=. Give it a temporary copy.
-set "CLIKEY=%TEMP%\da_regression_key.pem"
+set "CLIKEY=%TEMP%\da_regression_key_!TAG!.pem"
 copy /y "!PRIV!" "!CLIKEY!" >nul
 if not exist "!CLIKEY!" (
     echo [FAIL] Cannot copy the private key to a temporary file
@@ -199,9 +244,9 @@ exit /b 0
 
 :discover
 set "PRODUCT=UNKNOWN"
-set "DISC=%TEMP%\da_product_state.txt"
+set "DISC=%TEMP%\da_product_state_!TAG!.txt"
 echo [info] Discovery
-STM32_Programmer_CLI -c port=SWD debugauth=2 > "%DISC%" 2>&1
+STM32_Programmer_CLI -c port=SWD !SNOPT! debugauth=2 > "!DISC!" 2>&1
 type "%DISC%"
 set "DLINE="
 for /f "usebackq delims=" %%L in (`findstr /i /c:"target ID" "%DISC%"`) do set "DLINE=%%L"
