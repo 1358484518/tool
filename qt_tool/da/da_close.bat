@@ -1,6 +1,7 @@
 @echo off
 rem Close STM32H5 with certificate DA. English only: UTF-8 inside cmd breaks on GBK Windows.
-rem Usage: da_close.bat <public.pem> [obk]
+rem Usage: da_close.bat <public.pem> [obk] [SN]
+rem SN is the ST-LINK serial number in hex. Omit it to use the only connected probe.
 rem The Qt page passes an OBK it already built. Without that file the script calls gen_da_obk.py.
 rem Open: enter PROVISIONING, write OBK, then SECBOOTADD + BOOT_UBE + CLOSED.
 rem Already PROVISIONING or PROVISIONED: skip 0x17 and finish the close.
@@ -25,13 +26,55 @@ setlocal EnableExtensions EnableDelayedExpansion
 echo log: da close
 echo.
 
-set "PUB=%~1"
+set "SN="
+set "PUB="
+set "OBK="
+:parse_args
+if "%~1"=="" goto :args_done
+echo %~1| findstr /r /i "^[0-9A-Fa-f][0-9A-Fa-f]*$" >nul
+if not errorlevel 1 (
+    if defined SN (
+        echo [FAIL] ST-LINK serial number given twice.
+        exit /b 1
+    )
+    set "SN=%~1"
+    shift
+    goto :parse_args
+)
+if not defined PUB (
+    set "PUB=%~1"
+    shift
+    goto :parse_args
+)
+if not defined OBK (
+    set "OBK=%~1"
+    shift
+    goto :parse_args
+)
+echo [FAIL] Unknown argument: %~1
+exit /b 1
+
+:args_done
+if not defined PUB (
+    echo [FAIL] Public key not found
+    exit /b 1
+)
+echo Public key: !PUB!
+if defined SN echo [info] ST-LINK SN=!SN!
 if not exist "!PUB!" (
     echo [FAIL] Public key not found: !PUB!
     exit /b 1
 )
-echo Public key: !PUB!
 echo.
+
+set "TAG=!SN!"
+if not defined TAG set "TAG=%RANDOM%%RANDOM%"
+set "HP=-c port=SWD speed=fast ap=1 mode=HOTPLUG reset=SWrst"
+set "DISC_C=-q -c port=SWD mode=HOTPLUG reset=SWrst speed=fast"
+if defined SN (
+    set "HP=-c port=SWD speed=fast ap=1 sn=!SN! mode=HOTPLUG reset=SWrst"
+    set "DISC_C=-q -c port=SWD sn=!SN! mode=HOTPLUG reset=SWrst speed=fast"
+)
 
 call :find_cli
 if errorlevel 1 exit /b 1
@@ -56,7 +99,6 @@ if /i not "!AUTH!"=="CERTIFICATE" (
     exit /b 1
 )
 
-set "HP=-c port=SWD speed=fast ap=1 mode=HOTPLUG reset=SWrst"
 if /i "!PRODUCT!"=="OPEN" (
     echo [info] Product state is Open. Set PRODUCT_STATE=0x17
     STM32_Programmer_CLI !HP! -ob PRODUCT_STATE=0x17
@@ -68,7 +110,6 @@ if /i "!PRODUCT!"=="OPEN" (
     echo [info] Product state is !PRODUCT!. Continue without writing 0x17
 )
 
-set "OBK=%~2"
 if defined OBK (
     if not exist "!OBK!" (
         echo [FAIL] OBK not found: !OBK!
@@ -77,7 +118,7 @@ if defined OBK (
     echo [info] Use the OBK from the Qt page: !OBK!
 ) else (
     set "GEN=%~dp0..\windows-tfm-tools\windows-tfm-tools-h573\windows-tfm-tools\gen_da_obk.py"
-    set "OBK=%TEMP%\da_close_config.obk"
+    set "OBK=%TEMP%\da_close_config_!TAG!.obk"
     if not exist "!GEN!" (
         echo [FAIL] Cannot find gen_da_obk.py
         exit /b 1
@@ -107,7 +148,7 @@ if errorlevel 1 (
 )
 
 echo [info] SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72
-set "CLOSELOG=%TEMP%\da_close_ob.txt"
+set "CLOSELOG=%TEMP%\da_close_ob_!TAG!.txt"
 STM32_Programmer_CLI !HP! -ob SECBOOTADD=0xC0100 BOOT_UBE=0xB4 PRODUCT_STATE=0x72 > "!CLOSELOG!" 2>&1
 type "!CLOSELOG!"
 echo [info] The debug port drops when the product state becomes CLOSED.
@@ -152,9 +193,9 @@ exit /b 0
 :discover
 set "PRODUCT=UNKNOWN"
 set "AUTH=UNKNOWN"
-set "DISC=%TEMP%\da_product_state.txt"
+set "DISC=%TEMP%\da_product_state_!TAG!.txt"
 echo [info] Discovery
-STM32_Programmer_CLI -q -c port=SWD mode=HOTPLUG reset=SWrst speed=fast -ob displ > "%DISC%" 2>&1
+STM32_Programmer_CLI !DISC_C! -ob displ > "!DISC!" 2>&1
 type "%DISC%"
 findstr /i /c:"Trust zone enabled" "%DISC%" >nul
 if not errorlevel 1 set "AUTH=CERTIFICATE"
