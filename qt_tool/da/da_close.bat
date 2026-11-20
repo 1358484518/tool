@@ -12,13 +12,20 @@ setlocal EnableExtensions
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "STAMP=%%I"
 set "LOGDIR=%~dp0log"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
-set "LOGFILE=%LOGDIR%\da_close_%STAMP%.log"
+set "LOGSN="
+for %%A in (%*) do call :log_sn %%A
+set "LOGFILE=%LOGDIR%\da_close_%STAMP%%LOGSN%.log"
 set "LOGBAT=%~f0"
 set "LOGARG=%*"
 cmd /c ""%LOGBAT%" __RUN__ %LOGARG%" > "%LOGFILE%" 2>&1
 set "RC=%ERRORLEVEL%"
 echo log: %LOGFILE%
 endlocal & exit /b %RC%
+
+:log_sn
+echo %~1| findstr /r /i "^[0-9A-Fa-f][0-9A-Fa-f]*$" >nul
+if not errorlevel 1 set "LOGSN=_%~1"
+exit /b 0
 
 :run
 shift

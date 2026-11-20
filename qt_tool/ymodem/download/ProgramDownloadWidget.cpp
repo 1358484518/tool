@@ -20,8 +20,10 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QHash>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScrollArea>
@@ -209,33 +211,33 @@ QString textForPathEdit(const QString &path)  // 框里：程序目录内显示�
     return QDir::toNativeSeparators(absolute);
 }
 
-QString downloadTempDir()  // 程序目录下的 tmp。每次下载先清空再放入这次的三个文件
+QString downloadTempDir(const QString &sn)  // 程序目录下的 tmp\序列号。每只下载器各用各的
 {
-    return QDir(appDir()).filePath(QStringLiteral("tmp"));
+    return QDir(appDir()).filePath(QStringLiteral("tmp/") + sn);
 }
 
-void removeDownloadTemp()
+void removeDownloadTemp(const QString &dir)
 {
-    QDir dir(downloadTempDir());
-    if (dir.exists())
-        dir.removeRecursively();
+    QDir folder(dir);
+    if (folder.exists())
+        folder.removeRecursively();
 }
 
-bool prepareDownloadTemp(QString *error)
+bool prepareDownloadTemp(const QString &dir, QString *error)
 {
-    removeDownloadTemp();
-    if (QDir().mkpath(downloadTempDir()))
+    removeDownloadTemp(dir);
+    if (QDir().mkpath(dir))
         return true;
     if (error) {
         *error = QObject::tr("Cannot prepare temp directory: %1")
-                     .arg(QDir::toNativeSeparators(downloadTempDir()));
+                     .arg(QDir::toNativeSeparators(dir));
     }
     return false;
 }
 
-bool copyIntoTemp(const QString &source, const QString &destName, QString *error)
+bool copyIntoTemp(const QString &dir, const QString &source, const QString &destName, QString *error)
 {
-    const QString dest = QDir(downloadTempDir()).filePath(destName);
+    const QString dest = QDir(dir).filePath(destName);
     QFile::remove(dest);
     if (QFile::copy(source, dest))
         return true;
@@ -261,7 +263,7 @@ bool startsWithFwmp(const QString &path)
     return file.read(4) == QByteArrayLiteral("FWMP");
 }
 
-bool stageBoot(const QString &shown, QString *error, QString *log)
+bool stageBoot(const QString &dir, const QString &shown, QString *error, QString *log)
 {
     const QString hex = resolvedScriptPath(shown);
     if (!QFileInfo::exists(hex)
@@ -270,7 +272,7 @@ bool stageBoot(const QString &shown, QString *error, QString *log)
             *error = QObject::tr("Boot program must be a HEX file: %1").arg(shown);
         return false;
     }
-    if (!copyIntoTemp(hex, QStringLiteral("bl2.hex"), error))
+    if (!copyIntoTemp(dir, hex, QStringLiteral("bl2.hex"), error))
         return false;
     if (log) {
         *log = QObject::tr("Recognized as HEX boot: %1").arg(QDir::toNativeSeparators(hex));
@@ -280,7 +282,7 @@ bool stageBoot(const QString &shown, QString *error, QString *log)
     return true;
 }
 
-bool stageImage(const QString &shown, const QString &destName, quint8 expectedType,
+bool stageImage(const QString &dir, const QString &shown, const QString &destName, quint8 expectedType,
                 QString *error, QString *log)
 {
     const QString src = resolvedScriptPath(shown);
@@ -311,7 +313,7 @@ bool stageImage(const QString &shown, const QString &destName, quint8 expectedTy
             }
             return false;
         }
-        const QString dest = QDir(downloadTempDir()).filePath(destName);
+        const QString dest = QDir(dir).filePath(destName);
         QFile output(dest);
         if (!output.open(QIODevice::WriteOnly) || output.write(payload.bytes) != payload.bytes.size()) {
             if (error)
@@ -333,7 +335,7 @@ bool stageImage(const QString &shown, const QString &destName, quint8 expectedTy
         return true;
     }
     if (suffixBin) {
-        if (!copyIntoTemp(src, destName, error))
+        if (!copyIntoTemp(dir, src, destName, error))
             return false;
         if (log) {
             *log = QObject::tr("Recognized as BIN firmware: %1").arg(native);
@@ -403,7 +405,7 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
             chooseImage(row->app, tr("Select Application"), tr("BIN and FWMP (*.bin *.fwmp)"),
                         QStringList() << QStringLiteral("bin") << QStringLiteral("fwmp"));
         });
-        connect(row->download, &QPushButton::clicked, this, [this, row]() { runDownload(row); });
+        connect(row->download, &QPushButton::clicked, this, [this, row]() { identifyProbes(row); });
         QLineEdit *edits[] = {row->boot, row->secure, row->app};
         for (QLineEdit *edit : edits) {
             if (!edit)
@@ -442,7 +444,7 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
         showDaMaterial(false);
         saveSettings();
     });
-    connect(m_erase, &QPushButton::clicked, this, &ProgramDownloadWidget::runErase);
+    connect(m_erase, &QPushButton::clicked, this, &ProgramDownloadWidget::identifyEraseProbes);
     connect(m_regress, &QPushButton::clicked, this, &ProgramDownloadWidget::runDaRegression);
     QLineEdit *daEdits[] = {m_key, m_priv, m_cert};
     for (QLineEdit *edit : daEdits) {
@@ -469,7 +471,7 @@ ProgramDownloadWidget::ProgramDownloadWidget(QWidget *parent)
     });
     m_featureExtend->setChecked(false);
     m_featureExtend->setEnabled(false);
-    connect(m_clearLog, &QPushButton::clicked, m_log, &QPlainTextEdit::clear);
+    connect(m_clearLog, &QPushButton::clicked, this, &ProgramDownloadWidget::clearShownLog);
 }
 
 ProgramDownloadWidget::~ProgramDownloadWidget()
@@ -480,7 +482,19 @@ ProgramDownloadWidget::~ProgramDownloadWidget()
         m_process->kill();
         m_process->waitForFinished(1000);
     }
-    removeDownloadTemp();
+    const QList<ProbeJob *> jobs = m_jobs.values();
+    for (ProbeJob *job : jobs) {
+        if (job->process) {
+            job->process->blockSignals(true);
+            job->process->kill();
+            job->process->waitForFinished(1000);
+        }
+        if (!job->tempDir.isEmpty())
+            removeDownloadTemp(job->tempDir);
+        delete job->pageLog;
+        delete job;
+    }
+    m_jobs.clear();
     delete m_outputLog;
 }
 
@@ -769,6 +783,11 @@ void ProgramDownloadWidget::buildImageRow(ImageRow *row, QWidget *parent)
 
     row->download = new QPushButton(host);
     line->addWidget(row->download);
+    row->probeHost = new QWidget(host);
+    auto *probeLayout = new QVBoxLayout(row->probeHost);
+    probeLayout->setContentsMargins(0, 0, 0, 0);
+    probeLayout->setSpacing(4);
+    outer->addWidget(row->probeHost);
     if (row->chainDa) {
         const QWidget *parts[] = {
             row->title, ruleBoot,
@@ -800,6 +819,11 @@ void ProgramDownloadWidget::buildDaRow(QWidget *parent)
     eraseLine->addWidget(m_eraseHint, 1);
     eraseLine->addWidget(m_erase);
     groupLayout->addWidget(m_eraseRow);
+    m_eraseGroups = new QWidget(parent);
+    auto *eraseGroups = new QVBoxLayout(m_eraseGroups);
+    eraseGroups->setContentsMargins(0, 0, 0, 0);
+    eraseGroups->setSpacing(4);
+    groupLayout->addWidget(m_eraseGroups);
 
     m_daDetail = new QWidget(parent);
     auto *detailLayout = new QVBoxLayout(m_daDetail);
@@ -958,6 +982,11 @@ void ProgramDownloadWidget::writeOutputLog(const QString &text)
 
 void ProgramDownloadWidget::pollScriptLog()
 {
+    const QList<ProbeJob *> jobs = m_jobs.values();
+    for (ProbeJob *job : jobs)
+        pollJob(job);
+    if (!m_process)
+        return;
     if (m_scriptLogFile.isEmpty()) {
         QDir dir(m_scriptLogDir);
         const QFileInfoList files = dir.entryInfoList(
@@ -1034,7 +1063,9 @@ void ProgramDownloadWidget::showProcessOutput()
 
 void ProgramDownloadWidget::setDownloadRunning(bool running)
 {
+    m_holdProbes = running;
     eachRow([running](ImageRow *row) { row->download->setEnabled(!running); });
+    refreshProbeButtons();
     m_h573Factory->setEnabled(!running);
     m_h5f4Factory->setEnabled(!running);
     if (m_signPackDialog)
@@ -1115,25 +1146,571 @@ bool ProgramDownloadWidget::warnRd0047Program(const QString &appText)
     return choice == QMessageBox::Ok;
 }
 
-void ProgramDownloadWidget::runDownload(const ImageRow *row)
+void ProgramDownloadWidget::eachGroup(const std::function<void(ProbeGroup *)> &fn)
 {
-    if (m_process)
+    eachRow([&fn](ImageRow *row) {
+        for (int i = 0; i < row->groups.size(); ++i)
+            fn(&row->groups[i]);
+    });
+    for (int i = 0; i < m_eraseGroupList.size(); ++i)
+        fn(&m_eraseGroupList[i]);
+}
+
+bool ProgramDownloadWidget::probeBusy(const QString &sn) const
+{
+    return m_jobs.contains(sn);
+}
+
+void ProgramDownloadWidget::refreshProbeButtons()
+{
+    eachGroup([this](ProbeGroup *group) {
+        const bool busy = m_holdProbes || probeBusy(group->sn);
+        if (group->identify)
+            group->identify->setEnabled(!busy);
+        if (group->action)
+            group->action->setEnabled(!busy);
+        if (group->logBtn)
+            group->logBtn->setChecked(m_logFocus == group->sn);
+    });
+    if (m_erase)
+        m_erase->setEnabled(!m_holdProbes);
+}
+
+void ProgramDownloadWidget::setProbeStatus(const QString &sn, const QString &text, const QString &color)
+{
+    eachGroup([&](ProbeGroup *group) {
+        if (group->sn != sn || !group->status)
+            return;
+        group->status->setText(text);
+        group->status->setStyleSheet(QStringLiteral("QLabel { color: %1; }").arg(color));
+    });
+    ProbeJob *job = m_jobs.value(sn);
+    if (!job)
+        return;
+    job->statusText = text;
+    job->statusColor = color;
+}
+
+void ProgramDownloadWidget::retranslateProbeGroups()
+{
+    eachGroup([this](ProbeGroup *group) {
+        if (group->identify)
+            group->identify->setText(tr("Mark probe"));
+        if (group->action)
+            group->action->setText(group->erase ? tr("Erase this probe") : tr("Download this probe"));
+        if (group->logBtn)
+            group->logBtn->setText(tr("Probe log"));
+    });
+}
+
+void ProgramDownloadWidget::clearProbeGroups(QList<ProbeGroup> *groups)
+{
+    for (const ProbeGroup &group : *groups) {
+        if (group.host)
+            delete group.host;
+    }
+    groups->clear();
+}
+
+void ProgramDownloadWidget::fillProbeGroups(QWidget *host, QList<ProbeGroup> *groups, const QStringList &sns,
+                                            bool erase, ImageRow *row)
+{
+    clearProbeGroups(groups);
+    auto *layout = qobject_cast<QVBoxLayout *>(host->layout());
+    if (!layout)
+        return;
+    for (const QString &sn : sns) {
+        ProbeGroup group;
+        group.sn = sn;
+        group.erase = erase;
+        group.host = new QWidget(host);
+        auto *line = new QHBoxLayout(group.host);
+        line->setContentsMargins(24, 0, 0, 0);
+        line->setSpacing(8);
+        auto *snLabel = new QLabel(QStringLiteral("SN: ") + sn, group.host);
+        snLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        group.status = new QLabel(group.host);
+        group.identify = new QPushButton(tr("Mark probe"), group.host);
+        group.action = new QPushButton(erase ? tr("Erase this probe") : tr("Download this probe"), group.host);
+        group.logBtn = new QPushButton(tr("Probe log"), group.host);
+        group.logBtn->setCheckable(true);
+        line->addWidget(snLabel, 1);
+        line->addWidget(group.status);
+        line->addWidget(group.identify);
+        line->addWidget(group.action);
+        line->addWidget(group.logBtn);
+        layout->addWidget(group.host);
+        const QString serial = sn;
+        connect(group.identify, &QPushButton::clicked, this, [this, serial]() { runIdentifyProbe(serial); });
+        if (erase) {
+            connect(group.action, &QPushButton::clicked, this, [this, serial]() { runEraseProbe(serial); });
+        } else {
+            connect(group.action, &QPushButton::clicked, this, [this, row, serial]() {
+                runDownload(row, serial);
+            });
+        }
+        connect(group.logBtn, &QPushButton::clicked, this, [this, serial]() { focusProbeLog(serial); });
+        groups->append(group);
+        ProbeJob *job = m_jobs.value(sn);
+        if (job && !job->statusText.isEmpty())
+            setProbeStatus(sn, job->statusText, job->statusColor);
+    }
+    refreshProbeButtons();
+}
+
+QString ProgramDownloadWidget::cubeProgExe() const
+{
+    const QString text = m_cubeProg->text().trimmed();
+    if (!text.isEmpty())
+        return resolvedScriptPath(text);
+    const QStringList candidates = {
+        QStringLiteral("D:/ST/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe"),
+        QStringLiteral("C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe"),
+        QStringLiteral("C:/Program Files (x86)/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe"),
+    };
+    for (const QString &path : candidates) {
+        if (QFileInfo::exists(path))
+            return QDir::toNativeSeparators(path);
+    }
+    return QString();
+}
+
+QProcessEnvironment ProgramDownloadWidget::probeEnvironment() const
+{
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    const QString exe = cubeProgExe();
+    if (QFileInfo::exists(exe)) {
+        const QString binDir = QDir::toNativeSeparators(QFileInfo(exe).absolutePath());
+        env.insert(QStringLiteral("PATH"), binDir + QLatin1Char(';') + env.value(QStringLiteral("PATH")));
+    }
+    env.insert(QStringLiteral("H5F4_INNER"), QStringLiteral("1"));
+    return env;
+}
+
+bool ProgramDownloadWidget::ensureCubeProg(QString *exe, QString *error) const
+{
+    const QString path = cubeProgExe();
+    const QString shown = m_cubeProg->text().trimmed().isEmpty()
+            ? QStringLiteral("STM32_Programmer_CLI.exe")
+            : m_cubeProg->text().trimmed();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        if (error)
+            *error = tr("Cannot find CubeProgrammer: %1").arg(shown);
+        return false;
+    }
+    if (exe)
+        *exe = path;
+    return true;
+}
+
+void ProgramDownloadWidget::beginScan(QProcess **scanSlot, QWidget *host, QList<ProbeGroup> *groups,
+                                      bool erase, ImageRow *row)
+{
+    if (m_holdProbes || !scanSlot || *scanSlot)
+        return;
+    QString exe;
+    QString error;
+    if (!ensureCubeProg(&exe, &error)) {
+        appendProbeLog(QString(), error + QLatin1Char('\n'));
+        QMessageBox::warning(this, tr("Identify programmers"), error);
+        return;
+    }
+    clearProbeGroups(groups);
+    *scanSlot = new QProcess(this);
+    QProcess *scan = *scanSlot;
+    scan->setProcessChannelMode(QProcess::MergedChannels);
+    scan->setProgram(exe);
+    scan->setArguments(QStringList() << QStringLiteral("-l"));
+    connect(scan, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, scanSlot, host, groups, erase, row](int, QProcess::ExitStatus) {
+                if (!scanSlot || !*scanSlot)
+                    return;
+                QProcess *process = *scanSlot;
+                *scanSlot = nullptr;
+                const QString text = QString::fromLocal8Bit(process->readAllStandardOutput());
+                process->deleteLater();
+                QStringList sns;
+                const QRegularExpression re(QStringLiteral("ST-LINK\\s+SN\\s*:\\s*([0-9A-Fa-f]+)"),
+                                            QRegularExpression::CaseInsensitiveOption);
+                QRegularExpressionMatchIterator it = re.globalMatch(text);
+                while (it.hasNext()) {
+                    const QString sn = it.next().captured(1).toUpper();
+                    if (!sns.contains(sn))
+                        sns.append(sn);
+                }
+                if (sns.isEmpty()) {
+                    appendProbeLog(QString(), tr("No debug probe detected.") + QLatin1Char('\n'));
+                    if (!text.trimmed().isEmpty())
+                        appendProbeLog(QString(), text);
+                    return;
+                }
+                appendProbeLog(QString(), tr("Found %1 ST-LINK.").arg(sns.size()) + QLatin1Char('\n'));
+                fillProbeGroups(host, groups, sns, erase, row);
+            });
+    connect(scan, &QProcess::errorOccurred, this, [this, scanSlot](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart || !scanSlot || !*scanSlot)
+            return;
+        QProcess *process = *scanSlot;
+        *scanSlot = nullptr;
+        process->deleteLater();
+        const QString message = tr("Cannot find CubeProgrammer: %1").arg(QStringLiteral("STM32_Programmer_CLI.exe"));
+        appendProbeLog(QString(), message + QLatin1Char('\n'));
+        QMessageBox::warning(this, tr("Identify programmers"), message);
+    });
+    scan->start();
+}
+
+void ProgramDownloadWidget::identifyProbes(ImageRow *row)
+{
+    beginScan(&row->scan, row->probeHost, &row->groups, false, row);
+}
+
+void ProgramDownloadWidget::identifyEraseProbes()
+{
+    beginScan(&m_eraseScan, m_eraseGroups, &m_eraseGroupList, true, nullptr);
+}
+
+void ProgramDownloadWidget::rebuildLogView()
+{
+    QString shown;
+    for (const LogPiece &piece : m_logPieces) {
+        if (!m_logFocus.isEmpty() && piece.sn != m_logFocus)
+            continue;
+        if (m_logFocus.isEmpty() && !piece.sn.isEmpty())
+            shown += QLatin1Char('[') + piece.sn + QStringLiteral("] ") + piece.text;
+        else
+            shown += piece.text;
+    }
+    m_log->setPlainText(shown);
+    m_log->moveCursor(QTextCursor::End);
+    m_log->ensureCursorVisible();
+}
+
+void ProgramDownloadWidget::appendProbeLog(const QString &sn, const QString &text)
+{
+    if (!m_log || text.isEmpty())
+        return;
+    QString chunk = text;
+    chunk.replace(QLatin1String("\r\n"), QStringLiteral("\n"));
+    chunk.replace(QLatin1Char('\r'), QLatin1Char('\n'));
+    if (!chunk.endsWith(QLatin1Char('\n')))
+        chunk += QLatin1Char('\n');
+    const int mark = m_logPieces.size();
+    int start = 0;
+    while (start < chunk.size()) {
+        int end = chunk.indexOf(QLatin1Char('\n'), start);
+        if (end < 0)
+            end = chunk.size() - 1;
+        LogPiece piece;
+        piece.sn = sn;
+        piece.text = chunk.mid(start, end - start + 1);
+        m_logPieces.append(piece);
+        start = end + 1;
+    }
+    bool trimmed = false;
+    while (m_logPieces.size() > kLogLines) {
+        m_logPieces.removeFirst();
+        trimmed = true;
+    }
+    if (sn.isEmpty())
+        writeOutputLog(chunk);
+    else if (ProbeJob *job = m_jobs.value(sn)) {
+        if (job->pageLog && job->pageLog->isOpen()) {
+            job->pageLog->write(chunk.toUtf8());
+            job->pageLog->flush();
+        }
+    }
+    if (trimmed) {
+        rebuildLogView();
+        return;
+    }
+    if (!m_logFocus.isEmpty() && sn != m_logFocus)
+        return;
+    QString shown;
+    for (int i = qMax(0, m_logPieces.size() - (m_logPieces.size() - mark)); i < m_logPieces.size(); ++i) {
+        const LogPiece &piece = m_logPieces.at(i);
+        if (!m_logFocus.isEmpty() && piece.sn != m_logFocus)
+            continue;
+        if (m_logFocus.isEmpty() && !piece.sn.isEmpty())
+            shown += QLatin1Char('[') + piece.sn + QStringLiteral("] ") + piece.text;
+        else
+            shown += piece.text;
+    }
+    if (shown.isEmpty())
+        return;
+    m_log->moveCursor(QTextCursor::End);
+    m_log->insertPlainText(shown);
+    m_log->ensureCursorVisible();
+}
+
+void ProgramDownloadWidget::focusProbeLog(const QString &sn)
+{
+    m_logFocus = (m_logFocus == sn) ? QString() : sn;
+    refreshProbeButtons();
+    rebuildLogView();
+}
+
+void ProgramDownloadWidget::clearShownLog()
+{
+    m_logPieces.clear();
+    m_logFocus.clear();
+    if (m_log)
+        m_log->clear();
+    refreshProbeButtons();
+}
+
+void ProgramDownloadWidget::openPageLog(ProbeJob *job)
+{
+    if (!job || job->pageLog)
+        return;
+    const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    const QString path = QDir(outputLogDir()).absoluteFilePath(
+        QStringLiteral("%1_%2.log").arg(job->sn, stamp));
+    auto *file = new QFile(path);
+    if (!file->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        delete file;
+        return;
+    }
+    file->write("\xEF\xBB\xBF");
+    job->pageLog = file;
+}
+
+void ProgramDownloadWidget::noteJobLine(ProbeJob *job, const QString &line)
+{
+    const QString trimmed = line.trimmed();
+    if (trimmed.startsWith(QLatin1String("[FAIL]"))
+            || trimmed.startsWith(QLatin1String("Failed:"))
+            || trimmed.startsWith(QLatin1String("FAILED at:")))
+        job->scriptFailed = true;
+    if (trimmed.startsWith(QLatin1String("Failed:")))
+        job->failStep = trimmed.mid(int(QStringLiteral("Failed:").size())).trimmed();
+    if (trimmed.startsWith(QLatin1String("FAILED at:")))
+        job->failStep = trimmed.mid(int(QStringLiteral("FAILED at:").size())).trimmed();
+    if (trimmed.contains(QLatin1String("No debug probe detected"), Qt::CaseInsensitive))
+        job->noDebugProbe = true;
+}
+
+void ProgramDownloadWidget::ensureLogPoll()
+{
+    if (!m_logPoll) {
+        m_logPoll = new QTimer(this);
+        m_logPoll->setInterval(200);
+        connect(m_logPoll, &QTimer::timeout, this, &ProgramDownloadWidget::pollScriptLog);
+    }
+    if (!m_logPoll->isActive())
+        m_logPoll->start();
+}
+
+void ProgramDownloadWidget::pollJob(ProbeJob *job)
+{
+    if (!job || job->useStdout || job->scriptLogDir.isEmpty() || job->scriptLogGlob.isEmpty())
+        return;
+    if (job->scriptLogFile.isEmpty()) {
+        const QFileInfoList files = QDir(job->scriptLogDir).entryInfoList(
+            QStringList() << job->scriptLogGlob, QDir::Files, QDir::Time);
+        for (const QFileInfo &info : files) {
+            if (info.lastModified().toMSecsSinceEpoch() + 2000 < job->startedMs)
+                continue;
+            if (!info.fileName().contains(job->sn, Qt::CaseInsensitive))
+                continue;
+            job->scriptLogFile = info.absoluteFilePath();
+            job->scriptLogOffset = 0;
+            break;
+        }
+    }
+    if (job->scriptLogFile.isEmpty())
+        return;
+    QFile file(job->scriptLogFile);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+    if (file.size() < job->scriptLogOffset)
+        job->scriptLogOffset = 0;
+    if (!file.seek(job->scriptLogOffset))
+        return;
+    const QByteArray chunk = file.readAll();
+    job->scriptLogOffset = file.pos();
+    if (chunk.isEmpty())
+        return;
+    const QString text = QString::fromLocal8Bit(chunk);
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    for (const QString &line : lines)
+        noteJobLine(job, line);
+    appendProbeLog(job->sn, text);
+}
+
+void ProgramDownloadWidget::completeJob(ProbeJob *job, bool ok, const QString &message)
+{
+    const QString sn = job->sn;
+    const QString op = job->op;
+    const QString title = job->title;
+    const qint64 started = job->startedMs;
+    if (job->process) {
+        job->process->disconnect(this);
+        job->process->deleteLater();
+        job->process = nullptr;
+    }
+    if (!job->tempDir.isEmpty())
+        removeDownloadTemp(job->tempDir);
+    if (job->pageLog) {
+        job->pageLog->close();
+        delete job->pageLog;
+    }
+    m_jobs.remove(sn);
+    delete job;
+    setProbeStatus(sn, ok ? tr("Probe succeeded") : tr("Probe failed"),
+                   ok ? QStringLiteral("#2e7d32") : QStringLiteral("#c62828"));
+    refreshProbeButtons();
+    appendProbeLog(sn, message + QLatin1Char('\n'));
+    m_runTitle = title;
+    m_runStartedMs = started;
+    showRunStatus(message, ok);
+    if (!ok && op != QLatin1String("identify"))
+        QMessageBox::warning(this, title, message);
+    if (m_jobs.isEmpty() && !m_process && m_logPoll)
+        m_logPoll->stop();
+}
+
+void ProgramDownloadWidget::wireProbeProcess(ProbeJob *job)
+{
+    const QString sn = job->sn;
+    QProcess *process = job->process;
+    process->setProcessChannelMode(QProcess::MergedChannels);
+    connect(process, &QProcess::readyReadStandardOutput, this, [this, sn]() {
+        ProbeJob *current = m_jobs.value(sn);
+        if (!current || !current->process)
+            return;
+        const QByteArray raw = current->process->readAllStandardOutput();
+        if (raw.isEmpty())
+            return;
+        if (!current->useStdout) {
+            pollJob(current);
+            if (!current->scriptLogFile.isEmpty())
+                return;
+        }
+        const QString text = QString::fromLocal8Bit(raw);
+        const QStringList lines = text.split(QLatin1Char('\n'));
+        for (const QString &line : lines)
+            noteJobLine(current, line);
+        appendProbeLog(sn, text);
+    });
+    connect(process, &QProcess::started, this, [this, sn]() {
+        ProbeJob *current = m_jobs.value(sn);
+        if (!current || !current->process || !current->sendEnter)
+            return;
+        current->process->write("\r\n");
+    });
+    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, sn](int code, QProcess::ExitStatus status) {
+                ProbeJob *current = m_jobs.value(sn);
+                if (!current)
+                    return;
+                finishProbeProcess(current, code, int(status));
+            });
+    connect(process, &QProcess::errorOccurred, this, [this, sn](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart)
+            return;
+        ProbeJob *current = m_jobs.value(sn);
+        if (!current || !current->process)
+            return;
+        current->process->deleteLater();
+        current->process = nullptr;
+        completeJob(current, false, tr("Cannot start script: %1").arg(current->title));
+    });
+}
+
+bool ProgramDownloadWidget::startDaOnJob(ProbeJob *job)
+{
+    const QString key = resolvedScriptPath(m_key->text());
+    if (!QFileInfo::exists(key)) {
+        appendProbeLog(job->sn, tr("Cannot find file: %1").arg(m_key->text()) + QLatin1Char('\n'));
+        return false;
+    }
+    const QString obkPath = QDir(QDir::tempPath()).filePath(QStringLiteral("da_close_") + job->sn + QStringLiteral(".obk"));
+    DaObk::Error obkError = DaObk::Error::Ok;
+    const QByteArray blob = DaObk::fromPublicKey(key, 0x00005077, 1, &obkError);
+    if (blob.isEmpty()) {
+        appendProbeLog(job->sn, tr("Not a P-256 uncompressed public key") + QLatin1Char('\n'));
+        return false;
+    }
+    QFile obkFile(obkPath);
+    if (!obkFile.open(QIODevice::WriteOnly) || obkFile.write(blob) != blob.size()) {
+        appendProbeLog(job->sn, tr("Cannot write OBK: %1").arg(QDir::toNativeSeparators(obkPath)) + QLatin1Char('\n'));
+        return false;
+    }
+    obkFile.close();
+    const QString script = existingFile(acsfParent(), QStringLiteral("da/da_close.bat"));
+    if (script.isEmpty())
+        return false;
+    job->title = tr("DA Authentication");
+    job->scriptLogDir = QDir(QFileInfo(script).absolutePath()).filePath(QStringLiteral("log"));
+    job->scriptLogGlob = QStringLiteral("da_*.log");
+    job->scriptLogFile.clear();
+    job->scriptLogOffset = 0;
+    job->scriptFailed = false;
+    job->noDebugProbe = false;
+    job->failStep.clear();
+    job->useStdout = false;
+    job->sendEnter = false;
+    job->startedMs = QDateTime::currentMSecsSinceEpoch();
+    job->process = new QProcess(this);
+    job->process->setProcessEnvironment(probeEnvironment());
+    job->process->setWorkingDirectory(QFileInfo(script).absolutePath());
+    wireProbeProcess(job);
+    ensureLogPoll();
+    appendProbeLog(job->sn, tr("Script started: %1").arg(QDir::toNativeSeparators(script)) + QLatin1Char('\n'));
+    QStringList args;
+    args << QStringLiteral("/c") << QDir::toNativeSeparators(script)
+         << QDir::toNativeSeparators(key) << QDir::toNativeSeparators(obkPath) << job->sn;
+    job->process->start(QStringLiteral("cmd.exe"), args);
+    return true;
+}
+
+void ProgramDownloadWidget::finishProbeProcess(ProbeJob *job, int code, int status)
+{
+    pollJob(job);
+    if (job->process) {
+        job->process->deleteLater();
+        job->process = nullptr;
+    }
+    if (!job->tempDir.isEmpty()) {
+        removeDownloadTemp(job->tempDir);
+        job->tempDir.clear();
+    }
+    const bool crashed = status == int(QProcess::CrashExit) || code != 0;
+    QString message;
+    if (job->noDebugProbe)
+        message = tr("No debug probe detected.");
+    else if (job->scriptFailed)
+        message = tr("Script failed: %1").arg(job->failStep.isEmpty() ? job->title : job->failStep);
+    else if (crashed)
+        message = tr("Script finished with code %1").arg(code);
+    else
+        message = tr("Script finished.");
+    const bool ok = !job->noDebugProbe && !job->scriptFailed && !crashed;
+    if (ok && job->chainDa && job->op == QLatin1String("download")) {
+        appendProbeLog(job->sn, tr("Download finished. Starting DA authentication.") + QLatin1Char('\n'));
+        job->chainDa = false;
+        job->op = QStringLiteral("da");
+        if (startDaOnJob(job))
+            return;
+        completeJob(job, false, tr("Cannot start script: %1").arg(QStringLiteral("da/da_close.bat")));
+        return;
+    }
+    completeJob(job, ok, message);
+}
+
+void ProgramDownloadWidget::runDownload(ImageRow *row, const QString &sn)
+{
+    if (m_holdProbes || m_process || probeBusy(sn))
         return;
     if (!warnRd0047Program(row->app->text()))
         return;
-    m_runTitle = row->title ? row->title->text() : tr("Download");
-    m_boxTitle = tr("Download");
-    m_sendEnter = true;
-    m_logGlob = QStringLiteral("flash_*.log");
-    m_runStartedMs = QDateTime::currentMSecsSinceEpoch();
-    m_statusLabel->setText(tr("%1 downloading").arg(m_runTitle));
-    m_statusLabel->setStyleSheet(QStringLiteral("QLabel { color: #e65100; }"));
+    const QString title = row->title ? row->title->text() : tr("Download this probe");
     const QString script = existingFile(acsfParent(), row->defaultScript);
     if (script.isEmpty()) {
         const QString message = tr("Cannot find script: %1").arg(row->defaultScript);
-        appendLog(message + QLatin1Char('\n'));
-        showRunStatus(message, false);
-        QMessageBox::warning(this, tr("Download"), message);
+        appendProbeLog(sn, message + QLatin1Char('\n'));
+        QMessageBox::warning(this, title, message);
         return;
     }
     if (row->chainDa) {
@@ -1153,127 +1730,146 @@ void ProgramDownloadWidget::runDownload(const ImageRow *row)
             }
         }
         if (!keyError.isEmpty()) {
-            appendLog(keyError + QLatin1Char('\n'));
-            showRunStatus(keyError, false);
+            appendProbeLog(sn, keyError + QLatin1Char('\n'));
             QMessageBox::warning(this, tr("DA Authentication"), keyError);
             return;
         }
     }
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    const QString cubeText = m_cubeProg->text().trimmed();
-    if (!cubeText.isEmpty()) {
-        const QString cli = resolvedScriptPath(cubeText);
-        if (!QFileInfo::exists(cli)) {
-            const QString message = tr("Cannot find CubeProgrammer: %1").arg(cubeText);
-            appendLog(message + QLatin1Char('\n'));
-            showRunStatus(message, false);
-            QMessageBox::warning(this, tr("Download"), message);
-            return;
-        }
-        // 脚本先查自己写的三个目录。都没有时，where 会用到这里放在 PATH 前面的目录。
-        const QString binDir = QDir::toNativeSeparators(QFileInfo(cli).absolutePath());
-        env.insert(QStringLiteral("PATH"), binDir + QLatin1Char(';') + env.value(QStringLiteral("PATH")));
-    }
-    // SECC 脚本外层会 pause 等按键。设了这个变量就直接烧录，页面不用等那一下。
-    env.insert(QStringLiteral("H5F4_INNER"), QStringLiteral("1"));
+    const QString tempDir = downloadTempDir(sn);
     QString stageError;
     QString bootLog;
     QString secureLog;
     QString appLog;
-    if (!prepareDownloadTemp(&stageError)
-            || !stageBoot(row->boot->text(), &stageError, &bootLog)
-            || !stageImage(row->secure->text(), QStringLiteral("tfm_s_signed.bin"), 1, &stageError, &secureLog)
-            || !stageImage(row->app->text(), QStringLiteral("tfm_ns_signed.bin"), 0, &stageError, &appLog)) {
-        removeDownloadTemp();
-        appendLog(stageError + QLatin1Char('\n'));
-        showRunStatus(stageError, false);
-        QMessageBox::warning(this, tr("Download"), stageError);
+    if (!prepareDownloadTemp(tempDir, &stageError)
+            || !stageBoot(tempDir, row->boot->text(), &stageError, &bootLog)
+            || !stageImage(tempDir, row->secure->text(), QStringLiteral("tfm_s_signed.bin"), 1, &stageError, &secureLog)
+            || !stageImage(tempDir, row->app->text(), QStringLiteral("tfm_ns_signed.bin"), 0, &stageError, &appLog)) {
+        removeDownloadTemp(tempDir);
+        appendProbeLog(sn, stageError + QLatin1Char('\n'));
+        QMessageBox::warning(this, title, stageError);
         return;
     }
-    const QString tempDir = QDir::toNativeSeparators(downloadTempDir());
-    appendLog(tr("Temp directory: %1").arg(tempDir) + QLatin1Char('\n'));
-    appendLog(bootLog + QLatin1Char('\n'));
-    appendLog(secureLog + QLatin1Char('\n'));
-    appendLog(appLog + QLatin1Char('\n'));
-    m_process = new QProcess(this);
-    m_process->setProcessEnvironment(env);
-    m_process->setWorkingDirectory(QFileInfo(script).absolutePath());
-    m_process->setProcessChannelMode(QProcess::MergedChannels);
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &ProgramDownloadWidget::showProcessOutput);
-    const bool chainDa = row->chainDa;
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, chainDa](int code, QProcess::ExitStatus status) {
-                QProcess *process = m_process;
-                m_process = nullptr;
-                if (m_logPoll)
-                    m_logPoll->stop();
-                pollScriptLog();
-                removeDownloadTemp();
-                QString message;
-                if (m_noDebugProbe)
-                    message = tr("No debug probe detected.");
-                else if (m_scriptFailed)
-                    message = tr("Script failed: %1").arg(m_failStep.isEmpty() ? tr("Download") : m_failStep);
-                else if (status == QProcess::CrashExit || code != 0)
-                    message = tr("Script finished with code %1").arg(code);
-                else
-                    message = tr("Script finished.");
-                const bool ok = !m_noDebugProbe && !m_scriptFailed && status != QProcess::CrashExit && code == 0;
-                if (process)
-                    process->deleteLater();
-                if (ok && chainDa) {
-                    appendLog(tr("Download finished. Starting DA authentication.") + QLatin1Char('\n'));
-                    QTimer::singleShot(0, this, [this]() { runDaClose(); });
-                    return;
-                }
-                setDownloadRunning(false);
-                appendLog(message + QLatin1Char('\n'));
-                showRunStatus(message, ok);
-                if (!ok)
-                    QMessageBox::warning(this, m_boxTitle, message);
-            });
-    connect(m_process, &QProcess::errorOccurred, this, [this, script](QProcess::ProcessError error) {
-        if (error != QProcess::FailedToStart || !m_process)
-            return;
-        QProcess *process = m_process;
-        m_process = nullptr;
-        process->disconnect(this);
-        if (m_logPoll)
-            m_logPoll->stop();
-        removeDownloadTemp();
-        setDownloadRunning(false);
-        const QString message = tr("Cannot start script: %1").arg(script);
-        appendLog(message + QLatin1Char('\n'));
-        showRunStatus(message, false);
-        QMessageBox::warning(this, m_boxTitle, message);
-        process->deleteLater();
-    });
-    connect(m_process, &QProcess::started, this, [this]() {
-        if (!m_process || !m_sendEnter)
-            return;
-        // 烧录脚本结尾是 pause。先送一个回车，跑完就退出，不用改 bat。
-        m_process->write("\r\n");
-    });
-    m_scriptLogDir = QDir(QFileInfo(script).absolutePath()).filePath(QStringLiteral("log"));
-    m_scriptLogFile.clear();
-    m_scriptLogOffset = 0;
-    m_scriptFailed = false;
-    m_noDebugProbe = false;
-    m_failStep.clear();
-    if (!m_logPoll) {
-        m_logPoll = new QTimer(this);
-        m_logPoll->setInterval(200);
-        connect(m_logPoll, &QTimer::timeout, this, &ProgramDownloadWidget::pollScriptLog);
-    }
-    m_logPoll->start();
-    setDownloadRunning(true);
-    appendLog(tr("Script started: %1").arg(QDir::toNativeSeparators(script)) + QLatin1Char('\n'));
+    auto *job = new ProbeJob;
+    job->sn = sn;
+    job->op = QStringLiteral("download");
+    job->title = title;
+    job->chainDa = row->chainDa;
+    job->row = row;
+    job->sendEnter = true;
+    job->tempDir = tempDir;
+    job->useStdout = row->defaultScript.contains(QLatin1String("h5f4"), Qt::CaseInsensitive);
+    job->scriptLogDir = QDir(QFileInfo(script).absolutePath()).filePath(QStringLiteral("log"));
+    job->scriptLogGlob = job->useStdout ? QString() : QStringLiteral("flash_*.log");
+    job->startedMs = QDateTime::currentMSecsSinceEpoch();
+    job->statusText = tr("Probe downloading");
+    job->statusColor = QStringLiteral("#e65100");
+    openPageLog(job);
+    m_jobs.insert(sn, job);
+    setProbeStatus(sn, job->statusText, job->statusColor);
+    refreshProbeButtons();
+    appendProbeLog(sn, tr("Temp directory: %1").arg(QDir::toNativeSeparators(tempDir)) + QLatin1Char('\n'));
+    appendProbeLog(sn, bootLog + QLatin1Char('\n'));
+    appendProbeLog(sn, secureLog + QLatin1Char('\n'));
+    appendProbeLog(sn, appLog + QLatin1Char('\n'));
+    appendProbeLog(sn, tr("Script started: %1").arg(QDir::toNativeSeparators(script)) + QLatin1Char('\n'));
+    job->process = new QProcess(this);
+    job->process->setProcessEnvironment(probeEnvironment());
+    job->process->setWorkingDirectory(QFileInfo(script).absolutePath());
+    wireProbeProcess(job);
+    ensureLogPoll();
     QStringList args;
     args << QStringLiteral("/c") << QDir::toNativeSeparators(script);
     if (!row->scriptArg.isEmpty())
         args << row->scriptArg;
-    args << QStringLiteral("--dir") << tempDir;
-    m_process->start(QStringLiteral("cmd.exe"), args);
+    args << QStringLiteral("--dir") << QDir::toNativeSeparators(tempDir) << sn;
+    job->process->start(QStringLiteral("cmd.exe"), args);
+    m_runTitle = title;
+    m_runStartedMs = job->startedMs;
+    m_statusLabel->setText(tr("%1 downloading").arg(title));
+    m_statusLabel->setStyleSheet(QStringLiteral("QLabel { color: #e65100; }"));
+}
+
+void ProgramDownloadWidget::runEraseProbe(const QString &sn)
+{
+    if (m_holdProbes || m_process || probeBusy(sn))
+        return;
+    const QString title = tr("Erase this probe");
+    const QString key = resolvedScriptPath(m_priv->text());
+    const QString cert = resolvedScriptPath(m_cert->text());
+    QString message;
+    if (!QFileInfo::exists(key))
+        message = tr("Cannot find file: %1").arg(m_priv->text());
+    else if (!QFileInfo::exists(cert))
+        message = tr("Cannot find file: %1").arg(m_cert->text());
+    if (!message.isEmpty()) {
+        appendProbeLog(sn, message + QLatin1Char('\n'));
+        QMessageBox::warning(this, title, message);
+        return;
+    }
+    const QString script = existingFile(acsfParent(), QStringLiteral("da/da_regression.bat"));
+    if (script.isEmpty()) {
+        message = tr("Cannot find script: %1").arg(QStringLiteral("da/da_regression.bat"));
+        appendProbeLog(sn, message + QLatin1Char('\n'));
+        QMessageBox::warning(this, title, message);
+        return;
+    }
+    auto *job = new ProbeJob;
+    job->sn = sn;
+    job->op = QStringLiteral("erase");
+    job->title = title;
+    job->scriptLogDir = QDir(QFileInfo(script).absolutePath()).filePath(QStringLiteral("log"));
+    job->scriptLogGlob = QStringLiteral("da_*.log");
+    job->startedMs = QDateTime::currentMSecsSinceEpoch();
+    job->statusText = tr("Probe erasing");
+    job->statusColor = QStringLiteral("#e65100");
+    openPageLog(job);
+    m_jobs.insert(sn, job);
+    setProbeStatus(sn, job->statusText, job->statusColor);
+    refreshProbeButtons();
+    appendProbeLog(sn, tr("Script started: %1").arg(QDir::toNativeSeparators(script)) + QLatin1Char('\n'));
+    job->process = new QProcess(this);
+    job->process->setProcessEnvironment(probeEnvironment());
+    job->process->setWorkingDirectory(QFileInfo(script).absolutePath());
+    wireProbeProcess(job);
+    ensureLogPoll();
+    QStringList args;
+    args << QStringLiteral("/c") << QDir::toNativeSeparators(script)
+         << QDir::toNativeSeparators(key) << QDir::toNativeSeparators(cert) << sn;
+    job->process->start(QStringLiteral("cmd.exe"), args);
+}
+
+void ProgramDownloadWidget::runIdentifyProbe(const QString &sn)
+{
+    if (m_holdProbes || probeBusy(sn))
+        return;
+    QString exe;
+    QString error;
+    if (!ensureCubeProg(&exe, &error)) {
+        appendProbeLog(sn, error + QLatin1Char('\n'));
+        QMessageBox::warning(this, tr("Mark probe"), error);
+        return;
+    }
+    auto *job = new ProbeJob;
+    job->sn = sn;
+    job->op = QStringLiteral("identify");
+    job->title = tr("Mark probe");
+    job->useStdout = true;
+    job->startedMs = QDateTime::currentMSecsSinceEpoch();
+    job->statusText = tr("Probe marking");
+    job->statusColor = QStringLiteral("#e65100");
+    openPageLog(job);
+    m_jobs.insert(sn, job);
+    setProbeStatus(sn, job->statusText, job->statusColor);
+    refreshProbeButtons();
+    appendProbeLog(sn, tr("Mark probe") + QLatin1Char(' ') + sn + QLatin1Char('\n'));
+    job->process = new QProcess(this);
+    wireProbeProcess(job);
+    ensureLogPoll();
+    QStringList args;
+    args << QStringLiteral("-c") << QStringLiteral("port=SWD")
+         << QStringLiteral("sn=%1").arg(sn) << QStringLiteral("mode=Hotplug")
+         << QStringLiteral("-rst");
+    job->process->start(exe, args);
 }
 
 void ProgramDownloadWidget::runDaClose()
@@ -1419,7 +2015,7 @@ void ProgramDownloadWidget::runDaScript(const QString &scriptName, const QString
                 if (!ok)
                     QMessageBox::warning(this, m_boxTitle, message);
                 if (process)
-                    process->deleteLater();
+    process->deleteLater();
             });
     connect(m_process, &QProcess::errorOccurred, this, [this, script](QProcess::ProcessError error) {
         if (error != QProcess::FailedToStart || !m_process)
@@ -1493,7 +2089,7 @@ void ProgramDownloadWidget::showStoredOrDefault(QLineEdit *edit, const QString &
         const QString resolved = resolvedScriptPath(saved);
         if (QFileInfo::exists(resolved)) {
             showPath(edit, resolved);
-            return;
+        return;
         }
     }
     const QString full = existingFile(acsfParent(), relativeToAcsf);
@@ -1588,7 +2184,7 @@ void ProgramDownloadWidget::runH573Factory()
 
 void ProgramDownloadWidget::runFactoryReset(const QString &title, const QString &scriptName)
 {
-    if (m_process)
+    if (m_process || !m_jobs.isEmpty())
         return;
     const bool h5f4 = scriptName == QLatin1String("STM32H5F4_Reset.bat");
     const QString hintKey = h5f4 ? QStringLiteral("hideH5f4FactoryResetHint")
@@ -1838,7 +2434,7 @@ void ProgramDownloadWidget::retranslateUi()
         pane.release.download->setToolTip(tr("This program turns debug off and turns DA authentication on. Erase the program before programming again."));
     }
     m_daTitle->setText(tr("DA"));
-    m_erase->setText(tr("Erase"));
+    m_erase->setText(tr("Identify programmers"));
     m_eraseHint->setText(tr("Connect the reset line before erase."));
     refreshDrawers();
     m_clearLog->setText(tr("Clear Log"));
@@ -1853,8 +2449,9 @@ void ProgramDownloadWidget::retranslateUi()
         row->chooseSecure->setToolTip(tr("Select a .bin or a packed .fwmp file.\nA .bin file must be 512 KB.\nA .fwmp file is the packed firmware and must be 524352 bytes (512 KB plus a 64-byte header). It is unpacked when downloading."));
         row->chooseApp->setText(tr("Select Application"));
         row->chooseApp->setToolTip(tr("Select a .bin or a packed .fwmp file.\nA .bin file must be 1 MB.\nA .fwmp file is the packed firmware and must be 1048640 bytes (1 MB plus a 64-byte header). It is unpacked when downloading."));
-        row->download->setText(tr("Download Program"));
+        row->download->setText(tr("Identify programmers"));
     });
+    retranslateProbeGroups();
     m_keyLabel->setText(tr("Public key:"));
     m_chooseKey->setText(tr("Select Public Key"));
     m_chooseKey->setToolTip(tr("Select a PEM public key (.pem). It is used to generate the DA OBK."));

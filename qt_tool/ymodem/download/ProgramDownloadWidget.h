@@ -1,8 +1,10 @@
 #ifndef PROGRAMDOWNLOADWIDGET_H
 #define PROGRAMDOWNLOADWIDGET_H
 
+#include <QHash>
 #include <QStringList>
 #include <QList>
+#include <QVector>
 #include <QWidget>
 
 #include <QList>
@@ -17,6 +19,8 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
+
+#include <QProcessEnvironment>
 class FirmwareRestoreDialog;
 class SignPackDialog;
 class PackageInspectDialog;
@@ -44,6 +48,43 @@ protected:
     void changeEvent(QEvent *event) override;  // 语言切换时刷新本页文字
 
 private:
+    struct ProbeGroup {
+        QString sn;
+        bool erase = false;
+        QLabel *status = nullptr;
+        QPushButton *identify = nullptr;
+        QPushButton *action = nullptr;
+        QPushButton *logBtn = nullptr;
+        QWidget *host = nullptr;
+    };
+    struct ImageRow;
+    struct ProbeJob {
+        QString sn;
+        QString op;
+        QString title;
+        QProcess *process = nullptr;
+        QString scriptLogDir;
+        QString scriptLogGlob;
+        QString scriptLogFile;
+        qint64 scriptLogOffset = 0;
+        qint64 startedMs = 0;
+        bool scriptFailed = false;
+        bool noDebugProbe = false;
+        bool useStdout = false;
+        bool sendEnter = false;
+        bool chainDa = false;
+        QString failStep;
+        QString tempDir;
+        ImageRow *row = nullptr;
+        QFile *pageLog = nullptr;
+        QString statusText;
+        QString statusColor;
+    };
+    struct LogPiece {
+        QString sn;
+        QString text;
+    };
+
     /**
      * 一个产品里的一行：说明，以及 Boot、安全程序、应用程序三条路径。
      */
@@ -67,6 +108,9 @@ private:
         bool chainDa = false;                // 发布烧录成功后接着做 DA 认证
         QWidget *host = nullptr;              // 这一行和下面的横线。测试、调试整行随功能扩展隐藏
         QList<QWidget *> extendParts;         // 发布行里随功能扩展隐藏的 Boot 和安全程序
+        QWidget *probeHost = nullptr;         // 这一行下面的 ST-LINK 分组
+        QList<ProbeGroup> groups;
+        QProcess *scan = nullptr;             // 正在列这一行的 ST-LINK
         QString defaultBoot;                  // 相对 ACSF 的缺省 Boot
         QString defaultSecure;                // 相对 ACSF 的缺省安全程序
         QString defaultApp;                   // 相对 ACSF 的缺省应用程序
@@ -115,7 +159,34 @@ private:
                      const QStringList &suffixes);  // 只接受这些扩展名
     QString pickExistingFile(QLineEdit *edit, const QString &title, const QString &filter);  // 从输入框当前路径打开文件框
     void showStoredOrDefault(QLineEdit *edit, const QString &saved, const QString &relativeToAcsf);  // 有保存用保存的，否则用 ACSF 缺省
-    void runDownload(const ImageRow *row);  // 启动这一行的 bat，并把页面上的编程器目录放进 PATH
+    void runDownload(ImageRow *row, const QString &sn);  // 用这一只 ST-LINK 启动这一行的 bat
+    void identifyProbes(ImageRow *row);     // 列出 ST-LINK，并在这一行下面生成分组
+    void identifyEraseProbes();             // 擦除区列出 ST-LINK
+    void beginScan(QProcess **scanSlot, QWidget *host, QList<ProbeGroup> *groups, bool erase, ImageRow *row);
+    void fillProbeGroups(QWidget *host, QList<ProbeGroup> *groups, const QStringList &sns, bool erase, ImageRow *row);
+    void clearProbeGroups(QList<ProbeGroup> *groups);
+    void retranslateProbeGroups();
+    QString cubeProgExe() const;            // 页面上的编程器，空则用安装位置
+    QProcessEnvironment probeEnvironment() const;
+    bool ensureCubeProg(QString *exe, QString *error) const;
+    bool probeBusy(const QString &sn) const;
+    void refreshProbeButtons();
+    void setProbeStatus(const QString &sn, const QString &text, const QString &color);
+    void eachGroup(const std::function<void(ProbeGroup *)> &fn);
+    void appendProbeLog(const QString &sn, const QString &text);  // 带序列号的日志。空序列号是公共消息
+    void rebuildLogView();
+    void focusProbeLog(const QString &sn);
+    void clearShownLog();
+    void openPageLog(ProbeJob *job);
+    void noteJobLine(ProbeJob *job, const QString &line);
+    void ensureLogPoll();
+    void pollJob(ProbeJob *job);
+    void wireProbeProcess(ProbeJob *job);
+    void finishProbeProcess(ProbeJob *job, int code, int status);
+    void completeJob(ProbeJob *job, bool ok, const QString &message);
+    bool startDaOnJob(ProbeJob *job);
+    void runEraseProbe(const QString &sn);
+    void runIdentifyProbe(const QString &sn);
     bool warnRd0047Program(const QString &appText);  // RD0047 测试、调试、发布程序下载前提示。取消则不下载
     void setDownloadRunning(bool running);  // 有脚本在跑时停用三个下载按钮
     void appendLog(const QString &text);    // 追加到日志框，并写入日志文件。框自己丢掉超过 2000 行的旧内容
@@ -147,7 +218,10 @@ private:
     QLabel *m_daTitle = nullptr;           // DA 标题，一直显示
     QWidget *m_daBody = nullptr;           // DA 内容，一直显示
     QWidget *m_eraseRow = nullptr;         // 擦除按钮和复位线提示。功能扩展勾上后隐藏
-    QPushButton *m_erase = nullptr;        // 调用 DA 回归
+    QWidget *m_eraseGroups = nullptr;      // 擦除区的 ST-LINK 分组
+    QList<ProbeGroup> m_eraseGroupList;
+    QProcess *m_eraseScan = nullptr;
+    QPushButton *m_erase = nullptr;        // 一键识别下载器，再按序列号擦除
     QLabel *m_eraseHint = nullptr;         // 提示连接复位线
     QWidget *m_daDetail = nullptr;         // 公钥认证和回归。功能扩展未勾选时隐藏
     QLabel *m_keyLabel = nullptr;          // 「公钥」
@@ -170,7 +244,11 @@ private:
     QLabel *m_statusLabel = nullptr;       // 页底状态，显示这次下载的结果和用时
     QString m_runTitle;                    // 这次下载的行标题，写进状态栏
     QTimer *m_logPoll = nullptr;           // 烧录过程中定期读脚本 log 文件
-    QProcess *m_process = nullptr;         // 正在跑的烧录脚本
+    QProcess *m_process = nullptr;         // 出厂设置仍用这一个进程
+    QHash<QString, ProbeJob *> m_jobs;     // 正在占用的 ST-LINK，键是序列号
+    QVector<LogPiece> m_logPieces;
+    QString m_logFocus;                    // 空表示日志框显示全部，否则只显示这一只
+    bool m_holdProbes = false;             // 出厂设置进行时停用识别和分组按钮
     QString m_scriptLogDir;                // 这次 bat 旁边的 log 目录
     QString m_logGlob = QStringLiteral("flash_*.log");  // 这次要跟着读的日志名
     QString m_scriptLogFile;               // 这次新出现的日志
