@@ -292,7 +292,7 @@ void NetAssistWidget::initUi()
     r++;
 
     m_autoSaveCheck = new QCheckBox(tr("Auto Save"), m_groupRecvSetting);
-    m_autoSaveCheck->setToolTip(tr("Append new receive text to net_auto.txt in the log directory"));
+    m_autoSaveCheck->setToolTip(tr("Append timestamp and raw bytes to net_auto.txt in the log directory"));
     recvGrid->addWidget(m_autoSaveCheck, r, 0, 1, 2);
     rightLayout->addWidget(m_groupRecvSetting);
 
@@ -373,7 +373,7 @@ void NetAssistWidget::retranslateUi()
     m_checkShowSend->setText(tr("Show Send"));
     m_checkShowDirection->setText(tr("Show Dir"));
     m_autoSaveCheck->setText(tr("Auto Save"));
-    m_autoSaveCheck->setToolTip(tr("Append new receive text to net_auto.txt in the log directory"));
+    m_autoSaveCheck->setToolTip(tr("Append timestamp and raw bytes to net_auto.txt in the log directory"));
     m_btnResetCount->setText(tr("Reset Counter"));
     applyOpenButtonStyle(m_btnOpen->isChecked());
     setConnectLatched(m_showDisconnect);
@@ -418,8 +418,10 @@ void NetAssistWidget::initConnect()
     });
 
     // 复选框状态自动同步
+    connect(m_checkHexRecv, &QCheckBox::toggled, m_editRecv, &FastTextView::setHexDisplay);
     connect(m_checkTimestamp, &QCheckBox::toggled, this, [this](bool checked){
         m_showTimestamp = checked;
+        m_editRecv->setShowTimestamp(checked);
     });
     connect(m_checkShowRecvAddr, &QCheckBox::toggled, this, [this](bool checked){
         m_showRecvAddr = checked;
@@ -788,10 +790,10 @@ QString NetAssistWidget::timestampPrefix() const
 void NetAssistWidget::appendLog(const QString &text, const QColor &color)
 {
     Q_UNUSED(color)
-    QString line = timestampPrefix() + text + QLatin1Char('\n');
-    const QByteArray bytes = line.toUtf8();
-    appendAutoSave(bytes);
-    m_editRecv->addData(bytes);
+    if (!m_editRecv->isEmpty())
+        m_editRecv->addText(QStringLiteral("\n"));
+    m_editRecv->addTimestamp(QStringLiteral("[%1] ").arg(ProtocolUtils::timestampMs()));
+    m_editRecv->addText(text + QLatin1Char('\n'));
     if (m_scrollToBottom->isChecked())
         m_editRecv->scrollToBottom();
 }
@@ -802,22 +804,23 @@ void NetAssistWidget::appendTrafficLog(bool isSend, const QByteArray &data,
     if (isSend && !m_showSend)
         return;
 
-    QString line = timestampPrefix();
+    QString stamp = QStringLiteral("[%1] ").arg(ProtocolUtils::timestampMs());
+    if (!m_editRecv->isEmpty())
+        stamp.prepend(QLatin1Char('\n'));
     const bool hasAddr = m_showRecvAddr && !peer.isEmpty();
+    QString prefix;
     if (m_showDirection)
-        line += isSend ? QStringLiteral("[TX]") : QStringLiteral("[RX]");
+        prefix += isSend ? QStringLiteral("[TX]") : QStringLiteral("[RX]");
     if (hasAddr)
-        line += QStringLiteral("[%1:%2]").arg(peer).arg(port);
-    if (m_showDirection || hasAddr)
-        line += QLatin1Char(' ');
-    line += dataToText(data);
-
-    const bool ownLine = isSend || m_showTimestamp || m_showDirection || hasAddr;
-    if (ownLine)
-        line += QStringLiteral("\r\n");
-    const QByteArray bytes = line.toUtf8();
-    appendAutoSave(bytes);
-    m_editRecv->addData(bytes);
+        prefix += QStringLiteral("[%1:%2]").arg(peer).arg(port);
+    if (!prefix.isEmpty())
+        prefix += QLatin1Char(' ');
+    appendAutoSave(stamp.toUtf8());
+    appendAutoSave(data);
+    m_editRecv->addTimestamp(stamp);
+    if (!prefix.isEmpty())
+        m_editRecv->addText(prefix);
+    m_editRecv->addData(data);
     if (m_scrollToBottom->isChecked())
         m_editRecv->scrollToBottom();
 }
@@ -936,6 +939,7 @@ void NetAssistWidget::loadSettings()
     m_checkAddModbusCrc16->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
     m_checkAppendCRLF->setChecked(settings.value(QStringLiteral("crlf"), false).toBool());
     m_autoSaveCheck->setChecked(settings.value(QStringLiteral("autoSave"), false).toBool());
+    m_editSend->setPlainText(settings.value(QStringLiteral("sendText")).toString());
     settings.endGroup();
     updateProtocolDependentUi();
 }
@@ -957,6 +961,7 @@ void NetAssistWidget::saveSettings()
     settings.setValue(QStringLiteral("crc16"), m_checkAddModbusCrc16->isChecked());
     settings.setValue(QStringLiteral("crlf"), m_checkAppendCRLF->isChecked());
     settings.setValue(QStringLiteral("autoSave"), m_autoSaveCheck->isChecked());
+    settings.setValue(QStringLiteral("sendText"), m_editSend->toPlainText());
     settings.endGroup();
 }
 

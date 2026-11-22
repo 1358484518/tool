@@ -233,7 +233,9 @@ void SerialManager::onReadyRead()
         flushReceiveBuffer();
         return;
     }
-    m_readBufferTimer->start(m_config.readBufferTimeoutMs);
+    // 已经在等这次打包就不要重新计时。连续来数据时，重开定时器会一直等不到空档，屏幕要攒满才跳一次。
+    if (!m_readBufferTimer->isActive())
+        m_readBufferTimer->start(m_config.readBufferTimeoutMs);
 }
 
 void SerialManager::onErrorOccurred(QSerialPort::SerialPortError error)

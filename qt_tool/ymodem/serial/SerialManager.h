@@ -13,7 +13,7 @@
 #include <QMetaType>
 
 /**
- * 串口后端，必须活在工作线程（见 TMX_TOOL::initSerialBackend）。
+ * 串口后端，必须活在工作线程（由串口页创建并 moveToThread）。
  * QSerialPort 和定时器只在 initWorker()/open() 里创建，不要在 UI 线程 new。
  * 收：IoSource::ioDataReceived；发：IoSource::sendIoData。
  */

@@ -1,6 +1,9 @@
 #include "SerialAssistant.h"
+#include "FastTextView.h"
+#include "SerialManager.h"
 #include "SettingsWidget.h"
 #include "common/ProtocolUtils.h"
+#include "qxymodem.h"
 
 #include <QAbstractItemView>
 #include <QDateTime>
@@ -14,13 +17,14 @@
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QScrollBar>
 #include <QSettings>
 #include <QTextCodec>
-#include <QTextCursor>
 #include <QTextStream>
+#include <QThread>
 #include <QTimer>
 #include <algorithm>
 
@@ -66,18 +70,197 @@ SerialAssistant::SerialAssistant(QWidget *parent)
     m_autoSendTimer = new QTimer(this);
     m_autoSendTimer->setSingleShot(false);
     connect(m_autoSendTimer, &QTimer::timeout, this, &SerialAssistant::onAutoSendTimer);
+    m_uiFlushTimer = new QTimer(this);
+    m_uiFlushTimer->setSingleShot(true);
+    connect(m_uiFlushTimer, &QTimer::timeout, this, [this]() { flushUiPending(); });
     connect(m_multiSendTable,&QTableWidget::cellDoubleClicked,this,&SerialAssistant::onDoubleSendSelected);
     updatePortList(QSerialPortInfo::availablePorts());
     setWindowTitle(tr("Serial Debug Assistant"));
     loadSettings();
+    startSerialBackend();
 }
 
 SerialAssistant::~SerialAssistant()
 {
     if (m_autoSendTimer->isActive())
         m_autoSendTimer->stop();
+    flushUiPending();
     exportCsvFile(QStringLiteral("./system_control.csv"), false);
     saveSettings();
+    // 先停协议线程，再在串口线程里销毁后端。顺序反了，YModem 还会往已经关掉的口写。
+    stopYmodemTransfer();
+    shutdownSerial();
+}
+
+IoSource *SerialAssistant::ioSource() const
+{
+    return m_serial;
+}
+
+void SerialAssistant::startSerialBackend()
+{
+    // 有 parent 的 QObject 不能 moveToThread，所以后端不挂在页面下面。
+    m_serialThread = new QThread(this);
+    m_serial = new SerialManager;
+    m_serial->moveToThread(m_serialThread);
+    connect(m_serialThread, &QThread::started, m_serial, &SerialManager::initWorker);
+    m_serialThread->start();
+
+    connect(m_serial, &IoSource::ioDataReceived, this, &SerialAssistant::onIoData, Qt::QueuedConnection);
+    connect(m_serial, &SerialManager::portConnected, this, &SerialAssistant::onPortConnected, Qt::QueuedConnection);
+    connect(m_serial, &SerialManager::portDisconnected, this, &SerialAssistant::onPortDisconnected, Qt::QueuedConnection);
+    connect(m_serial, &SerialManager::openResult, this, &SerialAssistant::onOpenResult, Qt::QueuedConnection);
+    connect(m_serial, &SerialManager::errorOccurred, this, &SerialAssistant::onSerialError, Qt::QueuedConnection);
+}
+
+void SerialAssistant::shutdownSerial()
+{
+    if (!m_serial)
+        return;
+    m_serial->disconnect();
+    disconnect(this, nullptr, m_serial, nullptr);
+
+    SerialManager *worker = m_serial;
+    m_serial = nullptr;
+    // 后端一直待在工作线程：就地 close + delete，不要 move 回界面线程。
+    if (m_serialThread && m_serialThread->isRunning() && worker->thread() == m_serialThread) {
+        QMetaObject::invokeMethod(worker, [worker]() {
+            worker->close();
+            delete worker;
+        }, Qt::BlockingQueuedConnection);
+        m_serialThread->quit();
+        m_serialThread->wait(5000);
+    } else {
+        delete worker;
+    }
+}
+
+void SerialAssistant::requestOpen()
+{
+    if (!m_serial)
+        return;
+    SerialManager::SerialConfig config;
+    config.portName = selectedPortName();
+    config.baudRate = selectedBaudRate();
+    config.dataBits = selectedDataBits();
+    config.parity = selectedParity();
+    config.stopBits = selectedStopBits();
+    config.flowControl = selectedFlowControl();
+    config.autoReconnect = autoReconnectEnabled();
+    config.reconnectIntervalMs = reconnectInterval();
+    // 连续来数据时按 16 毫秒打成一包，避免界面每个字节刷一次。
+    config.readBufferTimeoutMs = 16;
+    QMetaObject::invokeMethod(m_serial, "openWithConfig", Qt::QueuedConnection,
+                              Q_ARG(SerialManager::SerialConfig, config));
+}
+
+void SerialAssistant::requestClose()
+{
+    if (!m_serial)
+        return;
+    QMetaObject::invokeMethod(m_serial, "close", Qt::QueuedConnection);
+}
+
+void SerialAssistant::requestSend(const QByteArray &data)
+{
+    if (!m_serial || data.isEmpty())
+        return;
+    QMetaObject::invokeMethod(m_serial, "sendBinary", Qt::QueuedConnection,
+                              Q_ARG(QByteArray, data));
+}
+
+void SerialAssistant::onPortConnected()
+{
+    setConnectionState(true);
+    showStatusMessage(tr("Connected to %1").arg(selectedPortName()));
+}
+
+void SerialAssistant::onPortDisconnected(bool manualClose)
+{
+    setConnectionState(false);
+    // 主动关闭已经停掉重连，不能再提示正在重连。
+    if (!manualClose && autoReconnectEnabled())
+        showStatusMessage(tr("Port lost, reconnecting..."));
+    else
+        showStatusMessage(tr("Disconnected"));
+    stopYmodemTransfer();
+}
+
+void SerialAssistant::onOpenResult(bool ok, const QString &errorString)
+{
+    if (ok)
+        return;
+    showStatusMessage(tr("Open failed: %1").arg(errorString));
+    QMessageBox::warning(this, tr("Error"), tr("Failed to open port: %1").arg(errorString));
+}
+
+void SerialAssistant::onSerialError(int, const QString &errorString)
+{
+    showStatusMessage(tr("Error: %1").arg(errorString));
+}
+
+void SerialAssistant::onSaveLog()
+{
+    const QString fileName = QFileDialog::getSaveFileName(
+        this, tr("Save Log"),
+        SettingsWidget::logFilePath(QStringLiteral("seriallog.txt")),
+        tr("Text Files (*.txt);;All Files (*)"));
+    if (fileName.isEmpty())
+        return;
+    QFile file(fileName);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        file.write(getReceiveText());
+        file.close();
+        showStatusMessage(tr("Log saved to %1").arg(fileName));
+    } else {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to save file"));
+    }
+}
+
+void SerialAssistant::startYmodem(const QString &filePath)
+{
+    stopYmodemTransfer();
+    if (!m_serial)
+        return;
+    m_ymodem = new QYmodemFile(QStringList{filePath}, this);
+    connect(m_serial, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive, Qt::QueuedConnection);
+    connect(m_ymodem, &QYmodemFile::send, m_serial, &SerialManager::sendBinary, Qt::QueuedConnection);
+    connect(m_ymodem, &QYmodemFile::transferring, this, [this](const QString &name) {
+        showStatusMessage(tr("Sending file: %1").arg(name));
+    }, Qt::QueuedConnection);
+    connect(m_ymodem, &QYmodemFile::tick, this, [this](long sent, long total) {
+        if (total > 0) {
+            showStatusMessage(tr("Sending: %1% (%2/%3 bytes)").arg(sent * 100 / total).arg(sent).arg(total));
+        }
+    }, Qt::QueuedConnection);
+    connect(m_ymodem, &QYmodemFile::complete, this,
+            [this](const QString &name, int result, size_t size) {
+        if (result == 0) {
+            showStatusMessage(tr("Send success: %1, %2 bytes").arg(name).arg(size));
+        } else if (result == QXYmodem::XMODEM_ERROR_IDLETIMEOUT) {
+            showStatusMessage(tr("Send timed out after 5 seconds"));
+        } else {
+            showStatusMessage(tr("Send failed: %1, error: %2").arg(name).arg(result));
+        }
+        stopYmodemTransfer();
+    }, Qt::QueuedConnection);
+    m_ymodem->startSend();
+    showStatusMessage(tr("Start YModem send, waiting for device response..."));
+}
+
+void SerialAssistant::stopYmodemTransfer()
+{
+    if (!m_ymodem)
+        return;
+    m_ymodem->requestStop();
+    if (m_serial) {
+        disconnect(m_serial, &SerialManager::dataReceived, m_ymodem, &QYmodemFile::receive);
+        disconnect(m_ymodem, &QYmodemFile::send, m_serial, &SerialManager::sendBinary);
+    }
+    if (m_ymodem->isRunning())
+        m_ymodem->wait(5000);
+    delete m_ymodem;
+    m_ymodem = nullptr;
 }
 
 void SerialAssistant::setupUi()
@@ -93,12 +276,7 @@ void SerialAssistant::setupUi()
     leftLayout->setContentsMargins(0, 0, 0, 0);
 
     // Receive area (2/3 height)
-    m_receiveText = new QPlainTextEdit(m_leftPanel);
-    m_receiveText->setReadOnly(true);
-    m_receiveText->setFont(QFont("Consolas", 10));
-    m_receiveText->setLineWrapMode(QPlainTextEdit::NoWrap);
-    m_receiveText->setMaximumBlockCount(50000);
-    m_receiveText->setUndoRedoEnabled(false);
+    m_receiveText = new FastTextView(m_leftPanel);
     m_receiveText->setStyleSheet(
         QStringLiteral("QPlainTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #c0c0c0; }"));
     leftLayout->addWidget(m_receiveText, 2);
@@ -366,7 +544,7 @@ void SerialAssistant::setupUi()
     m_pauseCheck = new QCheckBox(tr("Pause Display"), m_recvGroup);
     recvGrid->addWidget(m_pauseCheck, r, 0);
     m_autoSaveCheck = new QCheckBox(tr("Auto Save"), m_recvGroup);
-    m_autoSaveCheck->setToolTip(tr("Append new receive text to serial_auto.txt in the log directory"));
+    m_autoSaveCheck->setToolTip(tr("Append timestamp and raw bytes to serial_auto.txt in the log directory"));
     recvGrid->addWidget(m_autoSaveCheck, r, 1);
     rightLayout->addWidget(m_recvGroup);
 
@@ -407,22 +585,29 @@ void SerialAssistant::setupUi()
     connect(m_clearReceiveBtn, &QPushButton::clicked, this, [this]() {
         m_receiveText->clear();
         m_hasRecvData = false;
-        emit clearReceivedRequested();
     });
-    connect(m_saveLogBtn, &QPushButton::clicked, this, &SerialAssistant::saveLogRequested);
+    connect(m_saveLogBtn, &QPushButton::clicked, this, &SerialAssistant::onSaveLog);
     connect(m_refreshBtn, &QPushButton::clicked, this, [this]() {
         updatePortList(QSerialPortInfo::availablePorts());
         showStatusMessage(tr("Port list refreshed"));
-        emit refreshPortsRequested();
     });
     connect(m_autoSendCheck, &QCheckBox::toggled, this, &SerialAssistant::onAutoSendToggled);
     connect(m_resetCounterBtn, &QPushButton::clicked, this, &SerialAssistant::onResetCounterClicked);
     connect(m_pauseCheck, &QCheckBox::toggled, this, &SerialAssistant::onPauseToggled);
     connect(m_autoSaveCheck, &QCheckBox::toggled, this, &SerialAssistant::setAutoSaveEnabled);
-    connect(m_dtrCheck, &QCheckBox::toggled, this, &SerialAssistant::dtrToggled);
-    connect(m_rtsCheck, &QCheckBox::toggled, this, &SerialAssistant::rtsToggled);
+    connect(m_dtrCheck, &QCheckBox::toggled, this, [this](bool enabled) {
+        if (m_serial)
+            QMetaObject::invokeMethod(m_serial, "setDtr", Qt::QueuedConnection, Q_ARG(bool, enabled));
+    });
+    connect(m_rtsCheck, &QCheckBox::toggled, this, [this](bool enabled) {
+        if (m_serial)
+            QMetaObject::invokeMethod(m_serial, "setRts", Qt::QueuedConnection, Q_ARG(bool, enabled));
+    });
+    m_receiveText->setLocal8Bit(true);
+    connect(m_hexReceiveCheck, &QCheckBox::toggled, m_receiveText, &FastTextView::setHexDisplay);
+    connect(m_timestampCheck, &QCheckBox::toggled, m_receiveText, &FastTextView::setShowTimestamp);
     connect(m_autoWrapCheck, &QCheckBox::toggled, this, [this](bool enabled) {
-        m_receiveText->setLineWrapMode(enabled ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
+        m_receiveText->setLineWrap(enabled);
     });
 
     connect(m_multiAddBtn, &QPushButton::clicked, this, &SerialAssistant::onMultiSendAddRow);
@@ -440,7 +625,7 @@ void SerialAssistant::setupUi()
     }
 
     m_autoWrapCheck->setChecked(true);
-    m_receiveText->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+    m_receiveText->setLineWrap(true);
 }
 
 void SerialAssistant::changeEvent(QEvent *event)
@@ -499,7 +684,7 @@ void SerialAssistant::retranslateUi()
     m_autoWrapCheck->setText(tr("Wrap"));
     m_pauseCheck->setText(tr("Pause Display"));
     m_autoSaveCheck->setText(tr("Auto Save"));
-    m_autoSaveCheck->setToolTip(tr("Append new receive text to serial_auto.txt in the log directory"));
+    m_autoSaveCheck->setToolTip(tr("Append timestamp and raw bytes to serial_auto.txt in the log directory"));
     m_resetCounterBtn->setText(tr("Reset Counter"));
     m_rxCountLabel->setText(tr("R: %1 B").arg(m_rxBytes));
     m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
@@ -781,27 +966,22 @@ void SerialAssistant::appendReceivedData(const QByteArray &data)
     m_rxBytes += static_cast<quint64>(data.size());
     m_rxCountLabel->setText(tr("R: %1 B").arg(m_rxBytes));
 
-    QString text;
-    if (m_timestampCheck->isChecked()) {
-        if (m_hasRecvData)
-            text += QLatin1Char('\n');
-        text += QLatin1Char('[') + getTimestamp() + QStringLiteral("] ");
-    }
-    if (m_hexReceiveCheck->isChecked())
-        text += ProtocolUtils::bytesToHexString(data);
-    else
-        text += QString::fromLocal8Bit(data);
-
+    QString stamp = QLatin1Char('[') + getTimestamp() + QStringLiteral("] ");
+    if (m_hasRecvData)
+        stamp.prepend(QLatin1Char('\n'));
     m_hasRecvData = true;
-    // 暂停只停画面。自动保存仍写这段，避免勾了保存却在暂停时丢数据。
-    appendAutoSave(text);
+    const QByteArray stampBytes = stamp.toUtf8();
+    // 暂停只停画面。自动保存仍写时间戳和原始字节。
+    appendAutoSave(stampBytes);
+    appendAutoSave(data);
     if (m_paused)
         return;
-    QTextCursor cursor = m_receiveText->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    cursor.insertText(text);
+    m_receiveText->addTimestamp(stamp);
+    m_receiveText->addData(data);
     if (m_autoScrollCheck->isChecked())
-        m_receiveText->verticalScrollBar()->setValue(m_receiveText->verticalScrollBar()->maximum());
+        m_receiveText->scrollToBottom();
+    else
+        m_receiveText->setFollowBottom(false);
 }
 
 void SerialAssistant::showStatusMessage(const QString &message, int timeout)
@@ -831,7 +1011,7 @@ void SerialAssistant::resetCounters()
 
 QByteArray SerialAssistant::getReceiveText()
 {
-    return m_receiveText->toPlainText().toUtf8();
+    return m_receiveText->getData();
 }
 
 void SerialAssistant::onOpenCloseClicked()
@@ -843,9 +1023,9 @@ void SerialAssistant::onOpenCloseClicked()
             QMessageBox::warning(this, tr("Warning"), tr("Please select a serial port first!"));
             return;
         }
-        emit openPortRequested();
+        requestOpen();
     } else {
-        emit closePortRequested();
+        requestClose();
     }
 }
 
@@ -857,7 +1037,7 @@ void SerialAssistant::onSendClicked()
     if (!data.isEmpty()) {
         m_txBytes += data.size();
         m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
-        emit sendDataRequested(data);
+        requestSend(data);
     }
 }
 
@@ -1072,7 +1252,7 @@ void SerialAssistant::onMultiSendSelected()
             if (m_isConnected) {
                 m_txBytes += data.size();
                 m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
-                emit sendDataRequested(data);
+                requestSend(data);
             }
         });
         delay += interval;
@@ -1121,8 +1301,7 @@ void SerialAssistant::onYmodemSendClicked()
     if (fileName.isEmpty()) return;
 
     showStatusMessage(tr("YModem send selected: %1").arg(fileName));
-    // 发出信号，你后续自己实现YModem发送逻辑，接收filePath即可
-    emit ymodemSendRequested(fileName);
+    startYmodem(fileName);
 }
 
 void SerialAssistant::onDoubleSendSelected(int row, int column)
@@ -1143,7 +1322,7 @@ void SerialAssistant::onDoubleSendSelected(int row, int column)
             if (m_isConnected) {
                 m_txBytes += commandsToSend.size();
                 m_txCountLabel->setText(tr("S: %1 B").arg(m_txBytes));
-                emit sendDataRequested(commandsToSend);
+                requestSend(commandsToSend);
             }
         });
 
@@ -1205,6 +1384,7 @@ void SerialAssistant::loadSettings()
     m_autoReconnectCheck->setChecked(settings.value(QStringLiteral("autoReconnect"), true).toBool());
     m_addCrc16Check->setChecked(settings.value(QStringLiteral("crc16"), false).toBool());
     m_autoSaveCheck->setChecked(settings.value(QStringLiteral("autoSave"), false).toBool());
+    m_sendText->setPlainText(settings.value(QStringLiteral("sendText")).toString());
     settings.endGroup();
 }
 
@@ -1231,14 +1411,17 @@ void SerialAssistant::saveSettings()
     settings.setValue(QStringLiteral("autoReconnect"), m_autoReconnectCheck->isChecked());
     settings.setValue(QStringLiteral("crc16"), m_addCrc16Check->isChecked());
     settings.setValue(QStringLiteral("autoSave"), m_autoSaveCheck->isChecked());
+    settings.setValue(QStringLiteral("sendText"), m_sendText->toPlainText());
     settings.endGroup();
 }
 
 void SerialAssistant::setAutoSaveEnabled(bool enabled)
 {
     if (!enabled) {
+        flushUiPending();
         delete m_autoSaveFile;
         m_autoSaveFile = nullptr;
+        m_autoSavePending = 0;
         return;
     }
     openAutoSave();
@@ -1263,12 +1446,34 @@ bool SerialAssistant::openAutoSave()
     return false;
 }
 
-void SerialAssistant::appendAutoSave(const QString &text)
+void SerialAssistant::scheduleUiFlush()
 {
-    if (!m_autoSaveCheck->isChecked() || text.isEmpty())
+    if (m_uiFlushTimer && !m_uiFlushTimer->isActive())
+        m_uiFlushTimer->start(200);
+}
+
+void SerialAssistant::flushUiPending()
+{
+    if (m_rxCountLabel)
+        m_rxCountLabel->setText(tr("R: %1 B").arg(m_rxBytes));
+    if (m_autoSaveFile && m_autoSavePending > 0) {
+        m_autoSaveFile->flush();
+        m_autoSavePending = 0;
+    }
+}
+
+void SerialAssistant::appendAutoSave(const QByteArray &bytes)
+{
+    if (!m_autoSaveCheck->isChecked() || bytes.isEmpty())
         return;
     if (!openAutoSave())
         return;
-    m_autoSaveFile->write(text.toUtf8());
-    m_autoSaveFile->flush();  // 立刻落盘，方便一边收一边用别的程序打开看
+    m_autoSaveFile->write(bytes);
+    m_autoSavePending += bytes.size();
+    if (m_autoSavePending >= 64 * 1024) {
+        m_autoSaveFile->flush();
+        m_autoSavePending = 0;
+        return;
+    }
+    scheduleUiFlush();
 }

@@ -3,7 +3,7 @@ QT       += core gui serialport network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-VERSION = 2.22
+VERSION = 2.23
 # 链接用的文件名必须是英文。中文或空格会让 Windows 的资源规则生成失败。
 TARGET = TMX_$$VERSION
 # 传给 C++ 的是带引号的字符串宏，main 里用 QLatin1String(APP_VERSION) 取
@@ -17,7 +17,8 @@ ACSF_ROOT = $$clean_path($$PWD/../ACSF)
 ACSF_ROOT ~= s,\\\\,/,g
 DEFINES += ACSF_DIR=\\\"$$ACSF_ROOT\\\"
 
-# 源码按模块分目录：app 在根目录，串口/网络/公共工具各放各的目录
+# 源码按模块分目录。串口、网络、固件、下载、FTP 各自一份。
+# 两边都用的接收窗口放在 common，避免串口去引用网络目录。
 INCLUDEPATH += $$PWD $$PWD/common $$PWD/serial $$PWD/network $$PWD/firmware $$PWD/download $$PWD/ftp $$PWD/ftp/tftp
 
 DEFINES += QT_DEPRECATED_WARNINGS
@@ -30,7 +31,7 @@ SOURCES += \
     serial/SerialAssistant.cpp \
     serial/SerialManager.cpp \
     serial/qxymodem.cpp \
-    network/FastTextView.cpp \
+    common/FastTextView.cpp \
     network/NetAssistWidget.cpp \
     network/NetworkWorker.cpp \
     network/QTcpServerManager.cpp \
@@ -71,7 +72,7 @@ HEADERS += \
     serial/SerialAssistant.h \
     serial/SerialManager.h \
     serial/qxymodem.h \
-    network/FastTextView.h \
+    common/FastTextView.h \
     network/NetAssistWidget.h \
     network/NetCommon.h \
     network/NetworkWorker.h \

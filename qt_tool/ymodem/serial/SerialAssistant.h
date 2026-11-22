@@ -20,57 +20,41 @@
 #include <QPlainTextEdit>
 #include "common/IoData.h"
 
+class FastTextView;
+class SerialManager;
+class QYmodemFile;
+class QThread;
+
 class QFile;
 class QGroupBox;
 
 /**
- * 串口页 UI。只读控件、发请求，不创建 QSerialPort。
- * 打开/发送由 TMX_TOOL 转到 SerialManager；收包走 onIoData。
- * 其它控件请用 TMX_TOOL::serialIoSource() 的 sendIoData / ioDataReceived。
+ * 串口页。界面、串口线程和 YModem 都收在这一页里。
+ * 主窗口只把页面放进页签。别的模块要收发字节时用 ioSource()，不要直接碰串口。
  */
 class SerialAssistant : public QWidget
 {
     Q_OBJECT
 public:
-    explicit SerialAssistant(QWidget *parent = nullptr);  // 搭界面、读上次保存的串口参数
-    ~SerialAssistant() override;                          // 把当前参数写回配置
+    explicit SerialAssistant(QWidget *parent = nullptr);  // 搭界面、拉起串口线程、读上次保存的参数
+    ~SerialAssistant() override;                          // 停 YModem 和串口线程，再把参数写回配置
 
-    QString selectedPortName() const;                     // 下拉框里当前选中的 COM 口
-    qint32 selectedBaudRate() const;                      // 当前波特率，以输入框里的数字为准
-    QSerialPort::DataBits selectedDataBits() const;       // 当前数据位
-    QSerialPort::Parity selectedParity() const;           // 当前校验位
-    QSerialPort::StopBits selectedStopBits() const;       // 当前停止位
-    QSerialPort::FlowControl selectedFlowControl() const; // 当前流控
-    bool autoReconnectEnabled() const;                    // 是否勾了掉线自动重连
-    int reconnectInterval() const;                        // 自动重连间隔，毫秒
-
-    void setConnectionState(bool connected);              // 按打开/关闭刷新按钮和控件可用状态
-    void showStatusMessage(const QString &message, int timeout = 3000);  // 状态栏提示，timeout 后清掉
-    void updatePortList(const QList<QSerialPortInfo> &ports);            // 刷新 COM 口下拉框
-    void resetCounters();                                 // RX/TX 计数清零
-    QByteArray getReceiveText();                          // 取出接收区当前文本，给保存日志用
+    IoSource *ioSource() const;                           // 串口链路。外部只连这个对象收发
 
 signals:
-    void openPortRequested();                             // 用户点打开，主窗口拿参数去开串口
-    void closePortRequested();                            // 用户点关闭
-    void sendDataRequested(const QByteArray &data);       // 组好包后交给串口后端发出
-    void dtrToggled(bool enabled);                        // DTR 勾选变化
-    void rtsToggled(bool enabled);                        // RTS 勾选变化
-    void saveLogRequested();                              // 保存接收日志
-    void clearReceivedRequested();                        // 清空接收区
-    void refreshPortsRequested();                         // 刷新端口列表
-    void ymodemSendRequested(const QString &filePath);    // 选中文件后请求 YModem 发送
-    void ioDataReceived(const IoPacket &packet);          // 转发收到的包，方便再接其它控件
-
-public slots:
-    void onIoData(const IoPacket &packet);                // 统一收包入口：串口包写入接收区
-    void appendReceivedData(const QByteArray &data);      // 把原始字节按 HEX/文本选项显示出来
+    void ioDataReceived(const IoPacket &packet);          // 把收到的包再发出来，方便别的控件跟着看
 
 private slots:
-    void onOpenCloseClicked();                            // 打开前先确认波特率，再按连接状态发请求
+    void onIoData(const IoPacket &packet);                // 串口线程送来的包，写入接收区
+    void appendReceivedData(const QByteArray &data);      // 记时间戳，原始字节进显示缓冲
+    void onPortConnected();                               // 打开成功，刷新按钮和状态
+    void onPortDisconnected(bool manualClose);            // 端口关掉。掉线且允许重连时提示正在重连
+    void onOpenResult(bool ok, const QString &errorString);  // 打开失败时弹出原因
+    void onSerialError(int error, const QString &errorString);  // 串口报错，只显示文字
+    void onOpenCloseClicked();                            // 打开前先确认波特率，再按连接状态投递给后端
     void onBaudIndexChanged(int index);                   // 从列表点选时记住这档，非法输入才能退回
     void commitBaudEdit();                                // 校验输入框，合法就选中，新的自定义档立刻写入配置
-    void onSendClicked();                                 // 发送按钮：组包后发 sendDataRequested
+    void onSendClicked();                                 // 发送按钮：组包后交给串口线程
     void onAutoSendToggled(bool enabled);                 // 定时发送开关
     void onAutoSendTimer();                               // 定时器到点再发一次
     void onResetCounterClicked();                         // 清零 RX/TX 计数
@@ -82,7 +66,7 @@ private slots:
     void onMultiSendExportCsv();                          // 弹文件框导出 CSV
     void onMultiSendExportCsv(QString filename);          // 按路径导出多条发送表
     void onMultiSendSelected();                           // 按间隔依次发送勾选的多条
-    void onYmodemSendClicked();                           // 选文件并发 ymodemSendRequested
+    void onYmodemSendClicked();                           // 选文件后在本页启动 YModem
     void onDoubleSendSelected(int row, int column);       // 双击一行，立刻发这一条
 
 protected:
@@ -115,14 +99,37 @@ private:
     void saveSettings();                                  // 把当前参数和自定义波特率写入 QSettings
     void setAutoSaveEnabled(bool enabled);                // 打开或关掉接收内容自动追加
     bool openAutoSave();                                  // 按当前日志目录打开追加文件，失败则取消勾选
-    void appendAutoSave(const QString &text);             // 把刚显示的接收文字追加进文件
+    void appendAutoSave(const QByteArray &bytes);         // 把时间戳和原始字节追加进文件，攒一批再落盘
+    void scheduleUiFlush();                               // 计数和自动保存最多 200 毫秒刷一次
+    void flushUiPending();                                // 把接收计数和自动保存写出去
+    void startSerialBackend();                            // 创建串口线程，并把本页信号接到后端
+    void shutdownSerial();                                // 在串口线程里关掉端口并销毁后端
+    void requestOpen();                                   // 用当前界面参数打开串口
+    void requestClose();                                  // 让串口线程关闭端口
+    void requestSend(const QByteArray &data);             // 把要发的字节投到串口线程
+    void onSaveLog();                                     // 按当前勾选把接收缓冲写成文本文件
+    void startYmodem(const QString &filePath);            // 接上串口收发，开始传这个文件
+    void stopYmodemTransfer();                            // 停传输并拆掉和串口的连接
+    QString selectedPortName() const;                     // 下拉框里当前选中的 COM 口
+    qint32 selectedBaudRate() const;                      // 当前波特率，以输入框里的数字为准
+    QSerialPort::DataBits selectedDataBits() const;       // 当前数据位
+    QSerialPort::Parity selectedParity() const;           // 当前校验位
+    QSerialPort::StopBits selectedStopBits() const;       // 当前停止位
+    QSerialPort::FlowControl selectedFlowControl() const; // 当前流控
+    bool autoReconnectEnabled() const;                    // 是否勾了掉线自动重连
+    int reconnectInterval() const;                        // 自动重连间隔，毫秒
+    void setConnectionState(bool connected);              // 按打开/关闭刷新按钮和控件可用状态
+    void showStatusMessage(const QString &message, int timeout = 3000);  // 状态栏提示
+    void updatePortList(const QList<QSerialPortInfo> &ports);            // 刷新 COM 口下拉框
+    void resetCounters();                                 // RX/TX 计数清零
+    QByteArray getReceiveText();                          // 按当前勾选格式化接收缓冲，给保存日志用
 
     QHBoxLayout *m_mainLayout;
     QWidget *m_leftPanel;
     QWidget *m_rightPanel;
 
     // 接收区
-    QPlainTextEdit *m_receiveText;
+    FastTextView *m_receiveText;
     QCheckBox *m_hexReceiveCheck;
     QCheckBox *m_timestampCheck;
     QCheckBox *m_autoScrollCheck;
@@ -195,9 +202,14 @@ private:
     QLabel *m_intervalLabel = nullptr;    // 定时发送间隔
     QLabel *m_lineEndLabel = nullptr;     // 行结束符
     QFile *m_autoSaveFile = nullptr;      // 自动保存打开时追加写入，关掉就释放
+    QTimer *m_uiFlushTimer = nullptr;     // 接收计数和自动保存共用，避免每包都刷界面和磁盘
+    int m_autoSavePending = 0;            // 距上次 flush 又写入的字节数
     QList<qint32> m_customBaudRates;      // 用户输入过、需要写进配置的波特率
     qint32 m_lastValidBaud = 115200;      // 最近一次合法波特率，非法输入时退回这一档
     bool m_baudEditLock = false;          // 正在改下拉框，避免 editingFinished 重入
+    QThread *m_serialThread = nullptr;    // 串口后端所在的线程，页面销毁时退出
+    SerialManager *m_serial = nullptr;    // 无 parent，一直活在 m_serialThread
+    QYmodemFile *m_ymodem = nullptr;      // 有传输时才创建，结束或断口后释放
 };
 
 #endif // SERIALASSISTANT_H

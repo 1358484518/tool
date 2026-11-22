@@ -20,8 +20,8 @@ class FastTextView;
 class NetworkWorker;
 
 /**
- * 网络页 UI。套接字都在 m_netWorker 所在线程。
- * 打开/连接由本页管理；收 onIoData，发走 IoSource::sendIoData。
+ * 网络页。套接字都在 m_netWorker 所在线程，主窗口不碰连接。
+ * 接收区用 common 里的 FastTextView，和串口同一套显示。收 onIoData，发走 IoSource::sendIoData。
  */
 class NetAssistWidget : public QWidget
 {
