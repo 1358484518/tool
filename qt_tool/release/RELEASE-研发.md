@@ -38,7 +38,7 @@ crypto 分区的 CMakeLists.txt 在编 TF-PSA-Crypto 时把构建类型写成 Re
 | EAW | `efc929a6` | `b0ca38f4` |
 
 说明:
-qt_tmxpublic2.31product.zip
-qt_tmxpublic2.31.zip
+qt_tmxpublic2.31product.7z
+qt_tmxpublic2.31.7z
 
 
